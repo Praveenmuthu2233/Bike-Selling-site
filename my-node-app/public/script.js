@@ -1,3 +1,4 @@
+
 fetch('galary.json')
   .then(response => response.json())
   .then(data => {
@@ -102,7 +103,7 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
     isSoldout: false
   };
 
-  fetch("https://bike-selling-site-1.onrender.com/addBike", {
+  fetch("http://localhost:5000/addBike", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -115,13 +116,14 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
       document.getElementById("bikeForm").reset();
     })
     .catch(err => {
+      console.error("Error adding bike:", err);
       alert("Error adding bike. Please try again.");
     });
 });
 
-var itemsPerPage;
+var itemsPerPage
 var allProducts = [];
-var currentPage;
+var currentPage
 
 async function loadProducts() {
   currentPage = 1;
@@ -141,7 +143,7 @@ async function loadProducts() {
 loadProducts();
 
 function displayProducts(page) {
-  itemsPerPage = 8;
+  itemsPerPage = 8
   let start = (page - 1) * itemsPerPage;
   let end = start + itemsPerPage;
   let paginatedProducts = allProducts.slice(start, end);
@@ -268,11 +270,12 @@ function setupPagination() {
   pagination.appendChild(next);
 }
 
+
 function loadAllBikeListings() {
-  fetch("https://bike-selling-site-1.onrender.com/bikes")
+  fetch("http://localhost:5000/bikes")
     .then(response => response.json())
     .then(bikeListings => renderAdminBikeListings(bikeListings))
-    .catch(err => console.error("Error fetching bikes:", err));
+    .catch(err => console.error("❌ Error fetching bikes from server:", err));
 }
 
 function getCurrentAdmin(callback) {
@@ -308,9 +311,19 @@ function renderAdminBikeListings(bikeListings) {
             <p>Make: ${bike.makedFrom}</p>
             <p>Model: ${bike.bikeModel}</p>
             <p>Kms: ${bike.bikeKms}</p>
+
             ${adminName !== "mani" ? `<p>Buying Price: ${bike.bikePrice}</p>` : ""}
-            <p>Selling Price: <span id="sellingPrice-${bike.id}">${bike.sellingPrice || "Not Set"}</span></p>
-            <p style="background-color: ${bike.isSoldout ? 'rgba(255,0,0,0.2)' : 'transparent'}; border-radius: 10px; padding: 10px 3px; margin-bottom: 15px;">Is sold out: ${bike.isSoldout ? "Yes" : "No"}</p>
+
+            <p>
+              Selling Price: 
+              <span id="sellingPrice-${bike.id}">${bike.sellingPrice || "Not Set"}</span>
+            </p>
+
+            <p style="background-color: ${bike.isSoldout ? 'rgba(255,0,0,0.2)' : 'transparent'}; 
+                      border-radius: 10px; padding: 10px 3px; margin-bottom: 15px;">
+              Is sold out: ${bike.isSoldout ? "Yes" : "No"}
+            </p>
+
             <p>Owner: ${bike.bikeOwner}</p>
             <p>Year: ${bike.bikeBuyingYear}</p>
           </div>
@@ -321,7 +334,8 @@ function renderAdminBikeListings(bikeListings) {
               <button class="button-btn" onclick="saveNewPrice(${bike.id})">Save Price</button>
             ` : ""}
 
-            <button class="button-btn" onclick="soldOut(${bike.id})" ${bike.isSoldout ? "disabled" : ""}>
+            <button type="button" class="button-btn" onclick="soldOut(${bike.id})" 
+              ${bike.isSoldout ? "disabled" : ""}>
               Sold Out
             </button>
           </div>
@@ -339,8 +353,10 @@ function renderAdminBikeListings(bikeListings) {
 
 loadAllBikeListings();
 
+
 function soldOut(bikeId) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/soldout`, {
+
+  fetch(`http://localhost:5000/bikes/${bikeId}/soldout`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
@@ -354,7 +370,7 @@ function soldOut(bikeId) {
 
 function soldOutPrint() {
   
-  fetch('https://bike-selling-site-1.onrender.com/soldout')
+  fetch('http://localhost:5000/soldout')
     .then(res => res.json())
     .then(bikeListings => {
       const bikeDetailsContainer = document.getElementById("SoldOut");
@@ -366,7 +382,7 @@ function soldOutPrint() {
 
       let output = "";
       bikeListings.forEach(bike => {
-
+        
         output += `
           <div class="col-12 col-md-6 col-lg-3">
             <div class="sold-out-card">
@@ -405,7 +421,7 @@ function saveNewPrice(bikeId) {
     return;
   }
 
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/price`, {
+  fetch(`http://localhost:5000/bikes/${bikeId}/price`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newPrice })
@@ -422,7 +438,7 @@ function saveNewPrice(bikeId) {
 }
 
 function acceptBike(id) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/accept`, { method: 'PUT' })
+  fetch(`http://localhost:5000/bikes/${id}/accept`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -434,7 +450,7 @@ function acceptBike(id) {
 }
 
 function rejectBike(id) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/reject`, { method: 'PUT' })
+  fetch(`http://localhost:5000/bikes/${id}/reject`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -445,8 +461,39 @@ function rejectBike(id) {
     .catch(err => console.error("Error rejecting bike:", err));
 }
 
+
+
+function populateModal(bikeId) {
+  let transaction = db.transaction(["bikesForSale"], "readonly");
+  let store = transaction.objectStore("bikesForSale");
+  let getRequest = store.get(bikeId);
+
+  getRequest.onsuccess = function (event) {
+    const bike = event.target.result;
+    const modalContent = `
+      <h5>Title: ${bike.listingTitle}</h5>
+      <p>Vehicle Number: ${bike.vehicleNumber}</p>
+      <p>Condition: ${bike.bikeCondition}</p>
+      <p>Type: ${bike.bikeType}</p>
+      <p>Make: ${bike.makedFrom}</p>
+      <p>Model: ${bike.bikeModel}</p>
+      <p>Kms: ${bike.bikeKms}</p>
+      <p>Price: ${bike.bikePrice}</p>
+      <p>Owner: ${bike.bikeOwner}</p>
+      <p>Year: ${bike.bikeBuyingYear}</p>
+      <p>Color: ${bike.bikeColor}</p>
+      <p>Engine CC: ${bike.bikeEngineCC}</p>
+      <p>Drive Type: ${bike.driveType}</p>
+      <p>Insurance: ${bike.insurance}</p>
+      <p>Horsepower: ${bike.horsepower}</p>
+      <p>Location: ${bike.bikeLocation}</p>
+    `;
+    document.getElementById(`viewDetails${bike.id}`).innerHTML = modalContent;
+  };
+}
+
 function enquiryBike(bikeId) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}`)
+  fetch(`http://localhost:5000/bikes/${bikeId}`)
     .then(response => response.json())
     .then(bike => {
       if (!bike) {
@@ -517,7 +564,7 @@ function submitEnquiry(id) {
       return;
   }
 
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}`)
+  fetch(`http://localhost:5000/bikes/${id}`)
     .then(res => res.json())
     .then(bike => {
       if (!bike) {
@@ -538,24 +585,27 @@ function submitEnquiry(id) {
           timestamp: formatted
       };
 
-      fetch("https://bike-selling-site-1.onrender.com/submitEnquiry", {
+      fetch("http://localhost:5000/submitEnquiry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(enquiryData)
       })
       .then(res => res.json())
       .then(data => {
-          alert("Enquiry submitted successfully!");
+          alert("✅ Enquiry submitted successfully!");
+          console.log(data);
       })
       .catch(err => console.error(err));
     })
     .catch(err => console.error(err));
 }
 
+
 function loadServerEnquiries() {
-  fetch("https://bike-selling-site-1.onrender.com/enquiries")
+  fetch("http://localhost:5000/enquiries")
     .then(res => res.json())
     .then(data => {
+      console.log("Hi")
       printEnquiryDetails(data);
     })
     .catch(err => console.error("Error loading enquiries:", err));
@@ -595,7 +645,6 @@ function printEnquiryDetails(enquiries) {
     outputElement.innerHTML = output || "<p>No enquiries found.</p>";
   }
 }
-
 document.getElementById("statusFilter").addEventListener("change", () => {
   printEnquiryDetails(enquiries);
 });
@@ -612,21 +661,20 @@ function changeStatus(key) {
     <button class="btn btn-success mt-2" onclick="saveStatus(${key})">Save</button>
   `;
 }
-
 function saveStatus(id) {
   let newStatus = document.getElementById(`statusSelect-${id}`).value;
 
-  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/status`, {
+  fetch(`http://localhost:5000/enquiries/${id}/status`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: newStatus })
   })
     .then(response => response.json())
     .then(data => {
-      alert("Status updated successfully!");
+      alert("✅ Status updated successfully!");
       loadServerEnquiries();
     })
-    .catch(error => console.error("Error updating status:", error));
+    .catch(error => console.error("❌ Error updating status:", error));
 }
 
 function sendMessage(key) {
@@ -637,18 +685,26 @@ function sendMessage(key) {
   `;
 }
 
+function sendMessage(key) {
+  let container = document.getElementById(`statusContainer-${key}`);
+  container.innerHTML = `
+    <textarea class="form-control" id="messageInput-${key}" rows="3" placeholder="Type your message here"></textarea>
+    <button class="btn btn-success mt-2" onclick="saveMessage(${key})">Send Message</button>
+  `;
+}
 function saveMessage(id) {
   let newMessage = document.getElementById(`messageInput-${id}`).value;
 
-  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/message`, {
+  fetch(`http://localhost:5000/enquiries/${id}/message`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: newMessage })
   })
     .then(response => response.json())
     .then(data => {
-      alert("Message updated successfully!");
+      alert("✅ Message updated successfully!");
       loadServerEnquiries();
     })
-    .catch(error => console.error("Error updating message:", error));
+    .catch(error => console.error("❌ Error updating message:", error));
 }
+
