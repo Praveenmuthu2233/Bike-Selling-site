@@ -18,6 +18,11 @@ const db = mysql.createPool({
   database: "bnyo89tbxsbcgu4v6ofp"
 });
 
+function startServer() {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
 db.getConnection((err, connection) => {
   if (err) {
     console.error("MySQL Connection Failed:", err.message);
@@ -28,7 +33,6 @@ db.getConnection((err, connection) => {
   initializeDatabase();
   startServer();
 });
-
 
 function initializeDatabase() {
   const queries = [
@@ -247,5 +251,3 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
