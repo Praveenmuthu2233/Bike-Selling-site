@@ -370,7 +370,7 @@ function soldOut(bikeId) {
 
 function soldOutPrint() {
   
-  fetch('http://localhost:5000/soldout')
+  fetch('https://bike-selling-site-1.onrender.com/soldout')
     .then(res => res.json())
     .then(bikeListings => {
       const bikeDetailsContainer = document.getElementById("SoldOut");
@@ -493,7 +493,7 @@ function populateModal(bikeId) {
 }
 
 function enquiryBike(bikeId) {
-  fetch(`http://localhost:5000/bikes/${bikeId}`)
+  fetch(`https://bike-selling-site-1.onrender.com/soldout${bikeId}`)
     .then(response => response.json())
     .then(bike => {
       if (!bike) {
