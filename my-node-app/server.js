@@ -9,13 +9,13 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
-
+require('dotenv').config();
 const db = mysql.createPool({
-  connectionLimit: 5,
-  host: "bnyo89tbxsbcgu4v6ofp-mysql.services.clever-cloud.com",
-  user: "uqq3zcj1oeqjnsz4",
-  password: "Ss7lujpTHmIrNkJpCKZO",
-  database: "bnyo89tbxsbcgu4v6ofp"
+  connectionLimit: process.env.DB_CONNECTION_LIMIT,
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME
 });
 
 function startServer() {
