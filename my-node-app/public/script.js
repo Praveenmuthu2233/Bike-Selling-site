@@ -569,11 +569,6 @@ function submitEnquiry(id) {
   fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}`)
     .then(res => res.json())
     .then(bike => {
-      if (!bike) {
-          alert("Bike not found.");
-          return;
-      }
-
       let now = new Date();
       const formatted = `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
 
@@ -587,7 +582,7 @@ function submitEnquiry(id) {
           timestamp: formatted
       };
 
-      fetch("http://localhost:5000/submitEnquiry", {
+      fetch("https://bike-selling-site-1.onrender.com/bikes/submitEnquiry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(enquiryData)
