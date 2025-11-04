@@ -1,0 +1,129 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+  background: #ffffff;
+  color: #333;
+  line-height: 1.6;
+}
+
+.add-List {
+  max-width: 1100px;
+  margin: 40px auto;
+  padding: 25px;
+}
+
+.add-List h2 {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 25px;
+  text-align: center;
+  color: #111;
+}
+
+.listing {
+  background: #f3f4f6; 
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
+}
+
+form label {
+  font-weight: 600;
+  margin-bottom: 5px;
+  display: block;
+  color: #333;
+}
+
+form input,
+form select,
+form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 18px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 15px;
+  background: #fff;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
+form input:focus,
+form select:focus,
+form textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 6px rgba(37, 99, 235, 0.3);
+  outline: none;
+}
+.requiredStar {
+  color: red;
+  font-weight: bold;
+  margin-left: 3px;
+}
+
+.upload-container {
+  display: block;
+  padding: 25px;
+  border: 2px dashed #9ca3af;
+  border-radius: 12px;
+  text-align: center;
+  cursor: pointer;
+  width: 100%;
+  color: #555;
+  background: #f9fafb;
+  transition: border-color 0.3s, background 0.3s;
+}
+
+.upload-container:hover {
+  border-color: #2563eb;
+  background: #eef2ff;
+}
+
+.upload-container input {
+  display: none;
+}
+
+.image-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.image-preview img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+}
+
+.button-btn {
+  padding: 12px 35px;
+  background: #55d6aa;
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s ease-in-out;
+}
+
+.button-btn:hover {
+  background: #55d6aa;
+}
+
+@media (max-width: 768px) {
+  .listing {
+    padding: 20px;
+  }
+
+  .add-List h2 {
+    font-size: 22px;
+  }
+}

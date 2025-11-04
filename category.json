@@ -1,0 +1,34 @@
+[
+    {
+        "imageUrl" : "https://images.pexels.com/photos/1413412/pexels-photo-1413412.jpeg",
+        "bikeName" : "Sports Bike"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/28404923/pexels-photo-28404923.jpeg",
+        "bikeName" : "Adventure Bikes"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/13663276/pexels-photo-13663276.png",
+        "bikeName" : "Classic Bikes"
+    },
+    {
+        "imageUrl" : "https://images.unsplash.com/photo-1449426468159-d96dbf08f19f?fm=jpg&q=60&w=3000&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8bW90b3JiaWtlfGVufDB8fDB8fHww",
+        "bikeName" : "Scooter"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/12764125/pexels-photo-12764125.jpeg",
+        "bikeName" : "E-Scooter"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/12993743/pexels-photo-12993743.jpeg",
+        "bikeName" : "Moped"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/13663276/pexels-photo-13663276.png",
+        "bikeName" : "Classic Bikes"
+    },
+    {
+        "imageUrl" : "https://images.pexels.com/photos/1413412/pexels-photo-1413412.jpeg",
+        "bikeName" : "Adventure Bikes"
+    }
+]
