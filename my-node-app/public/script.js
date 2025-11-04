@@ -103,7 +103,7 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
     isSoldout: false
   };
 
-  fetch("http://localhost:5000/addBike", {
+  fetch("https://bike-selling-site-1.onrender.com/addBike", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
@@ -272,7 +272,7 @@ function setupPagination() {
 
 
 function loadAllBikeListings() {
-  fetch("http://localhost:5000/bikes")
+  fetch("https://bike-selling-site-1.onrender.com/bikes")
     .then(response => response.json())
     .then(bikeListings => renderAdminBikeListings(bikeListings))
     .catch(err => console.error("❌ Error fetching bikes from server:", err));
