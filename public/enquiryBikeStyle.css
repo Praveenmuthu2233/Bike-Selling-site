@@ -1,0 +1,29 @@
+.enquiry-card {
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid #ddd;
+    transition: all 0.3s ease;
+    min-height: 250px;
+}
+
+.enquiry-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.15);
+}
+
+.enquiry-card .card-body {
+    padding: 15px;
+}
+
+.enquiry-card h5 {
+    font-size: 1.1rem;
+    font-weight: bold;
+    margin-bottom: 10px;
+    color: #2c3e50;
+}
+
+.enquiry-card p {
+    margin: 4px 0;
+    font-size: 0.9rem;
+    color: #444;
+}
