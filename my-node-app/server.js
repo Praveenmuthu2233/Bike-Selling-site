@@ -18,15 +18,17 @@ const db = mysql.createPool({
   database: "bnyo89tbxsbcgu4v6ofp"
 });
 
-db.connect(err => {
+db.getConnection((err, connection) => {
   if (err) {
     console.error("MySQL Connection Failed:", err.message);
     process.exit(1);
   }
   console.log("MySQL Connected Successfully");
+  connection.release();
   initializeDatabase();
   startServer();
 });
+
 
 function initializeDatabase() {
   const queries = [
