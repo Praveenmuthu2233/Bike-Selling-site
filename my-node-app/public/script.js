@@ -128,7 +128,7 @@ var currentPage
 async function loadProducts() {
   currentPage = 1;
   try {
-    const response = await fetch("http://localhost:5000/bikes");
+    const response = await fetch("https://bike-selling-site-1.onrender.com/bikes");
     const products = await response.json();
     
     allProducts = products.filter(b => b.isAccepted == 1);
