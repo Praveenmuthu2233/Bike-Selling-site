@@ -565,7 +565,8 @@ function submitEnquiry(id) {
       return;
   }
 
-  fetch(`http://localhost:5000/bikes/${id}`)
+  //fetch(`http://localhost:5000/bikes/${id}`)
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}`)
     .then(res => res.json())
     .then(bike => {
       if (!bike) {
