@@ -10,7 +10,8 @@ app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-const db = mysql.createConnection({
+const db = mysql.createPool({
+  connectionLimit: 5,
   host: "bnyo89tbxsbcgu4v6ofp-mysql.services.clever-cloud.com",
   user: "uqq3zcj1oeqjnsz4",
   password: "Ss7lujpTHmIrNkJpCKZO",
@@ -78,8 +79,8 @@ function initializeDatabase() {
       makedFrom VARCHAR(50),
       bikeModel VARCHAR(100),
       bikeKms VARCHAR(50),
-      bikePrice DECIMAL(10,2),
-      sellingPrice DECIMAL(10,2),
+      bikePrice VARCHAR(50),
+      sellingPrice VARCHAR(50),
       bikeOwner VARCHAR(50),
       bikeBuyingYear VARCHAR(10),
       bikeColor VARCHAR(50),
@@ -101,10 +102,7 @@ function initializeDatabase() {
       signUpPassword VARCHAR(255)
     )`
   ];
-  queries.forEach(sql => db.query(sql, err => {
-    if (err) console.error("Table creation error:", err.message);
-  }));
-  console.log("All tables checked or created");
+  queries.forEach(sql => db.query(sql, err => { if (err) console.error(err); }));
 }
 
 app.post('/addBike', (req, res) => {
@@ -131,14 +129,14 @@ app.get('/bikes/:id', (req, res) => {
 });
 
 app.put('/bikes/:id/accept', (req, res) => {
-  db.query('UPDATE bikesforsale SET isAccepted = 1 WHERE id = ?', [req.params.id], (err) => {
+  db.query('UPDATE bikesforsale SET isAccepted = 1 WHERE id = ?', [req.params.id], err => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
 });
 
 app.put('/bikes/:id/reject', (req, res) => {
-  db.query('UPDATE bikesforsale SET isAccepted = 0 WHERE id = ?', [req.params.id], (err) => {
+  db.query('UPDATE bikesforsale SET isAccepted = 0 WHERE id = ?', [req.params.id], err => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
@@ -147,7 +145,7 @@ app.put('/bikes/:id/reject', (req, res) => {
 app.put('/bikes/:id/price', (req, res) => {
   const { newPrice } = req.body;
   if (!newPrice || newPrice <= 0) return res.status(400).json({ error: 'Invalid price' });
-  db.query('UPDATE bikesforsale SET sellingPrice = ? WHERE id = ?', [newPrice, req.params.id], (err) => {
+  db.query('UPDATE bikesforsale SET sellingPrice = ? WHERE id = ?', [newPrice, req.params.id], err => {
     if (err) return res.status(500).json({ error: err.message });
     res.json({ success: true });
   });
@@ -168,14 +166,14 @@ app.get('/enquiries', (req, res) => {
 });
 
 app.put('/enquiries/:id/status', (req, res) => {
-  db.query('UPDATE enquiries SET status = ? WHERE id = ?', [req.body.status, req.params.id], (err) => {
+  db.query('UPDATE enquiries SET status = ? WHERE id = ?', [req.body.status, req.params.id], err => {
     if (err) return res.status(500).json({ error: 'Failed to update status' });
     res.json({ message: 'Status updated successfully' });
   });
 });
 
 app.put('/enquiries/:id/message', (req, res) => {
-  db.query('UPDATE enquiries SET message = ? WHERE id = ?', [req.body.message, req.params.id], (err) => {
+  db.query('UPDATE enquiries SET message = ? WHERE id = ?', [req.body.message, req.params.id], err => {
     if (err) return res.status(500).json({ error: 'Failed to update message' });
     res.json({ message: 'Message updated successfully' });
   });
@@ -183,7 +181,7 @@ app.put('/enquiries/:id/message', (req, res) => {
 
 app.put('/bikes/:id/soldout', (req, res) => {
   const bikeId = req.params.id;
-  const copyQuery = `
+  const query = `
     INSERT INTO soldOutBike (
       originalBikeId, listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
       bikeType, makedFrom, bikeModel, bikeKms, bikePrice, sellingPrice, bikeOwner,
@@ -197,9 +195,9 @@ app.put('/bikes/:id/soldout', (req, res) => {
       bikeLocation, description
     FROM bikesforsale WHERE id = ?
   `;
-  db.query(copyQuery, [bikeId], (err) => {
+  db.query(query, [bikeId], err => {
     if (err) return res.status(500).json({ message: 'Failed to copy bike' });
-    db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], (err2) => {
+    db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], err2 => {
       if (err2) return res.status(500).json({ message: 'Delete failed' });
       res.json({ message: 'Bike moved to Sold Out list successfully' });
     });
@@ -216,7 +214,7 @@ app.get('/soldout', (req, res) => {
 app.post('/addUser', (req, res) => {
   const { firstName, lastName, mobileNumber, email, signUpPassword } = req.body;
   const sql = 'INSERT INTO signUpList (firstName, lastName, mobileNumber, email, signUpPassword) VALUES (?, ?, ?, ?, ?)';
-  db.query(sql, [firstName, lastName, mobileNumber, email, signUpPassword], (err) => {
+  db.query(sql, [firstName, lastName, mobileNumber, email, signUpPassword], err => {
     if (err) return res.status(500).send(err);
     res.send({ message: 'User registered successfully' });
   });
@@ -247,7 +245,5 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-function startServer() {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-}
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
