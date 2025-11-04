@@ -493,7 +493,8 @@ function populateModal(bikeId) {
 }
 
 function enquiryBike(bikeId) {
-  fetch(`https://bike-selling-site-1.onrender.com/soldout${bikeId}`)
+  //fetch(`https://bike-selling-site-1.onrender.com/soldout${bikeId}`)
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}`)
     .then(response => response.json())
     .then(bike => {
       if (!bike) {
