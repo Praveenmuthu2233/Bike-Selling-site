@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
@@ -12,7 +11,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const db = mysql.createPool({
-  connectionLimit: process.env.DB_CONNECTION_LIMIT || 5,
+  connectionLimit: process.env.DB_CONNECTION_LIMIT,
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
