@@ -356,7 +356,7 @@ loadAllBikeListings();
 
 function soldOut(bikeId) {
 
-  fetch(`http://localhost:5000/bikes/${bikeId}/soldout`, {
+  fetch(`https://bike-selling-site-1.onrender.com/${bikeId}/soldout`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
@@ -421,7 +421,7 @@ function saveNewPrice(bikeId) {
     return;
   }
 
-  fetch(`http://localhost:5000/bikes/${bikeId}/price`, {
+  fetch(`https://bike-selling-site-1.onrender.com/${bikeId}/price`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newPrice })
@@ -497,10 +497,6 @@ function enquiryBike(bikeId) {
   fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}`)
     .then(response => response.json())
     .then(bike => {
-      if (!bike) {
-        alert("Bike not found!");
-        return;
-      }
 
       let enquiryModal = `
         <div class="modal fade" id="enquiryModal${bike.id}" tabindex="-1" role="dialog" aria-labelledby="enquiryModalLabel${bike.id}" aria-hidden="true">
