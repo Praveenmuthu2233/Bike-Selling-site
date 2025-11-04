@@ -603,7 +603,7 @@ function submitEnquiry(id) {
 
 
 function loadServerEnquiries() {
-  fetch("http://localhost:5000/enquiries")
+  fetch("https://bike-selling-site-1.onrender.com/enquiries")
     .then(res => res.json())
     .then(data => {
       console.log("Hi")
