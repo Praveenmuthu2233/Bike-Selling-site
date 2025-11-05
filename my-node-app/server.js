@@ -191,20 +191,23 @@ app.put('/bikes/:id/soldout', (req, res) => {
       originalBikeId, listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
       bikeType, makedFrom, bikeModel, bikeKms, bikePrice, sellingPrice, bikeOwner,
       bikeBuyingYear, bikeColor, bikeEngineCC, driveType, insurance, horsepower,
-      bikeLocation, description
+      bikeLocation, description, image
     )
     SELECT 
       id, listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
       bikeType, makedFrom, bikeModel, bikeKms, bikePrice, sellingPrice, bikeOwner,
       bikeBuyingYear, bikeColor, bikeEngineCC, driveType, insurance, horsepower,
-      bikeLocation, description
+      bikeLocation, description, image
     FROM bikesforsale WHERE id = ?
   `;
-  db.query(query, [bikeId], err => {
-    if (err) return res.status(500).json({ message: 'Failed to copy bike' });
-    db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], err2 => {
-      if (err2) return res.status(500).json({ message: 'Delete failed' });
-      res.json({ message: 'Bike moved to Sold Out list successfully' });
+
+  db.query(query, [bikeId], (err) => {
+    if (err) return res.status(500).json({ message: 'Failed to copy bike', error: err });
+
+    db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], (err2) => {
+      if (err2) return res.status(500).json({ message: 'Delete failed', error: err2 });
+
+      res.json({ message: '✅ Bike moved to Sold Out list successfully' });
     });
   });
 });
