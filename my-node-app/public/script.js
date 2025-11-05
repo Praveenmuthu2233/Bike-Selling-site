@@ -103,7 +103,7 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
     isSoldout: false
   };
 
-  fetch("https://bike-selling-site-1.onrender.com/bikes", {
+  fetch("https://bike-selling-site-1.onrender.com/addBike", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

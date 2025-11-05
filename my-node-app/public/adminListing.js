@@ -95,7 +95,7 @@ document.getElementById("adminAddBikeForm").addEventListener("submit", function(
     })
     .then(response => response.json())
     .then(data => {
-        alert(data.message); 
+        alert(data.message || "Bike added successfully!");
         document.getElementById("adminAddBikeForm").reset();
     })
     .catch(err => {
