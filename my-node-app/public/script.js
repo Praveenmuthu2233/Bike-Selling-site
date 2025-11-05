@@ -354,10 +354,8 @@ function renderAdminBikeListings(bikeListings) {
 
 loadAllBikeListings();
 
-
 function soldOut(bikeId) {
-
-  fetch(`https://bike-selling-site-1.onrender.com/${bikeId}/soldout`, {
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/soldout`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
@@ -366,7 +364,7 @@ function soldOut(bikeId) {
     alert(data.message);
     loadAllBikeListings();
   })
-  .catch(err => console.error("Error:", err));
+  .catch(err => console.error("Error marking sold out:", err));
 }
 
 function soldOutPrint() {
@@ -422,7 +420,7 @@ function saveNewPrice(bikeId) {
     return;
   }
 
-  fetch(`https://bike-selling-site-1.onrender.com/${bikeId}/price`, {
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/price`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newPrice })
