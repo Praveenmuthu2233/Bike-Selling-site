@@ -69,7 +69,7 @@ function clearErrors() {
     document.querySelectorAll(".error").forEach(el => el.textContent = "");
 }
 
-function signInFormSubmit(event) {
+function signUpFormSubmit(event) {
     event.preventDefault();
     clearErrors();
 
@@ -109,7 +109,7 @@ function signInFormSubmit(event) {
     }
     if (!valid) return;
 
-    fetch(`http://localhost:5000/checkMobile/${mobileNumber}`)
+    fetch(`https://bike-selling-site-1.onrender.com/checkMobile/${mobileNumber}`)
         .then(res => res.json())
         .then(data => {
             if (data.exists) {
@@ -119,7 +119,7 @@ function signInFormSubmit(event) {
 
             const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
 
-            fetch('http://localhost:5000/addUser', {
+            fetch('https://bike-selling-site-1.onrender.com/addUser', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(user)
@@ -153,7 +153,7 @@ function signInFormSubmit(event) {
         });
 }
 
-document.getElementById('signUpForm').addEventListener('submit', signInFormSubmit);
+document.getElementById('signUpForm').addEventListener('submit', signUpFormSubmit);
 
 function loginFormSubmit(event) {
     event.preventDefault();
@@ -161,7 +161,7 @@ function loginFormSubmit(event) {
     let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
     let loginPassword = document.getElementById("loginPassword").value.trim();
 
-    fetch('http://localhost:5000/login', {
+    fetch('https://bike-selling-site-1.onrender.com/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber: loginMobileNumber, signUpPassword: loginPassword })

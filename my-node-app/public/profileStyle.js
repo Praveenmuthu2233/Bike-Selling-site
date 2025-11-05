@@ -81,7 +81,7 @@ async function  MyEnquirys() {
 
             let userMobile = loggedInUser.mobileNumber;
 
-            fetch("http://localhost:5000/enquiries")
+            fetch("https://bike-selling-site-1.onrender.com/enquiries")
                 .then(res => res.json())
                 .then(allEnquiries => {
                     console.log("All Enquiries:", allEnquiries);
@@ -89,7 +89,7 @@ async function  MyEnquirys() {
                     let userEnquiries = allEnquiries.filter(
                         enquiry => enquiry.mobile === userMobile
                     );
-                    fetch("http://localhost:5000/bikes")
+                    fetch("https://bike-selling-site-1.onrender.com/bikes")
                         .then(res => res.json())
                         .then(allBikes => {
                             console.log("All Bikes:", allBikes);
