@@ -578,7 +578,7 @@ function submitEnquiry(id) {
           timestamp: formatted
       };
 
-      fetch("https://bike-selling-site-1.onrender.com/bikes/submitEnquiry", {
+      fetch("https://bike-selling-site-1.onrender.com/enquiries", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(enquiryData)
