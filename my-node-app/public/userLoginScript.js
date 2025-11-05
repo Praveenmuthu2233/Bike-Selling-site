@@ -150,7 +150,8 @@ function signUpFormSubmit(event) {
                         };
                     }
                 });
-        });
+                showLoginForm();
+    });
 }
 
 document.getElementById('signUpForm').addEventListener('submit', signUpFormSubmit);
