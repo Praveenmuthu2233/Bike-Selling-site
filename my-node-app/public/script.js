@@ -52,29 +52,35 @@ function catagoryImgsPrint(catagoryImgs) {
   document.getElementById("categoryBikeImg").innerHTML = catagoryImgsOutPut;
 }
 
-document.getElementById("applyFilter").addEventListener("click", () => {
-    let transaction = db.transaction(["bikesForSale"], "readonly");
-    let store = transaction.objectStore("bikesForSale");
-    let getAllRequest = store.getAll();
+document.getElementById("applyFilter").addEventListener("click", async () => {
+    try {
+        const response = await fetch("https://bike-selling-site-1.onrender.com/bikes");
+        const products = await response.json();
 
-    getAllRequest.onsuccess = function (event) {
-        allProducts = event.target.result.filter(b => b.isAccepted);
+        allProducts = products.filter(bike => bike.isAccepted == 1);
+
         applyFilter();
-    };
+    } 
+    catch (err) {
+        console.error("Error loading bikes for filter:", err);
+    }
 });
 
 function applyFilter() {
     let minPriceFilter = parseInt(document.getElementById("minPrice").value) || 0;
     let maxPriceFilter = parseInt(document.getElementById("maxPrice").value) || Infinity;
 
-    allProducts = allProducts.filter(bike => {
+    let filteredProducts = allProducts.filter(bike => {
         let bikePrice = parseInt(bike.sellingPrice) || 0;
         return bikePrice >= minPriceFilter && bikePrice <= maxPriceFilter;
     });
 
+    allProducts = filteredProducts;
+    currentPage = 1;
     displayProducts(currentPage);
     setupPagination();
 }
+
 
 document.getElementById("bikeForm").addEventListener("submit", function (event) {
   event.preventDefault(); 
