@@ -75,11 +75,11 @@ function applyFilter() {
     displayProducts(currentPage);
     setupPagination();
 }
+
 document.getElementById("bikeForm").addEventListener("submit", function (event) {
   event.preventDefault(); 
-
   const bikeAddingData = {
-    image : document.getElementById("imageUpload").value || "",
+    image : document.getElementById("imageUpload").value,
     listingTitle: document.getElementById("listingTitle").value,
     vehicleNumber: document.getElementById("vehicleNum").value,
     sellerName: document.getElementById("sellerName").value,
@@ -104,7 +104,7 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
     isSoldout: false
   };
 
-  fetch("https://bike-selling-site-1.onrender.com/bikes", {
+  fetch("https://bike-selling-site-1.onrender.com/addBike", {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
