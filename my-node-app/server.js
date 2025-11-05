@@ -111,7 +111,7 @@ function initializeDatabase() {
   queries.forEach(sql => db.query(sql, err => { if (err) console.error(err); }));
 }
 
-app.post('/bikes', (req, res) => {
+app.post('/addBike', (req, res) => {
   const data = req.body;
   const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };
   db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
