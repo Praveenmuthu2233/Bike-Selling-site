@@ -110,47 +110,45 @@ function signUpFormSubmit(event) {
     if (!valid) return;
 
     fetch(`https://bike-selling-site-1.onrender.com/checkMobile/${mobileNumber}`)
+    .then(res => res.json())
+    .then(data => {
+        if (data.exists) {
+            document.getElementById("mobileError").textContent = "Mobile already registered. Please Login.";
+            return;
+        }
+        const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
+        fetch('https://bike-selling-site-1.onrender.com/addUser', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(user)
+        })
         .then(res => res.json())
         .then(data => {
-            if (data.exists) {
-                document.getElementById("mobileError").textContent = "Mobile already registered. Please Login.";
-                return;
-            }
+            if (data.success) {
+                const transaction = loginDB.transaction(["signUpList"], "readwrite");
+                const store = transaction.objectStore("signUpList");
 
-            const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
-
-            fetch('https://bike-selling-site-1.onrender.com/addUser', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(user)
-            })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const transaction = loginDB.transaction(["signUpList"], "readwrite");
-                        const store = transaction.objectStore("signUpList");
-
-                        let duplicate = false;
-                        store.openCursor().onsuccess = function (event) {
-                            let cursor = event.target.result;
-                            if (cursor) {
-                                if (cursor.value.mobileNumber === mobileNumber) {
-                                    duplicate = true;
-                                }
-                                cursor.continue();
-                            } else {
-                                if (!duplicate) {
-                                    store.add(user);
-                                    alert("✅ Signup successful");
-                                    showLoginForm();
-                                } else {
-                                    document.getElementById("mobileError").textContent = "Mobile already exists locally";
-                                }
-                            }
-                        };
+                let duplicate = false;
+                store.openCursor().onsuccess = function (event) {
+                    let cursor = event.target.result;
+                    if (cursor) {
+                        if (cursor.value.mobileNumber === mobileNumber) {
+                            duplicate = true;
+                        }
+                        cursor.continue();
+                    } else {
+                        if (!duplicate) {
+                            store.add(user);
+                            alert("✅ Signup successful");
+                            showLoginForm();
+                        } else {
+                            document.getElementById("mobileError").textContent = "Mobile already exists locally";
+                        }
                     }
-                });
-                showLoginForm();
+                };
+            }
+        });
+        showLoginForm();
     });
 }
 
