@@ -157,7 +157,7 @@ app.put('/bikes/:id/price', (req, res) => {
   });
 });
 
-app.post('/submitEnquiry', (req, res) => {
+app.post('/enquiries', (req, res) => {
   db.query('INSERT INTO enquiries SET ?', req.body, (err, result) => {
     if (err) return res.status(500).json({ error: 'Database insert failed' });
     res.json({ message: 'Enquiry submitted successfully', id: result.insertId });
