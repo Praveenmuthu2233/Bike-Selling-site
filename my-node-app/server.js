@@ -119,14 +119,6 @@ app.post('/addBike', (req, res) => {
     res.json({ message: 'Bike added successfully', id: result.insertId });
   });
 });
-app.post('/userAddBike', (req, res) => {
-  const data = req.body;
-  const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };
-  db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database insert failed' });
-    res.json({ message: 'Bike added successfully', id: result.insertId });
-  });
-});
 app.get('/bikes', (req, res) => {
   db.query('SELECT * FROM bikesforsale', (err, result) => {
     if (err) return res.status(500).send(err);
