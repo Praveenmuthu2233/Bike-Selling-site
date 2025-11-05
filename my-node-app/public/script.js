@@ -437,7 +437,7 @@ function saveNewPrice(bikeId) {
 }
 
 function acceptBike(id) {
-  fetch(`http://localhost:5000/bikes/${id}/accept`, { method: 'PUT' })
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/accept`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -449,7 +449,7 @@ function acceptBike(id) {
 }
 
 function rejectBike(id) {
-  fetch(`http://localhost:5000/bikes/${id}/reject`, { method: 'PUT' })
+  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/reject`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -655,7 +655,7 @@ function changeStatus(key) {
 function saveStatus(id) {
   let newStatus = document.getElementById(`statusSelect-${id}`).value;
 
-  fetch(`http://localhost:5000/enquiries/${id}/status`, {
+  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/status`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: newStatus })
@@ -686,7 +686,7 @@ function sendMessage(key) {
 function saveMessage(id) {
   let newMessage = document.getElementById(`messageInput-${id}`).value;
 
-  fetch(`http://localhost:5000/enquiries/${id}/message`, {
+  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/message`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: newMessage })
