@@ -61,7 +61,7 @@ document.getElementById("adminAddBikeForm").addEventListener("submit", function(
     e.preventDefault(); 
     
     const bikeData = {
-        image : document.getElementById("adminAddimageUpload").value,
+        //image : document.getElementById("adminAddimageUpload").value,
         listingTitle: document.getElementById("adminAddlistingTitle").value,
         vehicleNumber: document.getElementById("adminAddvehicleNum").value,
         sellerName: document.getElementById("adminAddsellerName").value,

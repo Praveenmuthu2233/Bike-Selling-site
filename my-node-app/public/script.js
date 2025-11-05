@@ -79,7 +79,7 @@ function applyFilter() {
 document.getElementById("bikeForm").addEventListener("submit", function (event) {
   event.preventDefault(); 
   const bikeAddingData = {
-    image : document.getElementById("imageUpload").value,
+    //image : document.getElementById("imageUpload").value,
     listingTitle: document.getElementById("listingTitle").value,
     vehicleNumber: document.getElementById("vehicleNum").value,
     sellerName: document.getElementById("sellerName").value,
