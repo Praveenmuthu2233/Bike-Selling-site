@@ -3,7 +3,7 @@ function loadAllBikeListings() {
   fetch(`${window.API.BASE_URL}/bikes`)
     .then(response => response.json())
     .then(bikeListings => renderAdminBikeListings(bikeListings))
-    .catch(err => console.error("❌ Error fetching bikes from server:", err));
+    .catch(err => console.error("Error fetching bikes from server:", err));
 }
 
 
@@ -79,3 +79,87 @@ function getCurrentAdmin(callback) {
   };
 }
 
+function acceptBike(id) {
+  fetch(`${window.API.BASE_URL}/bikes/${id}/accept`, { method: 'PUT' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({
+            icon: 'success',
+            title: 'Bike Accepted',
+            text: 'Bike Accepted successfully.',
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Continue'
+        })
+        loadAllBikeListings(); 
+      }
+    })
+    .catch(err => console.error("Error accepting bike:", err));
+}
+
+function rejectBike(id) {
+  fetch(`${window.API.BASE_URL}/bikes/${id}/reject`, { method: 'PUT' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        Swal.fire({
+        icon: 'success',
+        title: 'Bike Rejected',
+        text: 'Bike Rejected successfully.',
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Continue'
+    })
+        loadAllBikeListings();
+      }
+    })
+    .catch(err => console.error("Error rejecting bike:", err));
+}
+
+function saveNewPrice(bikeId) {
+  let newPriceInput = document.getElementById(`newPrice-${bikeId}`);
+  let newPrice = parseInt(newPriceInput.value);
+
+  if (isNaN(newPrice) || newPrice <= 0) {
+    alert("Please enter a valid price");
+    return;
+  }
+
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/price`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ newPrice })
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        document.getElementById(`sellingPrice-${bikeId}`).innerText = newPrice;
+        newPriceInput.value = "";
+            Swal.fire({
+            icon: 'success',
+            title: 'Price Saved',
+            text: 'New price Saved',
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'Continue'
+        })
+      }
+    })
+    .catch(err => console.error("Error updating price:", err));
+}
+function soldOut(bikeId) {
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" }
+  })
+  .then(res => res.json())
+  .then(data => {
+    Swal.fire({
+        icon: 'success',
+        title: 'SoldOuted',
+        text: 'Soldout successfully.',
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Continue'
+    })
+    loadAllBikeListings();
+  })
+  .catch(err => console.error("Error marking sold out:", err));
+}

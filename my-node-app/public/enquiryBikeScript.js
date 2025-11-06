@@ -81,7 +81,7 @@ function saveStatus(id) {
 
     loadServerEnquiries();
   })
-  .catch(error => console.error("❌ Error updating status:", error));
+  .catch(error => console.error(" Error updating status:", error));
 }
 
 
@@ -111,16 +111,16 @@ function saveMessage(id) {
     .then(response => response.json())
     .then(data => {
       Swal.fire({
-      icon: 'success',
-      title: 'Message Updated!',
-      text: 'Message updated successfully.',
-      confirmButtonColor: '#28a745',
-      confirmButtonText: 'Continue'
-    });
+        icon: 'success',
+        title: 'Message Updated!',
+        text: 'Message updated successfully.',
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Continue'
+        });
       loadServerEnquiries();
     })
     .catch(error => {
-      console.error("❌ Error updating message:", error);
+      console.error("Error updating message:", error);
     });
 }
 
