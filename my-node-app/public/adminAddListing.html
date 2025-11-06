@@ -166,26 +166,43 @@
                     </div>
                 </div>
 
-        
-                <div class="container">
+                <div id="galleryForm">
                     <h2 class="mt-5">Gallery</h2>
                     <div class="row">
-                        <label class="upload-container" for="adminAddimageUpload">
-                            <div>📷 Add images</div>
-                            <input type="file" id="adminAddGalleryUpload" multiple accept="image/*">
+                        <label class="upload-container" for="adminAddGalleryUpload" style="cursor: pointer;">
+                            <div>📷 Add images</div>    <!-- ✅ You missed this -->
                         </label>
+
+                        <input
+                            type="file"
+                            id="adminAddGalleryUpload"
+                            name="galleryImages"
+                            multiple
+                            accept="image/*"
+                            style="display: none;"
+                        >
                     </div>
                 </div>
 
-                <div class="container">
-                    <h2 class=" mt-5">Attachment</h2>
+                <div id="attachmentForm">
+                    <h2 class="mt-5">Attachment</h2>
                     <div class="row">
-                        <label class="upload-container"  enctype="multipart/form-data" for="adminAddimageUpload">
+                        <label class="upload-container" for="adminAddAttachmentUpload" style="cursor: pointer;">
                             <div>📷 Add attachment</div>
-                            <input type="file" id="adminAddAttachmentUpload" multiple accept="image/*">
                         </label>
+                        
+                        <input
+                            type="file"
+                            id="adminAddAttachmentUpload"
+                            name="attachments"
+                            multiple
+                            accept="image/*"
+                            style="display: none;"
+                        >
                     </div>
                 </div>
+
+
                 <div class="text-center">
                     <button type="submit" class="button-btn" id="adminAddBikeDeatils">Add Listing</button>
                 </div>
@@ -193,5 +210,6 @@
         </form>
     </section>
 </body>
+<script src="config.js"></script>
 <script src="adminListing.js"></script>
 </html>

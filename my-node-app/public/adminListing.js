@@ -86,7 +86,7 @@ document.getElementById("adminAddBikeForm").addEventListener("submit", function(
         isSoldout: false
     };
 
-    fetch("https://bike-selling-site-1.onrender.com/addBike", {
+    fetch(`${window.API.BASE_URL}/addBike`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json"

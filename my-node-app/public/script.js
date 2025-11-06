@@ -1,4 +1,3 @@
-
 fetch('galary.json')
   .then(response => response.json())
   .then(data => {
@@ -82,51 +81,50 @@ function applyFilter() {
 }
 
 
-document.getElementById("bikeForm").addEventListener("submit", function (event) {
-  event.preventDefault(); 
-  const bikeAddingData = {
-    //image : document.getElementById("imageUpload").value,
-    listingTitle: document.getElementById("listingTitle").value,
-    vehicleNumber: document.getElementById("vehicleNum").value,
-    sellerName: document.getElementById("sellerName").value,
-    mobileNum: document.getElementById("mobileNum").value,
-    bikeCondition: document.getElementById("Condition").value,
-    bikeType: document.getElementById("Type").value,
-    makedFrom: document.getElementById("Make").value,
-    bikeModel: document.getElementById("bikeModel").value,
-    bikeKms: document.getElementById("BikeKMS").value,
-    bikePrice: document.getElementById("BikePrice").value,
-    sellingPrice: document.getElementById("BikePrice").value,
-    bikeOwner: document.getElementById("bikeOwner").value,
-    bikeBuyingYear: document.getElementById("bikeYear").value,
-    bikeColor: document.getElementById("bikeColor").value,
-    bikeEngineCC: document.getElementById("EngineCC").value,
-    driveType: document.getElementById("driveType").value,
-    insurance: document.getElementById("Insurance").value,
-    horsepower: document.getElementById("Horsepower").value,
-    bikeLocation: document.getElementById("Location").value,
-    description: document.getElementById("description").value,
-    isAccepted: false,
-    isSoldout: false
-  };
-
-  fetch("https://bike-selling-site-1.onrender.com/userAddBike", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(bikeAddingData)
-  })
-    .then(response => response.json())
-    .then(data => {
-      alert(data.message || "Bike added successfully!");
-      document.getElementById("bikeForm").reset();
-    })
-    .catch(err => {
-      console.error("Error adding bike:", err);
-      alert("Error adding bike. Please try again.");
-    });
-});
+// document.getElementById("bikeForm").addEventListener("submit", function (event) {
+//   event.preventDefault(); 
+//   const bikeAddingData = {
+//     //image : document.getElementById("imageUpload").value,
+//     listingTitle: document.getElementById("listingTitle").value,
+//     vehicleNumber: document.getElementById("vehicleNum").value,
+//     sellerName: document.getElementById("sellerName").value,
+//     mobileNum: document.getElementById("mobileNum").value,
+//     bikeCondition: document.getElementById("Condition").value,
+//     bikeType: document.getElementById("Type").value,
+//     makedFrom: document.getElementById("Make").value,
+//     bikeModel: document.getElementById("bikeModel").value,
+//     bikeKms: document.getElementById("BikeKMS").value,
+//     bikePrice: document.getElementById("BikePrice").value,
+//     sellingPrice: document.getElementById("BikePrice").value,
+//     bikeOwner: document.getElementById("bikeOwner").value,
+//     bikeBuyingYear: document.getElementById("bikeYear").value,
+//     bikeColor: document.getElementById("bikeColor").value,
+//     bikeEngineCC: document.getElementById("EngineCC").value,
+//     driveType: document.getElementById("driveType").value,
+//     insurance: document.getElementById("Insurance").value,
+//     horsepower: document.getElementById("Horsepower").value,
+//     bikeLocation: document.getElementById("Location").value,
+//     description: document.getElementById("description").value,
+//     isAccepted: false,
+//     isSoldout: false
+//   };
+//   fetch(window.API.userAddBike, {
+//   method: "POST",
+//   headers: {
+//     "Content-Type": "application/json"
+//   },
+//   body: JSON.stringify(bikeAddingData)
+// })
+//   .then(response => response.json())
+//   .then(data => {
+//     alert(data.message || "Bike added successfully!");
+//     document.getElementById("bikeForm").reset();
+//   })
+//   .catch(err => {
+//     console.error("Error adding bike:", err);
+//     alert("Error adding bike. Please try again.");
+//   });
+// });
 
 var itemsPerPage
 var allProducts = [];
@@ -135,7 +133,7 @@ var currentPage
 async function loadProducts() {
   currentPage = 1;
   try {
-    const response = await fetch("https://bike-selling-site-1.onrender.com/bikes");
+    const response = await fetch(`${window.API.BASE_URL}/bikes`)
     const products = await response.json();
     
     allProducts = products.filter(b => b.isAccepted == 1);
@@ -279,7 +277,7 @@ function setupPagination() {
 
 
 function loadAllBikeListings() {
-  fetch("https://bike-selling-site-1.onrender.com/bikes")
+  fetch(`${window.API.BASE_URL}/bikes`)
     .then(response => response.json())
     .then(bikeListings => renderAdminBikeListings(bikeListings))
     .catch(err => console.error("❌ Error fetching bikes from server:", err));
@@ -361,7 +359,7 @@ function renderAdminBikeListings(bikeListings) {
 loadAllBikeListings();
 
 function soldOut(bikeId) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/soldout`, {
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" }
   })
@@ -375,7 +373,7 @@ function soldOut(bikeId) {
 
 function soldOutPrint() {
   
-  fetch('https://bike-selling-site-1.onrender.com/soldout')
+  fetch(`${window.API.BASE_URL}/soldout`)
     .then(res => res.json())
     .then(bikeListings => {
       const bikeDetailsContainer = document.getElementById("SoldOut");
@@ -426,7 +424,7 @@ function saveNewPrice(bikeId) {
     return;
   }
 
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}/price`, {
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/price`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ newPrice })
@@ -443,7 +441,7 @@ function saveNewPrice(bikeId) {
 }
 
 function acceptBike(id) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/accept`, { method: 'PUT' })
+  fetch(`${window.API.BASE_URL}/bikes/${id}/accept`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -455,7 +453,7 @@ function acceptBike(id) {
 }
 
 function rejectBike(id) {
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}/reject`, { method: 'PUT' })
+  fetch(`${window.API.BASE_URL}/bikes/${id}/reject`, { method: 'PUT' })
     .then(res => res.json())
     .then(data => {
       if (data.success) {
@@ -499,7 +497,7 @@ function populateModal(bikeId) {
 
 function enquiryBike(bikeId) {
   //fetch(`https://bike-selling-site-1.onrender.com/soldout${bikeId}`)
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${bikeId}`)
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
     .then(response => response.json())
     .then(bike => {
 
@@ -565,7 +563,7 @@ function submitEnquiry(id) {
       return;
   }
 
-  fetch(`https://bike-selling-site-1.onrender.com/bikes/${id}`)
+  fetch(`${window.API.BASE_URL}/bikes/${id}`)
     .then(res => res.json())
     .then(bike => {
 
@@ -582,7 +580,7 @@ function submitEnquiry(id) {
           timestamp: formatted
       };
 
-      fetch("https://bike-selling-site-1.onrender.com/enquiries", {
+      fetch(`${window.API.BASE_URL}/enquiries`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(enquiryData)
@@ -599,7 +597,7 @@ function submitEnquiry(id) {
 
 
 function loadServerEnquiries() {
-  fetch("https://bike-selling-site-1.onrender.com/enquiries")
+  fetch(`${window.API.BASE_URL}/enquiries`)
     .then(res => res.json())
     .then(data => {
       console.log("Hi")
@@ -661,7 +659,8 @@ function changeStatus(key) {
 function saveStatus(id) {
   let newStatus = document.getElementById(`statusSelect-${id}`).value;
 
-  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/status`, {
+  fetch(`${window.API.BASE_URL}/enquiries/${id}/status`, {
+
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: newStatus })
@@ -692,7 +691,7 @@ function sendMessage(key) {
 function saveMessage(id) {
   let newMessage = document.getElementById(`messageInput-${id}`).value;
 
-  fetch(`https://bike-selling-site-1.onrender.com/enquiries/${id}/message`, {
+  fetch(`${window.API.BASE_URL}/enquiries/${id}/message`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ message: newMessage })
@@ -702,6 +701,9 @@ function saveMessage(id) {
       alert("✅ Message updated successfully!");
       loadServerEnquiries();
     })
-    .catch(error => console.error("❌ Error updating message:", error));
+    .catch(error => {
+      console.error("❌ Error updating message:", error);
+    });
 }
+
 
