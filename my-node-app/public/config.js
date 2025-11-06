@@ -6,7 +6,7 @@ window.API = {
   acceptBike: (id) => `${BASE_URL}/bikes/${id}/accept`,
 };
 window.CONFIG = {
-  enquiryStatusChangw: ["Cold", "Warm", "Hot"]
+  enquiryStatusChange: ["Cold", "Warm", "Hot"]
 };
 
 window.VALIDATION = {
