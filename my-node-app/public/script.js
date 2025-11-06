@@ -275,89 +275,6 @@ function setupPagination() {
   pagination.appendChild(next);
 }
 
-
-function loadAllBikeListings() {
-  fetch(`${window.API.BASE_URL}/bikes`)
-    .then(response => response.json())
-    .then(bikeListings => renderAdminBikeListings(bikeListings))
-    .catch(err => console.error("❌ Error fetching bikes from server:", err));
-}
-
-function getCurrentAdmin(callback) {
-  let requestDB = indexedDB.open("adminLoginDataBase", 1);
-
-  requestDB.onsuccess = function(event) {
-    const dbEnq = event.target.result;
-    let transaction = dbEnq.transaction(["admins"], "readonly");
-    let objectStore = transaction.objectStore("admins");
-    let getAll = objectStore.getAll();
-
-    getAll.onsuccess = function () {
-      let admins = getAll.result || [];
-      let loggedInAdmin = admins.find(admin => admin.isAdminLogin === true);
-      if (callback) callback(loggedInAdmin ? loggedInAdmin.name : null);
-    };
-  };
-}
-
-function renderAdminBikeListings(bikeListings) {
-  getCurrentAdmin(function(adminName) {
-    let output = "";
-
-    bikeListings.forEach(bike => {
-      output += `
-        <div class="col-12 col-md-6 col-lg-3">
-          <img src="${bike.image}" alt="${bike.makedFrom}" width="230px" height="180px">
-          <div class="m-3">
-            <h5>Title: ${bike.listingTitle}</h5>
-            <p>Vehicle Number: ${bike.vehicleNumber}</p>
-            <p>Seller Name: ${bike.sellerName}</p>
-            <p>Mobile Number: ${bike.mobileNum}</p>
-            <p>Make: ${bike.makedFrom}</p>
-            <p>Model: ${bike.bikeModel}</p>
-            <p>Kms: ${bike.bikeKms}</p>
-
-            ${adminName !== "mani" ? `<p>Buying Price: ${bike.bikePrice}</p>` : ""}
-
-            <p>
-              Selling Price: 
-              <span id="sellingPrice-${bike.id}">${bike.sellingPrice || "Not Set"}</span>
-            </p>
-
-            <p style="background-color: ${bike.isSoldout ? 'rgba(255,0,0,0.2)' : 'transparent'}; 
-                      border-radius: 10px; padding: 10px 3px; margin-bottom: 15px;">
-              Is sold out: ${bike.isSoldout ? "Yes" : "No"}
-            </p>
-
-            <p>Owner: ${bike.bikeOwner}</p>
-            <p>Year: ${bike.bikeBuyingYear}</p>
-          </div>
-
-          <div>
-            ${adminName !== "mani" ? `
-              <input type="number" id="newPrice-${bike.id}" placeholder="Enter new price" class="form-control mb-2">
-              <button class="button-btn" onclick="saveNewPrice(${bike.id})">Save Price</button>
-            ` : ""}
-
-            <button type="button" class="button-btn" onclick="soldOut(${bike.id})" 
-              ${bike.isSoldout ? "disabled" : ""}>
-              Sold Out
-            </button>
-          </div>
-
-          <button class="button-btn" onclick="rejectBike(${bike.id})">Reject</button>
-          <button class="button-btn" onclick="acceptBike(${bike.id})">Accept</button>
-        </div>
-      `;
-    });
-
-    const bikeDetailsContainer = document.getElementById("sellingBikeDetailsAdmin");
-    if (bikeDetailsContainer) bikeDetailsContainer.innerHTML = output;
-  });
-}
-
-loadAllBikeListings();
-
 function soldOut(bikeId) {
   fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
     method: "PUT",
@@ -370,51 +287,6 @@ function soldOut(bikeId) {
   })
   .catch(err => console.error("Error marking sold out:", err));
 }
-
-function soldOutPrint() {
-  
-  fetch(`${window.API.BASE_URL}/soldout`)
-    .then(res => res.json())
-    .then(bikeListings => {
-      const bikeDetailsContainer = document.getElementById("SoldOut");
-
-      if (bikeListings.length === 0) {
-        bikeDetailsContainer.innerHTML = "<p class='text-center text-muted'>No bikes sold out yet.</p>";
-        return;
-      }
-
-      let output = "";
-      bikeListings.forEach(bike => {
-        
-        output += `
-          <div class="col-12 col-md-6 col-lg-3">
-            <div class="sold-out-card">
-              <div class="sold-out-badge">SOLD OUT <span class="red"> BIKE ID ${bike.originalBikeId}</span></div>
-              <img src="${bike.image}" alt="${bike.makedFrom}" class="img-fluid rounded" style="max-height:180px; object-fit:cover;"></img>
-              <div class="m-3">
-                <h5>Title: ${bike.listingTitle}</h5>
-                <p>Vehicle Number: ${bike.vehicleNumber}</p>
-                <p>Seller Name: ${bike.sellerName}</p>
-                <p>Mobile Number: ${bike.mobileNum}</p>
-                <p>Make: ${bike.makedFrom}</p>
-                <p>Model: ${bike.bikeModel}</p>
-                <p>Kms: ${bike.bikeKms}</p>
-                <p>Selling Price: ${bike.sellingPrice}</p>
-                <p>Buying Price: ${bike.bikePrice}</p>
-                <p>Owner: ${bike.bikeOwner}</p>
-                <p>Year: ${bike.bikeBuyingYear}</p>
-              </div>
-              <h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>
-            </div>
-          </div>
-        `;
-      });
-
-      bikeDetailsContainer.innerHTML = output;
-    })
-    .catch(err => console.error("Error fetching sold-out bikes:", err));
-}
-
 function saveNewPrice(bikeId) {
   let newPriceInput = document.getElementById(`newPrice-${bikeId}`);
   let newPrice = parseInt(newPriceInput.value);
@@ -464,36 +336,38 @@ function rejectBike(id) {
     .catch(err => console.error("Error rejecting bike:", err));
 }
 
-
-
 function populateModal(bikeId) {
-  let transaction = db.transaction(["bikesForSale"], "readonly");
-  let store = transaction.objectStore("bikesForSale");
-  let getRequest = store.get(bikeId);
+  fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
+    .then(res => res.json())
+    .then(bike => {
+      const modalContent = `
+        <h5>Title: ${bike.listingTitle}</h5>
+        <p>Vehicle Number: ${bike.vehicleNumber}</p>
+        <p>Condition: ${bike.bikeCondition}</p>
+        <p>Type: ${bike.bikeType}</p>
+        <p>Make: ${bike.makedFrom}</p>
+        <p>Model: ${bike.bikeModel}</p>
+        <p>Kms: ${bike.bikeKms}</p>
+        <p>Price: ${bike.bikePrice}</p>
+        <p>Owner: ${bike.bikeOwner}</p>
+        <p>Year: ${bike.bikeBuyingYear}</p>
+        <p>Color: ${bike.bikeColor}</p>
+        <p>Engine CC: ${bike.bikeEngineCC}</p>
+        <p>Drive Type: ${bike.driveType}</p>
+        <p>Insurance: ${bike.insurance}</p>
+        <p>Horsepower: ${bike.horsepower}</p>
+        <p>Location: ${bike.bikeLocation}</p>
+      `;
 
-  getRequest.onsuccess = function (event) {
-    const bike = event.target.result;
-    const modalContent = `
-      <h5>Title: ${bike.listingTitle}</h5>
-      <p>Vehicle Number: ${bike.vehicleNumber}</p>
-      <p>Condition: ${bike.bikeCondition}</p>
-      <p>Type: ${bike.bikeType}</p>
-      <p>Make: ${bike.makedFrom}</p>
-      <p>Model: ${bike.bikeModel}</p>
-      <p>Kms: ${bike.bikeKms}</p>
-      <p>Price: ${bike.bikePrice}</p>
-      <p>Owner: ${bike.bikeOwner}</p>
-      <p>Year: ${bike.bikeBuyingYear}</p>
-      <p>Color: ${bike.bikeColor}</p>
-      <p>Engine CC: ${bike.bikeEngineCC}</p>
-      <p>Drive Type: ${bike.driveType}</p>
-      <p>Insurance: ${bike.insurance}</p>
-      <p>Horsepower: ${bike.horsepower}</p>
-      <p>Location: ${bike.bikeLocation}</p>
-    `;
-    document.getElementById(`viewDetails${bike.id}`).innerHTML = modalContent;
-  };
+      document.getElementById(`viewDetails${bikeId}`).innerHTML = modalContent;
+    })
+    .catch(err => {
+      console.error("Error fetching bike details:", err);
+      document.getElementById(`viewDetails${bikeId}`).innerHTML = 
+        "<p class='text-danger'>Failed to load details.</p>";
+    });
 }
+
 
 function enquiryBike(bikeId) {
   //fetch(`https://bike-selling-site-1.onrender.com/soldout${bikeId}`)
@@ -594,116 +468,4 @@ function submitEnquiry(id) {
     })
     .catch(err => console.error(err));
 }
-
-
-function loadServerEnquiries() {
-  fetch(`${window.API.BASE_URL}/enquiries`)
-    .then(res => res.json())
-    .then(data => {
-      console.log("Hi")
-      printEnquiryDetails(data);
-    })
-    .catch(err => console.error("Error loading enquiries:", err));
-}
-
-function printEnquiryDetails(enquiries) {
-  let statusValue = document.getElementById("statusFilter").value;
-  let output = '';
-  enquiries.forEach((enquiry) => {
-    if (statusValue === "all" || enquiry.status === statusValue) {
-      output += `
-        <div class="col-12 col-md-4 col-lg-3 mb-3">
-          <div class="enquiry-card card shadow-sm">
-            <div class="card-body">
-              <h5 class="card-title">Bike Name: ${enquiry.listingTitle}</h5>
-              <p><strong>Bike ID:</strong> ${enquiry.listingId}</p>
-              <p><strong>Customer Name:</strong> ${enquiry.customerName}</p>
-              <p><strong>Mobile:</strong> ${enquiry.mobile}</p>
-              <p><strong>Email:</strong> ${enquiry.email}</p>
-              <p><strong>Location:</strong> ${enquiry.location}</p>
-              <p><strong>Time:</strong> ${enquiry.timestamp}</p>
-              <p><strong>Status:</strong> ${enquiry.status || "Not updated"}</p>
-              <p><strong>Message:</strong> ${enquiry.message || "Not set"}</p>
-              <div id="statusContainer-${enquiry.id}">
-                <button class="btn btn-primary" onclick="changeStatus(${enquiry.id})">Edit Status</button>
-                <button class="btn btn-primary" onclick="sendMessage(${enquiry.id})">Send Message</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-  });
-
-  let outputElement = document.getElementById("buyingBikeDetailsAdmin");
-  if (outputElement) {
-    outputElement.innerHTML = output || "<p>No enquiries found.</p>";
-  }
-}
-document.getElementById("statusFilter").addEventListener("change", () => {
-  printEnquiryDetails(enquiries);
-});
-
-function changeStatus(key) {
-  let container = document.getElementById(`statusContainer-${key}`);
-  container.innerHTML = `
-    <select class="form-select" id="statusSelect-${key}">
-      <option value="">Select Status</option>
-      <option value="Cold">Cold</option>
-      <option value="Warm">Warm</option>
-      <option value="Hot">Hot</option>
-    </select>
-    <button class="btn btn-success mt-2" onclick="saveStatus(${key})">Save</button>
-  `;
-}
-function saveStatus(id) {
-  let newStatus = document.getElementById(`statusSelect-${id}`).value;
-
-  fetch(`${window.API.BASE_URL}/enquiries/${id}/status`, {
-
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: newStatus })
-  })
-    .then(response => response.json())
-    .then(data => {
-      alert("✅ Status updated successfully!");
-      loadServerEnquiries();
-    })
-    .catch(error => console.error("❌ Error updating status:", error));
-}
-
-function sendMessage(key) {
-  let container = document.getElementById(`statusContainer-${key}`);
-  container.innerHTML = `
-    <textarea class="form-control" id="messageInput-${key}" rows="3" placeholder="Type your message here"></textarea>
-    <button class="btn btn-success mt-2" onclick="saveMessage(${key})">Send Message</button>
-  `;
-}
-
-function sendMessage(key) {
-  let container = document.getElementById(`statusContainer-${key}`);
-  container.innerHTML = `
-    <textarea class="form-control" id="messageInput-${key}" rows="3" placeholder="Type your message here"></textarea>
-    <button class="btn btn-success mt-2" onclick="saveMessage(${key})">Send Message</button>
-  `;
-}
-function saveMessage(id) {
-  let newMessage = document.getElementById(`messageInput-${id}`).value;
-
-  fetch(`${window.API.BASE_URL}/enquiries/${id}/message`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message: newMessage })
-  })
-    .then(response => response.json())
-    .then(data => {
-      alert("✅ Message updated successfully!");
-      loadServerEnquiries();
-    })
-    .catch(error => {
-      console.error("❌ Error updating message:", error);
-    });
-}
-
 

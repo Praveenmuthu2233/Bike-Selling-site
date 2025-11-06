@@ -6,3 +6,6 @@ window.API = {
   userAddBike: `${BASE_URL}/userAddBike`,
   acceptBike: (id) => `${BASE_URL}/bikes/${id}/accept`,
 };
+window.CONFIG = {
+  enquiryStatusChangw: ["Cold", "Warm", "Hot"]
+};

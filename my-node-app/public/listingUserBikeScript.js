@@ -1,0 +1,81 @@
+
+function loadAllBikeListings() {
+  fetch(`${window.API.BASE_URL}/bikes`)
+    .then(response => response.json())
+    .then(bikeListings => renderAdminBikeListings(bikeListings))
+    .catch(err => console.error("❌ Error fetching bikes from server:", err));
+}
+
+
+function renderAdminBikeListings(bikeListings) {
+  getCurrentAdmin(function(adminName) {
+    let output = "";
+
+    bikeListings.forEach(bike => {
+      output += `
+        <div class="col-12 col-md-6 col-lg-3">
+          <img src="${bike.image}" alt="${bike.makedFrom}" width="230px" height="180px">
+          <div class="m-3">
+            <h5>Title: ${bike.listingTitle}</h5>
+            <p>Vehicle Number: ${bike.vehicleNumber}</p>
+            <p>Seller Name: ${bike.sellerName}</p>
+            <p>Mobile Number: ${bike.mobileNum}</p>
+            <p>Make: ${bike.makedFrom}</p>
+            <p>Model: ${bike.bikeModel}</p>
+            <p>Kms: ${bike.bikeKms}</p>
+
+            ${adminName !== "mani" ? `<p class="price-buying">Buying Price: ${bike.bikePrice}</p>` : ""}
+
+            <p class="price-box">
+              Selling Price:
+              <span id="sellingPrice-${bike.id}">${bike.sellingPrice || "Not Set"}</span>
+            </p>
+            <p style="background-color: ${bike.isSoldout ? 'rgba(255,0,0,0.2)' : 'transparent'}; 
+                      border-radius: 10px;">
+              Is sold out: ${bike.isSoldout ? "Yes" : "No"}
+            </p>
+            
+            <p>Owner: ${bike.bikeOwner}</p>
+            <p>Year: ${bike.bikeBuyingYear}</p>
+          </div>
+
+          <div>
+            ${adminName !== "mani" ? `
+              <input type="number" id="newPrice-${bike.id}" placeholder="Enter new price" class="form-control mb-2">
+              <button class="button-btn" onclick="saveNewPrice(${bike.id})">Save Price</button>
+            ` : ""}
+
+            <button type="button" class="button-btn" onclick="soldOut(${bike.id})" 
+              ${bike.isSoldout ? "disabled" : ""}>
+              Sold Out
+            </button>
+          </div>
+
+          <button class="button-btn" onclick="rejectBike(${bike.id})">Reject</button>
+          <button class="button-btn" onclick="acceptBike(${bike.id})">Accept</button>
+        </div>
+      `;
+    });
+
+    const bikeDetailsContainer = document.getElementById("sellingBikeDetailsAdmin");
+    if (bikeDetailsContainer) bikeDetailsContainer.innerHTML = output;
+  });
+}
+
+function getCurrentAdmin(callback) {
+  let requestDB = indexedDB.open("adminLoginDataBase", 1);
+
+  requestDB.onsuccess = function(event) {
+    const dbEnq = event.target.result;
+    let transaction = dbEnq.transaction(["admins"], "readonly");
+    let objectStore = transaction.objectStore("admins");
+    let getAll = objectStore.getAll();
+
+    getAll.onsuccess = function () {
+      let admins = getAll.result || [];
+      let loggedInAdmin = admins.find(admin => admin.isAdminLogin === true);
+      if (callback) callback(loggedInAdmin ? loggedInAdmin.name : null);
+    };
+  };
+}
+

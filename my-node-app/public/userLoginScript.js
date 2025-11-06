@@ -229,4 +229,4 @@ function loginFormSubmit(event) {
 
 
 document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
-showLoginForm();
+
