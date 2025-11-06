@@ -47,7 +47,6 @@ document.getElementById("adminAddBikeForm").addEventListener("submit", function(
     })
     .catch(err => {
         console.error(err);
-        alert("Error adding bike");
         Swal.fire({
             icon: 'error',
             title: "Can't add!",

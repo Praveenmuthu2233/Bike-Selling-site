@@ -67,7 +67,6 @@ document.getElementById("applyFilter").addEventListener("click", async () => {
 });
 
 function applyFilter() {
-   alert("Hi")
     let minPriceFilter = parseInt(document.getElementById("minPrice").value) || 0;
     let maxPriceFilter = parseInt(document.getElementById("maxPrice").value) || Infinity;
 

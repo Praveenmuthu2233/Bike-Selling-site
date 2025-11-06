@@ -6,6 +6,8 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 
 const app = express();
 app.use(cors());
@@ -14,18 +16,18 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+const multer = require("multer");
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, './uploads');
+  destination: function (req, file, cb) {
+    cb(null, "uploads/");
   },
-  filename: (req, file, cb) => {
-    const uniqueName = Date.now() + '-' + file.originalname.replace(/\s+/g, '_');
-    cb(null, uniqueName);
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "-" + file.originalname);
   }
 });
 
-const upload = multer({ storage });
+const upload = multer({ storage: storage });
 
 const db = mysql.createPool({
   connectionLimit: process.env.DB_CONNECTION_LIMIT,
@@ -146,6 +148,7 @@ app.post('/addBike', (req, res) => {
   db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
     if (err) return res.status(500).json({ error: 'Database insert failed' });
     res.json({ message: 'Bike added successfully', id: result.insertId });
+    //return res.redirect("https://bike-selling-site-1.onrender.com/adminAddListing.html?success=1");
   });
 });
 

@@ -35,11 +35,22 @@ document.getElementById("bikeForm").addEventListener("submit", function (event) 
 })
   .then(response => response.json())
   .then(data => {
-    alert(data.message || "Bike added successfully!");
+    Swal.fire({
+        icon: 'success',
+        title: 'Bike added!',
+        text: 'Bike added successfully.',
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Continue'
+     });
     document.getElementById("bikeForm").reset();
   })
   .catch(err => {
-    console.error("Error adding bike:", err);
-    alert("Error adding bike. Please try again.");
+    Swal.fire({
+        icon: 'error',
+        title: "Can't add!",
+        text: 'Bike Adding error.',
+        confirmButtonColor: '#28a745',
+        confirmButtonText: 'Continue'
+    })
   });
 });
