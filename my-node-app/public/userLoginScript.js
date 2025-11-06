@@ -83,31 +83,38 @@ function signUpFormSubmit(event) {
 
     let valid = true;
 
-    if (firstName.length < 2) {
-        document.getElementById("firstNameError").textContent = "First name must be at least 2 characters.";
+    if (firstName.length < window.VALIDATION.firstNameMin) {
+        document.getElementById("firstNameError").textContent = window.VALIDATION.MESSAGES.firstName;
         valid = false;
     }
-    if (!/^[0-9]{10}$/.test(mobileNumber)) {
-        document.getElementById("mobileError").textContent = "Enter a valid 10-digit mobile number.";
+
+    if (!window.VALIDATION.mobileRegex.test(mobileNumber)) {
+        document.getElementById("mobileError").textContent = window.VALIDATION.MESSAGES.mobile;
         valid = false;
     }
-    if (emailAddress && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddress)) {
-        document.getElementById("emailError").textContent = "Enter a valid email address.";
+
+    if (emailAddress && !window.VALIDATION.emailRegex.test(emailAddress)) {
+        document.getElementById("emailError").textContent = window.VALIDATION.MESSAGES.email;
         valid = false;
     }
-    if (signUpPassword.length < 6) {
-        document.getElementById("passwordError").textContent = "Password must be at least 6 characters long.";
+
+    if (signUpPassword.length < window.VALIDATION.passwordMin) {
+        document.getElementById("passwordError").textContent = window.VALIDATION.MESSAGES.password;
         valid = false;
     }
+
     if (signUpPassword !== confirmPassword) {
-        document.getElementById("confirmPasswordError").textContent = "Passwords do not match.";
+        document.getElementById("confirmPasswordError").textContent = window.VALIDATION.MESSAGES.confirmPassword;
         valid = false;
     }
+
     if (!agreeTerms) {
-        document.getElementById("termsError").textContent = "You must agree to the terms.";
+        document.getElementById("termsError").textContent = window.VALIDATION.MESSAGES.terms;
         valid = false;
     }
+
     if (!valid) return;
+
 
     fetch(`https://bike-selling-site-1.onrender.com/checkMobile/${mobileNumber}`)
     .then(res => res.json())
@@ -117,7 +124,7 @@ function signUpFormSubmit(event) {
             return;
         }
         const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
-        fetch('https://bike-selling-site-1.onrender.com/addUser', {
+        fetch(`${window.API.BASE_URL}/addUser`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(user)
@@ -166,7 +173,7 @@ function loginFormSubmit(event) {
     let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
     let loginPassword = document.getElementById("loginPassword").value.trim();
 
-    fetch('https://bike-selling-site-1.onrender.com/login', {
+    fetch(`${window.API.BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mobileNumber: loginMobileNumber, signUpPassword: loginPassword })
@@ -174,7 +181,7 @@ function loginFormSubmit(event) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-
+            //autoLogoutAdmin();
             const transaction = loginDB.transaction(["signUpList"], "readwrite");
             const store = transaction.objectStore("signUpList");
 
@@ -205,54 +212,37 @@ function loginFormSubmit(event) {
                         cursor.continue();
                     }
                 };
+
                 tx2.oncomplete = function () {
-                if (updated) {
                     Swal.fire({
                         icon: 'success',
                         title: 'Login Successful!',
-                        text: 'Welcome back!',
                         confirmButtonColor: '#28a745',
                         confirmButtonText: 'Continue'
                     }).then(() => {
                         window.location.href = "index.html";
                     });
-                } else {
-                        console.log("⚠️ User not found in IndexedDB");
-                        const tx3 = loginDB.transaction(["signUpList"], "readwrite");
-                        tx3.objectStore("signUpList").add({
-                            firstName: data.firstName || "",
-                            lastName: data.lastName || "",
-                            mobileNumber: loginMobileNumber,
-                            email: data.email || "",
-                            isLogin: true
-                        });
-                        tx3.oncomplete = function () {
-                            Swal.fire({
-                                icon: 'success',
-                                title: 'Login Successful!',
-                                text: 'Welcome!',
-                                confirmButtonColor: '#28a745',
-                                confirmButtonText: 'Continue'
-                            }).then(() => {
-                                window.location.href = "index.html";
-                            });
-                        };
-                    }
                 };
             };
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Login Failed!',
-                text: 'Retry!',
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'Try Again'
-            });
         }
+
     })
-    .catch(err => console.error("❌ SQL login error:", err));
+    .catch(err => console.error("SQL login error:", err));
 }
 
 
 document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
+// let dbEnq;
+// function autoLogoutAdmin() {
+//     let tx = dbEnq.transaction(["admins"], "readwrite");
+//     let store = tx.objectStore("admins");
 
+//     let req = store.getAll();
+//     req.onsuccess = function () {
+//         let admins = req.result;
+//         admins.forEach(admin => {
+//             admin.isAdminLogin = false;
+//             store.put(admin);
+//         });
+//     };
+// }

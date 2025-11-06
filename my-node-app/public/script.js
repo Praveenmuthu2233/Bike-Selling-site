@@ -275,67 +275,6 @@ function setupPagination() {
   pagination.appendChild(next);
 }
 
-function soldOut(bikeId) {
-  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" }
-  })
-  .then(res => res.json())
-  .then(data => {
-    alert(data.message);
-    loadAllBikeListings();
-  })
-  .catch(err => console.error("Error marking sold out:", err));
-}
-function saveNewPrice(bikeId) {
-  let newPriceInput = document.getElementById(`newPrice-${bikeId}`);
-  let newPrice = parseInt(newPriceInput.value);
-
-  if (isNaN(newPrice) || newPrice <= 0) {
-    alert("Please enter a valid price");
-    return;
-  }
-
-  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/price`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ newPrice })
-  })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById(`sellingPrice-${bikeId}`).innerText = newPrice;
-        newPriceInput.value = "";
-        alert("Selling price updated successfully!");
-      }
-    })
-    .catch(err => console.error("Error updating price:", err));
-}
-
-function acceptBike(id) {
-  fetch(`${window.API.BASE_URL}/bikes/${id}/accept`, { method: 'PUT' })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert("Bike Accepted");
-        loadAllBikeListings(); 
-      }
-    })
-    .catch(err => console.error("Error accepting bike:", err));
-}
-
-function rejectBike(id) {
-  fetch(`${window.API.BASE_URL}/bikes/${id}/reject`, { method: 'PUT' })
-    .then(res => res.json())
-    .then(data => {
-      if (data.success) {
-        alert("Bike Rejected");
-        loadAllBikeListings();
-      }
-    })
-    .catch(err => console.error("Error rejecting bike:", err));
-}
-
 function populateModal(bikeId) {
   fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
     .then(res => res.json())
@@ -427,20 +366,42 @@ function enquiryBike(bikeId) {
     .catch(err => console.error("Error fetching bike details:", err));
 }
 function submitEnquiry(id) {
+
   let userName = document.getElementById(`userName${id}`).value.trim();
   let mobileNumber = document.getElementById(`mobileNumber${id}`).value.trim();
   let emailContact = document.getElementById(`emailContact${id}`).value.trim();
   let location = document.getElementById(`Location${id}`).value.trim();
 
-  if (!userName || !/^[0-9]{10}$/.test(mobileNumber) || !/^\S+@\S+\.\S+$/.test(emailContact) || !location) {
-      alert("Please fill all fields correctly.");
+  if (userName.length < window.VALIDATION.firstNameMin) {
+      Swal.fire({
+          icon: 'error',
+          title: 'Invalid Name',
+          text: window.VALIDATION.MESSAGES.firstName,
+      });
+      return;
+  }
+
+  if (!window.VALIDATION.mobileRegex.test(mobileNumber)) {
+      Swal.fire({
+          icon: 'error',
+          title: 'Invalid Mobile Number',
+          text: window.VALIDATION.MESSAGES.mobile,
+      });
+      return;
+  }
+
+  if (emailContact && !window.VALIDATION.emailRegex.test(emailContact)) {
+      Swal.fire({
+          icon: 'error',
+          title: 'Invalid Email',
+          text: window.VALIDATION.MESSAGES.email,
+      });
       return;
   }
 
   fetch(`${window.API.BASE_URL}/bikes/${id}`)
     .then(res => res.json())
     .then(bike => {
-
       let now = new Date();
       const formatted = `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
 

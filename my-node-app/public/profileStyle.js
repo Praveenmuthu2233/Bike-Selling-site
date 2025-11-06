@@ -41,24 +41,47 @@ function loadUserProfile(userProfile) {
 }
 
 function logOutProfile() {
-    let transaction = loginDB.transaction(["signUpList"], "readwrite")
-    let objectStore = transaction.objectStore("signUpList")
-    let request = objectStore.openCursor()
-    request.onsuccess = function (event) {
-        let cursor = event.target.result
-        if (cursor) {
-            let user = cursor.value
-            if (user.isLogin) {
-                user.isLogin = false
-                cursor.update(user).onsuccess = function () {
-                    alert("Logged out successfully.")
-                    window.location.href = "index.html"
-                }
-            } else {
-                cursor.continue()
-            }
-        }
+  const tx = loginDB.transaction(['signUpList'], 'readwrite');
+  const store = tx.objectStore('signUpList');
+  const req = store.openCursor();
+
+  let loggedOut = false;
+
+  req.onsuccess = function (event) {
+    const cursor = event.target.result;
+    if (!cursor) {
+      if (!loggedOut) {
+        Swal.fire({
+          icon: 'info',
+          title: 'Already Logged Out',
+          text: 'No active user session found.',
+          confirmButtonColor: '#0d6efd',
+          confirmButtonText: 'OK'
+        });
+      }
+      return;
     }
+
+    const user = cursor.value;
+    if (user.isLogin) {
+      user.isLogin = false;
+      cursor.update(user).onsuccess = function () {
+        loggedOut = true;
+        Swal.fire({
+          icon: 'success',
+          title: 'Logged Out',
+          text: 'You have been logged out successfully.',
+          confirmButtonColor: '#28a745',
+          confirmButtonText: 'Continue'
+        }).then(() => {
+          window.location.href = 'index.html';
+        });
+      };
+      return;
+    }
+
+    cursor.continue();
+  };
 }
 
 async function  MyEnquirys() {
@@ -148,6 +171,6 @@ async function  MyEnquirys() {
     };
 
     loginDBReq.onerror = function () {
-        console.error("❌ Failed to open IndexedDB.");
+        console.error("Failed to open IndexedDB.");
     };
 }
