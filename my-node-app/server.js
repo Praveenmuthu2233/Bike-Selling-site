@@ -4,8 +4,8 @@ const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
-const multer = require('multer');
 const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 app.use(cors());
