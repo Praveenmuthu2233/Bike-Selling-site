@@ -461,7 +461,14 @@ function submitEnquiry(id) {
       })
       .then(res => res.json())
       .then(data => {
-          alert("✅ Enquiry submitted successfully!");
+          Swal.fire({
+            icon: 'success',
+            title: 'Enquiry Sent!',
+            text: 'We will contact you soon.',
+            confirmButtonColor: '#28a745',
+            confirmButtonText: 'OK'
+          });
+
           console.log(data);
       })
       .catch(err => console.error(err));

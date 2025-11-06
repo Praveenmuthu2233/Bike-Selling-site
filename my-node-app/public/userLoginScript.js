@@ -139,7 +139,13 @@ function signUpFormSubmit(event) {
                     } else {
                         if (!duplicate) {
                             store.add(user);
-                            alert("✅ Signup successful");
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'Enquiry Sent!',
+                                    text: 'We will contact you soon.',
+                                    confirmButtonColor: '#28a745',
+                                    confirmButtonText: 'OK'
+                                });
                             showLoginForm();
                         } else {
                             document.getElementById("mobileError").textContent = "Mobile already exists locally";
@@ -199,12 +205,18 @@ function loginFormSubmit(event) {
                         cursor.continue();
                     }
                 };
-
                 tx2.oncomplete = function () {
-                    if (updated) {
-                        console.log("✅ Login status updated in IndexedDB");
+                if (updated) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Login Successful!',
+                        text: 'Welcome back!',
+                        confirmButtonColor: '#28a745',
+                        confirmButtonText: 'Continue'
+                    }).then(() => {
                         window.location.href = "index.html";
-                    } else {
+                    });
+                } else {
                         console.log("⚠️ User not found in IndexedDB");
                         const tx3 = loginDB.transaction(["signUpList"], "readwrite");
                         tx3.objectStore("signUpList").add({
@@ -215,13 +227,27 @@ function loginFormSubmit(event) {
                             isLogin: true
                         });
                         tx3.oncomplete = function () {
-                            window.location.href = "index.html";
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Login Successful!',
+                                text: 'Welcome!',
+                                confirmButtonColor: '#28a745',
+                                confirmButtonText: 'Continue'
+                            }).then(() => {
+                                window.location.href = "index.html";
+                            });
                         };
                     }
                 };
             };
         } else {
-            alert("❌ Login failed: " + data.message);
+            Swal.fire({
+                icon: 'error',
+                title: 'Login Failed!',
+                text: 'Retry!',
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'Try Again'
+            });
         }
     })
     .catch(err => console.error("❌ SQL login error:", err));

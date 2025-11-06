@@ -60,23 +60,30 @@ function changeStatus(key) {
     <button class="btn btn-success mt-2" onclick="saveStatus(${key})">Save</button>
   `;
 }
-
 function saveStatus(id) {
   let newStatus = document.getElementById(`statusSelect-${id}`).value;
 
   fetch(`${window.API.BASE_URL}/enquiries/${id}/status`, {
-
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status: newStatus })
   })
-    .then(response => response.json())
-    .then(data => {
-      alert("✅ Status updated successfully!");
-      loadServerEnquiries();
-    })
-    .catch(error => console.error("❌ Error updating status:", error));
+  .then(response => response.json())
+  .then(data => {
+
+    Swal.fire({
+      icon: 'success',
+      title: 'Status Updated!',
+      text: 'Status updated successfully.',
+      confirmButtonColor: '#28a745',
+      confirmButtonText: 'Continue'
+    });
+
+    loadServerEnquiries();
+  })
+  .catch(error => console.error("❌ Error updating status:", error));
 }
+
 
 function sendMessage(key) {
   let container = document.getElementById(`statusContainer-${key}`);
@@ -103,7 +110,13 @@ function saveMessage(id) {
   })
     .then(response => response.json())
     .then(data => {
-      alert("✅ Message updated successfully!");
+      Swal.fire({
+      icon: 'success',
+      title: 'Message Updated!',
+      text: 'Message updated successfully.',
+      confirmButtonColor: '#28a745',
+      confirmButtonText: 'Continue'
+    });
       loadServerEnquiries();
     })
     .catch(error => {
