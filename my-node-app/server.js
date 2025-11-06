@@ -1,14 +1,31 @@
+require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
+
+if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, './uploads');
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = Date.now() + '-' + file.originalname.replace(/\s+/g, '_');
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage });
 
 const db = mysql.createPool({
   connectionLimit: process.env.DB_CONNECTION_LIMIT,
@@ -106,6 +123,18 @@ function initializeDatabase() {
       mobileNumber VARCHAR(10) NOT NULL UNIQUE,
       email VARCHAR(100),
       signUpPassword VARCHAR(255)
+    )`,
+    `CREATE TABLE IF NOT EXISTS gallery_uploads (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      fileName VARCHAR(255),
+      filePath VARCHAR(255),
+      uploadedAt DATETIME DEFAULT NOW()
+    )`,
+    `CREATE TABLE IF NOT EXISTS attachments_uploads (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      fileName VARCHAR(255),
+      filePath VARCHAR(255),
+      uploadedAt DATETIME DEFAULT NOW()
     )`
   ];
   queries.forEach(sql => db.query(sql, err => { if (err) console.error(err); }));
@@ -126,6 +155,38 @@ app.post('/userAddBike', (req, res) => {
   db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
     if (err) return res.status(500).json({ error: 'Database insert failed' });
     res.json({ message: 'Bike added successfully', id: result.insertId });
+  });
+});
+
+app.post('/upload/gallery', upload.array('attachments', 10), (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No files uploaded' });
+  const files = req.files.map(f => [f.filename, f.path]);
+  db.query('INSERT INTO gallery_uploads (fileName, filePath) VALUES ?', [files], err => {
+    if (err) return res.status(500).json({ message: 'Upload failed' });
+    res.json({ message: 'Gallery uploaded successfully', files });
+  });
+});
+
+app.post('/upload/attachments', upload.array('attachments', 10), (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No files uploaded' });
+  const files = req.files.map(f => [f.filename, f.path]);
+  db.query('INSERT INTO attachments_uploads (fileName, filePath) VALUES ?', [files], err => {
+    if (err) return res.status(500).json({ message: 'Upload failed' });
+    res.json({ message: 'Attachments uploaded successfully', files });
+  });
+});
+
+app.get('/gallery', (req, res) => {
+  db.query('SELECT * FROM gallery_uploads ORDER BY uploadedAt DESC', (err, results) => {
+    if (err) return res.status(500).json({ message: 'Failed to load gallery' });
+    res.json(results);
+  });
+});
+
+app.get('/attachments', (req, res) => {
+  db.query('SELECT * FROM attachments_uploads ORDER BY uploadedAt DESC', (err, results) => {
+    if (err) return res.status(500).json({ message: 'Failed to load attachments' });
+    res.json(results);
   });
 });
 
@@ -198,25 +259,24 @@ app.put('/bikes/:id/soldout', (req, res) => {
   const bikeId = req.params.id;
   const query = `
     INSERT INTO soldOutBike (
-      originalBikeId, listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
+      originalBikeId,
+      listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
       bikeType, makedFrom, bikeModel, bikeKms, bikePrice, sellingPrice, bikeOwner,
       bikeBuyingYear, bikeColor, bikeEngineCC, driveType, insurance, horsepower,
-      bikeLocation, description, image
+      bikeLocation, description,soldOutDate, image
     )
     SELECT 
-      id, listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
+      id,
+      listingTitle, vehicleNumber, sellerName, mobileNum, bikeCondition,
       bikeType, makedFrom, bikeModel, bikeKms, bikePrice, sellingPrice, bikeOwner,
       bikeBuyingYear, bikeColor, bikeEngineCC, driveType, insurance, horsepower,
-      bikeLocation, description, image
+      bikeLocation, description,NOW(), null
     FROM bikesforsale WHERE id = ?
   `;
-
   db.query(query, [bikeId], (err) => {
     if (err) return res.status(500).json({ message: 'Failed to copy bike', error: err });
-
     db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], (err2) => {
       if (err2) return res.status(500).json({ message: 'Delete failed', error: err2 });
-
       res.json({ message: '✅ Bike moved to Sold Out list successfully' });
     });
   });
