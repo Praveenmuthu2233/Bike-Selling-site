@@ -53,11 +53,12 @@ function catagoryImgsPrint(catagoryImgs) {
 
 document.getElementById("applyFilter").addEventListener("click", async () => {
     try {
-        const response = await fetch("https://bike-selling-site-1.onrender.com/bikes");
+        //const response = await fetch("https://bike-selling-site-1.onrender.com/bikes");
+        const response = await fetch(`${window.API.BASE_URL}/bikes`);
         const products = await response.json();
 
         allProducts = products.filter(bike => bike.isAccepted == 1);
-
+       
         applyFilter();
     } 
     catch (err) {
@@ -66,6 +67,7 @@ document.getElementById("applyFilter").addEventListener("click", async () => {
 });
 
 function applyFilter() {
+   alert("Hi")
     let minPriceFilter = parseInt(document.getElementById("minPrice").value) || 0;
     let maxPriceFilter = parseInt(document.getElementById("maxPrice").value) || Infinity;
 

@@ -116,7 +116,7 @@ function signUpFormSubmit(event) {
     if (!valid) return;
 
 
-    fetch(`https://bike-selling-site-1.onrender.com/checkMobile/${mobileNumber}`)
+    fetch(`${window.API.BASE_URL}/checkMobile/${mobileNumber}`)
     .then(res => res.json())
     .then(data => {
         if (data.exists) {
@@ -212,11 +212,11 @@ function loginFormSubmit(event) {
                         cursor.continue();
                     }
                 };
-
                 tx2.oncomplete = function () {
                     Swal.fire({
                         icon: 'success',
                         title: 'Login Successful!',
+                        text: `Welcome ${data.firstName + " " + data.lastName}`,
                         confirmButtonColor: '#28a745',
                         confirmButtonText: 'Continue'
                     }).then(() => {
