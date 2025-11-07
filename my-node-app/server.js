@@ -144,6 +144,7 @@ function initializeDatabase() {
 
 app.post('/addBike', (req, res) => {
   const data = req.body;
+  console.log("Received JSON:", data);
   const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };
   db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
     if (err) return res.status(500).json({ error: 'Database insert failed' });
@@ -152,14 +153,59 @@ app.post('/addBike', (req, res) => {
   });
 });
 
-app.post('/userAddBike', (req, res) => {
-  const data = req.body;
-  const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };
-  db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
-    if (err) return res.status(500).json({ error: 'Database insert failed' });
-    res.json({ message: 'Bike added successfully', id: result.insertId });
-  });
+app.post("/userAddBike", (req, res) => {
+    const data = req.body;
+
+    console.log("Received:", data);
+
+    const bikeData = {
+        listingTitle: data.listingTitle,
+        vehicleNumber: data.vehicleNumber,
+        sellerName: data.sellerName,
+        mobileNum: data.mobileNum,
+        bikeCondition: data.bikeCondition,
+        bikeType: data.bikeType,
+        makedFrom: data.makedFrom,
+        bikeModel: data.bikeModel,
+        bikeKms: data.bikeKms,
+        bikePrice: data.bikePrice,
+        sellingPrice: data.sellingPrice,
+        bikeOwner: data.bikeOwner,
+        bikeBuyingYear: data.bikeBuyingYear,
+        bikeColor: data.bikeColor,
+        bikeEngineCC: data.bikeEngineCC,
+        driveType: data.driveType,
+        insurance: data.insurance,
+        horsepower: data.horsepower,
+        bikeLocation: data.bikeLocation,
+        description: data.description,
+        isAccepted: data.isAccepted ? 1 : 0,
+        isSoldout: data.isSoldout ? 1 : 0
+    };
+
+    db.query("INSERT INTO bikesforsale SET ?", bikeData, (err, result) => {
+        if (err) {
+            console.log("SQL ERROR:", err.sqlMessage);
+            return res.status(500).json({ success: false, message: "Database Insert Failed", error: err.sqlMessage });
+        }
+
+        res.json({
+            success: true,
+            message: "Bike Added Successfully",
+            id: result.insertId
+        });
+    });
 });
+
+
+// app.post('/userAddBike', (req, res) => {
+//   const data = req.body;
+//   const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };
+//   db.query('INSERT INTO bikesforsale SET ?', bikeData, (err, result) => {
+//     if (err) return res.status(500).json({ error: 'Database insert failed' });
+//     res.json({ message: 'Bike added successfully', id: result.insertId });
+//   });
+// });
 
 app.post('/upload/gallery', upload.array('attachments', 10), (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ message: 'No files uploaded' });

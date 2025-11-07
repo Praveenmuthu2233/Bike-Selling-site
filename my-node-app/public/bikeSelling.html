@@ -34,161 +34,147 @@
     <section class="add-List" id="addList">
         <h2 class="ms-5 text-center">Add listing</h2>
         <div class="container">
-            <form action="https://bike-selling-site-1.onrender.com/addBike" method="POST" enctype="multipart/form-data">
+            <form id="bikeForm">
                 <div class="row listing p-4">
                     <div class="mb-4">
-                    <label for="listingTitle">Listing Title <span class="requiredStar">*</span></label>
-                    <input type="text" id="listingTitle" name="listingTitle" placeholder="Enter title here" required>
+                        <label for="listingTitle">Listing Title <span class="requiredStar">*</span></label>
+                        <input type="text" id="listingTitle" name="listingTitle" placeholder="Enter title here" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="vehicleNumber">Vehicle Number <span class="requiredStar">*</span></label>
-                    <input type="text" id="vehicleNumber" name="vehicleNumber" required>
+                        <label for="vehicleNumber">Vehicle Number <span class="requiredStar">*</span></label>
+                        <input type="text" id="vehicleNumber" name="vehicleNumber" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="sellerName">Seller Name <span class="requiredStar">*</span></label>
-                    <input type="text" id="sellerName" name="sellerName" required>
+                        <label for="sellerName">Seller Name <span class="requiredStar">*</span></label>
+                        <input type="text" id="sellerName" name="sellerName" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="mobileNum">Mobile <span class="requiredStar">*</span></label>
-                    <input type="text" id="mobileNum" name="mobileNum" required>
+                        <label for="mobileNum">Mobile <span class="requiredStar">*</span></label>
+                        <input type="text" id="mobileNum" name="mobileNum" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeCondition">Condition <span class="requiredStar">*</span></label>
-                    <select id="bikeCondition" name="bikeCondition" required>
-                        <option value="">Select</option>
-                        <option value="Good">Good</option>
-                        <option value="Used">Used</option>
-                        <option value="Verified">Verified</option>
-                    </select>
+                        <label for="bikeCondition">Condition <span class="requiredStar">*</span></label>
+                        <select id="bikeCondition" name="bikeCondition" required>
+                            <option value="">Select</option>
+                            <option value="Good">Good</option>
+                            <option value="Used">Used</option>
+                            <option value="Verified">Verified</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeType">Type</label>
-                    <select id="bikeType" name="bikeType">
-                        <option value="">Select</option>
-                        <option value="Bike">Bike</option>
-                        <option value="Classic">Classic</option>
-                        <option value="Off-Road">Off-Road</option>
-                        <option value="Scooter">Scooter</option>
-                        <option value="Sports">Sports</option>
-                        <option value="Standard">Standard</option>
-                    </select>
+                        <label for="bikeType">Type</label>
+                        <select id="bikeType" name="bikeType">
+                            <option value="">Select</option>
+                            <option value="Bike">Bike</option>
+                            <option value="Classic">Classic</option>
+                            <option value="Off-Road">Off-Road</option>
+                            <option value="Scooter">Scooter</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Standard">Standard</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="makedFrom">Make</label>
-                    <select id="makedFrom" name="makedFrom">
-                        <option value="">Select</option>
-                        <option value="Ather">Ather</option>
-                        <option value="BMW">BMW</option>
-                        <option value="Bajaj">Bajaj</option>
-                        <option value="Hero">Hero</option>
-                        <option value="Honda">Honda</option>
-                        <option value="Java">Java</option>
-                        <option value="KTM">KTM</option>
-                        <option value="Revolt">Revolt</option>
-                        <option value="Royal Enfield">Royal Enfield</option>
-                        <option value="TVS">TVS</option>
-                        <option value="Yamaha">Yamaha</option>
-                        <option value="Yezdi">Yezdi</option>
-                        <option value="Others">Others</option>
-                    </select>
+                        <label for="makedFrom">Make</label>
+                        <select id="makedFrom" name="makedFrom">
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeModel">Bike Model <span class="requiredStar">*</span></label>
-                    <input type="text" id="bikeModel" name="bikeModel" required>
+                        <label for="bikeModel">Bike Model <span class="requiredStar">*</span></label>
+                        <input type="text" id="bikeModel" name="bikeModel" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeKms">Kms <span class="requiredStar">*</span></label>
-                    <input type="text" id="bikeKms" name="bikeKms" required>
+                        <label for="bikeKms">Kms <span class="requiredStar">*</span></label>
+                        <input type="text" id="bikeKms" name="bikeKms" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikePrice">Bike Price <span class="requiredStar">*</span></label>
-                    <input type="text" id="bikePrice" name="bikePrice" required>
+                        <label for="bikePrice">Bike Price <span class="requiredStar">*</span></label>
+                        <input type="text" id="bikePrice" name="bikePrice" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeOwner">Owner</label>
-                    <select id="bikeOwner" name="bikeOwner">
-                        <option value="">Select</option>
-                        <option value="First Owner">First Owner</option>
-                        <option value="Second Owner">Second Owner</option>
-                        <option value="Third Owner">Third Owner</option>
-                    </select>
+                        <label for="bikeOwner">Owner</label>
+                        <select id="bikeOwner" name="bikeOwner">
+                            <option value="">Select</option>
+                            <option value="First Owner">First Owner</option>
+                            <option value="Second Owner">Second Owner</option>
+                            <option value="Third Owner">Third Owner</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeBuyingYear">Year <span class="requiredStar">*</span></label>
-                    <input type="text" id="bikeBuyingYear" name="bikeBuyingYear" required>
+                        <label for="bikeBuyingYear">Year <span class="requiredStar">*</span></label>
+                        <input type="text" id="bikeBuyingYear" name="bikeBuyingYear" required>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeColor">Color</label>
-                    <select id="bikeColor" name="bikeColor">
-                        <option value="">Select</option>
-                        <option value="Beige">Beige</option>
-                        <option value="Black">Black</option>
-                        <option value="Blue">Blue</option>
-                        <option value="Bronze">Bronze</option>
-                        <option value="Brown">Brown</option>
-                        <option value="Cyan">Cyan</option>
-                        <option value="Gold">Gold</option>
-                        <option value="Green">Green</option>
-                        <option value="Grey">Grey</option>
-                        <option value="Maroon">Maroon</option>
-                        <option value="Orange">Orange</option>
-                        <option value="Pink">Pink</option>
-                        <option value="Purple">Purple</option>
-                    </select>
+                        <label for="bikeColor">Color</label>
+                        <select id="bikeColor" name="bikeColor">
+                            <option value="">Select</option>
+                            <option value="Beige">Beige</option>
+                            <option value="Black">Black</option>
+                            <option value="Blue">Blue</option>
+                            <option value="Bronze">Bronze</option>
+                            <option value="Brown">Brown</option>
+                            <option value="Cyan">Cyan</option>
+                            <option value="Gold">Gold</option>
+                            <option value="Green">Green</option>
+                            <option value="Grey">Grey</option>
+                            <option value="Maroon">Maroon</option>
+                            <option value="Orange">Orange</option>
+                            <option value="Pink">Pink</option>
+                            <option value="Purple">Purple</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeEngineCC">Engine CC</label>
-                    <input type="text" id="bikeEngineCC" name="bikeEngineCC">
+                        <label for="bikeEngineCC">Engine CC</label>
+                        <input type="text" id="bikeEngineCC" name="bikeEngineCC">
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="driveType">Drive Type</label>
-                    <select id="driveType" name="driveType">
-                        <option value="Motorcycle">Motorcycle</option>
-                        <option value="Scooter">Scooter</option>
-                    </select>
+                        <label for="driveType">Drive Type</label>
+                        <select id="driveType" name="driveType">
+                            <option value="Motorcycle">Motorcycle</option>
+                            <option value="Scooter">Scooter</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="insurance">Insurance</label>
-                    <select id="insurance" name="insurance">
-                        <option value="">Select</option>
-                        <option value="No">No</option>
-                        <option value="Subject to Availability">Subject to Availability</option>
-                        <option value="Yes">Yes</option>
-                    </select>
+                        <label for="insurance">Insurance</label>
+                        <select id="insurance" name="insurance">
+                            <option value="">Select</option>
+                            <option value="No">No</option>
+                            <option value="Subject to Availability">Subject to Availability</option>
+                            <option value="Yes">Yes</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="horsepower">HP</label>
-                    <select id="horsepower" name="horsepower">
-                        <option value="">Select</option>
-                        <option value="Yes">Yes</option>
-                        <option value="No">No</option>
-                    </select>
+                        <label for="horsepower">HP</label>
+                        <select id="horsepower" name="horsepower">
+                            <option value="">Select</option>
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                        </select>
                     </div>
 
                     <div class="col-12 col-md-4">
-                    <label for="bikeLocation">Location</label>
-                    <input type="text" id="bikeLocation" name="bikeLocation">
+                        <label for="bikeLocation">Location</label>
+                        <input type="text" id="bikeLocation" name="bikeLocation">
                     </div>
 
                     <div class="col-12">
-                    <label for="description">Description</label>
-                    <textarea id="description" name="description" rows="6"></textarea>
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" rows="6"></textarea>
                     </div>
                 </div>
 
@@ -198,7 +184,9 @@
                     <label class="upload-container" for="galleryUpload">
                         <div>📷 Add images</div>
                         <input type="file" id="galleryUpload" name="galleryImages[]" multiple accept="image/*">
-                        <div class="image-preview" id="galleryPreview"></div>
+                        <div class="image-preview" id="galleryPreview">
+                        
+                        </div>
                     </label>
                     </div>
                 </div>
@@ -271,7 +259,8 @@
 <footer class="p-4 ">
     &copy; 2025 SMR Motors. All Rights Reserved.
 </footer>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </body>
 <script src="config.js"></script>
-<!-- <script src="bikeSellingScript.js"></script> -->
+<script src="bikeSellingScript.js"></script>
 </html>

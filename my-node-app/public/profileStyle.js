@@ -104,18 +104,16 @@ async function  MyEnquirys() {
 
             let userMobile = loggedInUser.mobileNumber;
 
-            fetch("https://bike-selling-site-1.onrender.com/enquiries")
+            fetch(`${window.API.BASE_URL}/enquiries`)
                 .then(res => res.json())
                 .then(allEnquiries => {
-                    console.log("All Enquiries:", allEnquiries);
 
                     let userEnquiries = allEnquiries.filter(
                         enquiry => enquiry.mobile === userMobile
                     );
-                    fetch("https://bike-selling-site-1.onrender.com/bikes")
+                    fetch(`${window.API.BASE_URL}/bikes`)
                         .then(res => res.json())
                         .then(allBikes => {
-                            console.log("All Bikes:", allBikes);
 
                             let output = "";
                             userEnquiries.forEach((enquiry) => {

@@ -14,35 +14,44 @@ requestDB.onsuccess = function (event) {
     document.getElementById('adminLogin').addEventListener('submit', handleLogin);
 };
 
-
 function handleLogin(event) {
     event.preventDefault();
-    let adminName = document.getElementById("adminName").value;
-    let adminPassword = document.getElementById("adminPassword").value;
 
-    let admin = window.ADMIN_CREDENTIALS.find(a =>
-        a.username === adminName && a.password === adminPassword
-    );
+    let adminName = document.getElementById("adminName").value.trim();
+    let adminPassword = document.getElementById("adminPassword").value.trim();
+    let admin = null;
+
+    if (adminName === "raja" && adminPassword === "raja@22") {
+        admin = { username: "raja", label: "Raja" };
+
+    } else if (adminName === "murugan" && adminPassword === "murugan@22") {
+        admin = { username: "murugan", label: "Murugan" };
+
+    } else if (adminName === "mani" && adminPassword === "mani@22") {
+        admin = { username: "mani", label: "Mani" };
+    }
     if (admin) {
         Swal.fire({
-            icon: 'success',
+            icon: "success",
             title: `Welcome ${admin.label}!`,
-            text: 'Login successfully.',
-            confirmButtonColor: '#28a745',
-            confirmButtonText: 'Continue'
+            text: "Login successfully.",
+            confirmButtonColor: "#28a745",
+            confirmButtonText: "Continue"
         }).then(() => {
             saveAdminLoginStatus(true, admin.username);
         });
-    }else {
+
+    } else {
         Swal.fire({
-            icon: 'error',
-            title: 'Login Failed!',
-            text: 'Please try again.',
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Retry'
+            icon: "error",
+            title: "Login Failed!",
+            text: "Please try again.",
+            confirmButtonColor: "#d33",
+            confirmButtonText: "Retry"
         });
     }
 }
+
 function saveAdminLoginStatus(isLoggedIn, adminName) {
 
     let transaction = dbEnq.transaction(["admins"], "readwrite");
