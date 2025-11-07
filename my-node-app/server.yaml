@@ -1,0 +1,7 @@
+apps:
+  - name: my-node-app
+    script: server.js
+    instances: 1
+    exec_mode: fork
+    env:
+      PORT: 8080
