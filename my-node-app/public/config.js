@@ -6,7 +6,7 @@ window.API = {
   acceptBike: (id) => `${BASE_URL}/bikes/${id}/accept`,
 };
 window.CONFIG = {
-  enquiryStatusChange: ["Cold", "Warm", "Hot"]
+  enquiryStatusList: ["Cold", "Warm", "Hot"]
 };
 
 window.VALIDATION = {
@@ -23,8 +23,7 @@ window.VALIDATION = {
     terms: "You must agree to the terms."
   }
 };
-window.ADMIN_CREDENTIALS = [
-  { username: "raja", password: "raja@22", label: "Raja" },
-  { username: "murugan", password: "murugan@22", label: "Murugan" },
-  { username: "mani", password: "mani@22", label: "Mani" }
+
+window.bike_makes = ["Ather","BMW","Bajaj","Hero","Honda","Java",
+  "KTM","Revolt","Royal Enfield","TVS","Yamaha","Yezdi","Others"
 ];

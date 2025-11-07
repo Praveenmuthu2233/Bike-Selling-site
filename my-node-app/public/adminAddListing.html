@@ -13,7 +13,7 @@
     <section class="add-List">
         <h2 class="ms-5 text-center">Add listing</h2>
         <div class="container">
-            <form action="https://bike-selling-site-1.onrender.com/userAddBike" method="POST" enctype="multipart/form-data">
+            <form id="adminBikeForm">
                 <div class="row listing p-4">
                     <div class="mb-4">
                         <label for="adminAddlistingTitle">Listing Title <span class="requiredStar">*</span></label>
@@ -52,23 +52,10 @@
                             <option value="Standard">Standard</option>
                         </select>
                     </div>
+                    
                     <div class="col-12 col-md-4">
-                        <label for="adminAddMake">Make</label>
-                        <select id="adminAddMake" name="adminAddMake">
-                            <option value="Ather">Ather</option>
-                            <option value="BMW">BMW</option>
-                            <option value="Bajaj">Bajaj</option>                                
-                            <option value="Hero">Hero</option>
-                            <option value="Honda">Honda</option>
-                            <option value="java">java</option>
-                            <option value="KTM">KTM</option>
-                            <option value="Revolt">Revolt</option>
-                            <option value="Royal-enfield">Royal enfield</option>
-                            <option value="TVS">TVS</option>
-                            <option value="Yamaha">Yamaha</option>
-                            <option value="Yezdi">Yezdi</option>
-                            <option value="Others">Others</option>
-                        </select>
+                    <label for="adminAddMake">Make</label>
+                    <select id="adminAddMake" name="adminAddMake"></select>
                     </div>
 
                     <div class="col-12 col-md-4">
@@ -208,7 +195,7 @@
         </div>
     </section>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-</body>
 <script src="config.js"></script>
-<!-- <script src="adminListing.js"></script> -->
+<script src="adminListing.js"></script>
+</body>
 </html>

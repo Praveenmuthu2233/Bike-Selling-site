@@ -45,9 +45,7 @@ function renderAdminBikeListings(bikeListings) {
               <button class="button-btn" onclick="saveNewPrice(${bike.id})">Save Price</button>
             ` : ""}
 
-            <button type="button" class="button-btn" onclick="soldOut(${bike.id})" 
-              ${bike.isSoldout ? "disabled" : ""}>
-              Sold Out
+            <button type="button" class="button-btn" onclick="soldOut(${bike.id})">Sold Out
             </button>
           </div>
 
