@@ -1,0 +1,19 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/neural-ripple-477511-m5/smr-bikes', '.']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/neural-ripple-477511-m5/smr-bikes']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      [
+        'run', 'deploy', 'smr-bikes',
+        '--image', 'gcr.io/neural-ripple-477511-m5/smr-bikes',
+        '--region', 'asia-south1',
+        '--platform', 'managed',
+        '--allow-unauthenticated'
+      ]
+
+images:
+  - gcr.io/neural-ripple-477511-m5/smr-bikes
