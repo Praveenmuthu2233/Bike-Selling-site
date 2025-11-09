@@ -591,3 +591,30 @@ select {
   display: inline-block;
   margin: 4px 0;
 }
+
+.download-btn {
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: white;
+  transition: 0.3s ease;
+  margin: 8px;
+}
+
+/* PDF Button (Red) */
+.download-btn.pdf {
+  background: #e63946;
+}
+.download-btn.pdf:hover {
+  background: #c53037;
+}
+
+.download-btn.sheet {
+  background: #2a9d8f;
+}
+.download-btn.sheet:hover {
+  background: #21867a;
+}

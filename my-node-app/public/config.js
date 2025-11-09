@@ -8,8 +8,12 @@ window.API = {
 window.CONFIG = {
   enquiryStatusList: ["Cold", "Warm", "Hot"],
   paginationItemPerPage : 8,
-  enquiriesPerPage: 8 
+  enquiriesPerPage: 3
 };
+window.DOWNLOAD_CONFIG = { 
+  type: "excel" 
+};
+
 window.gallery_image = [
   {
     url: "https://cdn.bikedekho.com/processedimages/kawasaki/kawasaki-ninja-zx-10r/source/kawasaki-ninja-zx-10r674008194e755.jpg",
