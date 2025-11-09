@@ -37,9 +37,14 @@
                     <div class="d-flex align-items-center mb-3">
                         <input type="checkbox" id="agreeTerms" class="form-check-input me-2 small-checkbox">
                         <label for="agreeTerms" class="mb-0">
-                            I Agree with the <a href="#">privacy</a> and <a href="#">policy</a>
+                            I Agree with the 
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#privacyPolicyModal">Privacy</a> 
+                            and 
+                            <a href="#" data-bs-toggle="modal" data-bs-target="#privacyPolicyModal">Policy</a>
                         </label>
                     </div>
+
+                    
                     <p id="termsError" class="error"></p>
                     <div class="loginShow d-none"></div>
 
@@ -75,6 +80,92 @@
                 <p>Mobile: <span id="userMobile"></span></p>
                 <button onclick="logOut()" class="btn">Log Out</button>
             </div> -->
+            <!-- Privacy Policy Popup -->
+            <div class="modal fade" id="privacyPolicyModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-scrollable modal-lg">
+                <div class="modal-content">
+                
+                <div class="modal-header">
+                    <h5 class="modal-title">Privacy Policy</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="font-size: 14px; line-height: 1.6; text-align: left !important;">
+
+                    <p>
+                    This Privacy Policy explains how <strong>SMR Motors</strong> collects, uses, and protects your information when you use our website and services.
+                    </p>
+
+                    <h6><strong>1. Information We Collect</strong></h6>
+                    <ul>
+                    <li><strong>Personal Information:</strong> Name, mobile number, and login details.</li>
+                    <li><strong>Bike Listing Information:</strong> Model, price, kms, location, condition, and uploaded images.</li>
+                    <li><strong>Usage Data:</strong> IP address, device info, browser type, pages visited.</li>
+                    <li><strong>Cookies:</strong> To remember login sessions and preferences.</li>
+                    </ul>
+
+                    <h6><strong>2. How We Use Your Information</strong></h6>
+                    <ul>
+                    <li>To create and manage your account.</li>
+                    <li>To display your bike listings publicly.</li>
+                    <li>To contact you for enquiries or updates.</li>
+                    <li>To improve website performance and user experience.</li>
+                    <li>To protect the website from fraud or misuse.</li>
+                    </ul>
+
+                    <h6><strong>3. Data Security</strong></h6>
+                    <p>
+                    We use industry-standard security measures to protect your information.  
+                    Passwords are securely stored and never shared. However, no system is 100% secure.
+                    </p>
+
+                    <h6><strong>4. Sharing of Information</strong></h6>
+                    <ul>
+                    <li>We do <strong>not</strong> sell or rent your information.</li>
+                    <li>We may share information with trusted service providers (hosting, database, email services).</li>
+                    <li>Listings and contact details may be shown to the public for enquiry purposes.</li>
+                    <li>We may share information if required by law or legal process.</li>
+                    </ul>
+
+                    <h6><strong>5. User Rights</strong></h6>
+                    <ul>
+                    <li>You can request to update or delete your account.</li>
+                    <li>You can request a copy of the personal data we store.</li>
+                    <li>You can ask us to stop using your information for certain purposes.</li>
+                    </ul>
+
+                    <h6><strong>6. Cookies & Local Storage</strong></h6>
+                    <p>
+                    We use cookies and localStorage to remember your login and to keep your browsing smooth.  
+                    You can clear them anytime in your browser settings.
+                    </p>
+
+                    <h6><strong>7. Children's Privacy</strong></h6>
+                    <p>
+                    Our services are not intended for children under 13. We do not knowingly collect information from minors.
+                    </p>
+
+                    <h6><strong>8. Changes to This Policy</strong></h6>
+                    <p>
+                    We may update this policy from time to time. We will post the updated version on this page.
+                    </p>
+
+                    <h6><strong>9. Contact Information</strong></h6>
+                    <p>
+                    If you have any questions or requests regarding your data, contact: <br>
+                    <strong>Email:</strong> support@smrmotors.example <br>
+                    <strong>SMR Motors – Customer Support</strong>
+                    </p>
+
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                </div>
+
+                </div>
+            </div>
+            </div>
+
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

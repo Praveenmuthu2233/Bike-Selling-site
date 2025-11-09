@@ -120,7 +120,13 @@ function signUpFormSubmit(event) {
     .then(res => res.json())
     .then(data => {
         if (data.exists) {
-            document.getElementById("mobileError").textContent = "Mobile already registered. Please Login.";
+            Swal.fire({
+                icon: 'warning',
+                title: 'Already Registered!',
+                text: 'This mobile number is already registered !',
+                confirmButtonColor: '#d33',
+                confirmButtonText: 'OK'
+            });
             return;
         }
         const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
@@ -181,7 +187,6 @@ function loginFormSubmit(event) {
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            //autoLogoutAdmin();
             const transaction = loginDB.transaction(["signUpList"], "readwrite");
             const store = transaction.objectStore("signUpList");
 
@@ -212,6 +217,7 @@ function loginFormSubmit(event) {
                         cursor.continue();
                     }
                 };
+
                 tx2.oncomplete = function () {
                     Swal.fire({
                         icon: 'success',
@@ -224,6 +230,14 @@ function loginFormSubmit(event) {
                     });
                 };
             };
+
+        } else {
+            Swal.fire({
+                icon: 'error',
+                title: 'Login Failed!',
+                text: data.message || "Invalid mobile number or password",
+                confirmButtonColor: '#d33'
+            });
         }
 
     })
@@ -232,6 +246,17 @@ function loginFormSubmit(event) {
 
 
 document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
+
+document.getElementById("rememberMe").addEventListener("change", function () {
+    const passwordField = document.getElementById("loginPassword");
+
+    if (this.checked) {
+        passwordField.type = "text";
+    } else {
+        passwordField.type = "password";
+    }
+});
+
 // let dbEnq;
 // function autoLogoutAdmin() {
 //     let tx = dbEnq.transaction(["admins"], "readwrite");

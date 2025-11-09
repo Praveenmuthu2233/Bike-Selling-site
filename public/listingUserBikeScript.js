@@ -142,22 +142,45 @@ function saveNewPrice(bikeId) {
       }
     })
     .catch(err => console.error("Error updating price:", err));
-}
-function soldOut(bikeId) {
-  fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" }
-  })
-  .then(res => res.json())
-  .then(data => {
-    Swal.fire({
-        icon: 'success',
-        title: 'SoldOuted',
-        text: 'Soldout successfully.',
-        confirmButtonColor: '#28a745',
-        confirmButtonText: 'Continue'
-    })
-    loadAllBikeListings();
-  })
-  .catch(err => console.error("Error marking sold out:", err));
+}function soldOut(bikeId) {
+
+  Swal.fire({
+    title: "Are you sure?",
+    text: "This bike will be moved to Sold Out and removed from active listings.",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonColor: "#28a745",
+    cancelButtonColor: "#d33",
+    confirmButtonText: "Yes, sold out"
+  }).then((result) => {
+
+    if (result.isConfirmed) {
+
+      fetch(`${window.API.BASE_URL}/bikes/${bikeId}/soldout`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" }
+      })
+      .then(res => res.json())
+      .then(data => {
+
+        Swal.fire({
+          icon: "success",
+          title: "Moved to Sold Out",
+          text: "This bike is now sold out.",
+          confirmButtonColor: "#28a745"
+        });
+        loadAllBikeListings();
+
+        if (typeof loadSoldOutBikes === "function") {
+            loadSoldOutBikes();
+        }
+
+      })
+      .catch(err => {
+        console.error("Error marking bike as sold out:", err);
+        Swal.fire("Error", "Failed to update status", "error");
+      });
+    }
+  });
+
 }

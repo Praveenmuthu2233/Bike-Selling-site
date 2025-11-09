@@ -6,27 +6,26 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
 
 const app = express();
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(cors());
 app.use(bodyParser.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
-if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
-const multer = require("multer");
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  }
-});
+// if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
 
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, "uploads/");
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, Date.now() + "-" + file.originalname);
+//   }
+// });
 const upload = multer({ storage: storage });
 
 const db = mysql.createPool({
@@ -250,6 +249,16 @@ app.get('/bikes/:id', (req, res) => {
   db.query('SELECT * FROM bikesforsale WHERE id = ?', [req.params.id], (err, results) => {
     if (err) return res.status(500).json({ error: 'Database error' });
     res.json(results[0] || null);
+  });
+});
+
+app.delete('/deleteEnquiry/:id', (req, res) => {
+  const id = req.params.id;
+  db.query('DELETE FROM enquiries WHERE id = ?', [id], (err, result) => {
+    if (err) return res.status(500).json({ error: "Delete failed" });
+    res.json({
+      message: "Enquiry deleted successfully"
+    });
   });
 });
 

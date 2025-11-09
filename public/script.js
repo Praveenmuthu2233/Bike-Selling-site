@@ -149,7 +149,7 @@ async function loadProducts() {
 loadProducts();
 
 function displayProducts(page) {
-  itemsPerPage = 8
+  itemsPerPage = window.CONFIG.paginationItemPerPage
   let start = (page - 1) * itemsPerPage;
   let end = start + itemsPerPage;
   let paginatedProducts = allProducts.slice(start, end);
@@ -215,7 +215,7 @@ function displayProducts(page) {
 }
 
 function setupPagination() {
-  let totalPages = Math.ceil(allProducts.length / itemsPerPage);
+  let totalPages = Math.ceil(allProducts.length / window.CONFIG.paginationItemPerPage);
   let paginationContainer = document.getElementById("pagination");
   if (!paginationContainer) return;
   
@@ -274,6 +274,35 @@ function setupPagination() {
     }
   };
   pagination.appendChild(next);
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  loadGallery();
+});
+
+function loadGallery() {
+  const galleryContainer = document.getElementById("galleryImages");
+  if (!galleryContainer) {
+    console.error("galleryImages element not found");
+    return;
+  }
+
+  if (!Array.isArray(window.gallery_image)) {
+    console.error("gallery_image config missing");
+    return;
+  }
+
+  let html = "";
+
+  window.gallery_image.forEach((img, index) => {
+    html += `
+      <div class="carousel-item ${index === 0 ? "active" : ""}">
+        <img src="${img.url}" class="d-block w-100" alt="${img.alt}">
+      </div>
+    `;
+  });
+
+  galleryContainer.innerHTML = html;
 }
 
 function populateModal(bikeId) {
