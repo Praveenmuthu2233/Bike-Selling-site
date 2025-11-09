@@ -17,22 +17,22 @@
                 <div class="row listing p-4">
                     <div class="mb-4">
                         <label for="adminAddlistingTitle">Listing Title <span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddlistingTitle" id="adminAddlistingTitle" placeholder="Enter title here" required>
+                        <input type="text" name="listingTitle" id="adminAddlistingTitle" placeholder="Enter title here" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label for="adminAddvehicleNum">Vehicle Number <span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddvehicleNum" id="adminAddvehicleNum" required>
+                        <input type="text" name="vehicleNumber" id="adminAddvehicleNum" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label for="adminAddsellerName">Seller Name<span class="requiredStar">*</span></label>
-                    <input type="text" name="adminAddsellerName" id="adminAddsellerName" required>                        </div>
+                    <input type="text" name="sellerName" id="adminAddsellerName" required>                        </div>
                     <div class="col-12 col-md-4">
                         <label for="adminAddmobileNum">Mobile<span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddmobileNum" id="adminAddmobileNum" required>
+                        <input type="text" name="mobileNum" id="adminAddmobileNum" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label for="adminAddCondition">Condition <span class="requiredStar">*</span></label>
-                        <select id="adminAddCondition" name="adminAddCondition" required>
+                        <select id="adminAddCondition" name="bikeCondition" required>
                             <option value="">Select</option>
                             <option value="Good">Good</option>
                             <option value="Used">Used</option>
@@ -42,7 +42,7 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddType">Type</label>
-                        <select id="adminAddType" name="adminAddType">
+                        <select id="adminAddType" name="bikeType">
                             <option value="">Select</option>
                             <option value="Bike">Bike</option>
                             <option value="Classic">Classic</option>
@@ -55,31 +55,31 @@
                     
                     <div class="col-12 col-md-4">
                     <label for="adminAddMake">Make</label>
-                    <select id="adminAddMake" name="adminAddMake"></select>
+                    <select id="adminAddMake" name="makedFrom"></select>
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddbikeModel">Bike Model<span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddbikeModel" id="adminAddbikeModel" required>
+                        <input type="text" name="bikeModel" id="adminAddbikeModel" required>
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddBikeKMS">Kms</label>
-                        <input type="text" name="adminAddBikeKMS" id="adminAddBikeKMS">
+                        <input type="text" name="bikeKms" id="adminAddBikeKMS">
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddBikePrice">Bike Buying Price<span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddBikePrice" id="adminAddBikePrice" required>
+                        <input type="text" name="bikePrice" id="adminAddBikePrice" required>
                     </div>
                     <div class="col-12 col-md-4">
                         <label for="adminAddBikeFixingPrice">Bike Fixing Price<span class="requiredStar">*</span></label>
-                        <input type="text" name="adminAddBikeFixingPrice" id="adminAddBikeFixingPrice" required>
+                        <input type="text" name="sellingPrice" id="adminAddBikeFixingPrice" required>
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddbikeOwner">Owner</label>
-                        <select id="adminAddbikeOwner" name="adminAddbikeOwner">
+                        <select id="adminAddbikeOwner" name="bikeOwner">
                             <option value="">Select</option>
                             <option value="first Owner">First Owner</option>
                             <option value="second Owner">Second Owner</option>
@@ -89,12 +89,12 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddbikeYear">Year</label>
-                        <input type="text" name="adminAddbikeYear" id="adminAddbikeYear">
+                        <input type="text" name="bikeBuyingYear" id="adminAddbikeYear">
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddbikeColor">Color</label>
-                        <select id="adminAddbikeColor" name="adminAddbikeColor">
+                        <select id="adminAddbikeColor" name="bikeColor">
                             <option value="Beige">Beige</option>
                             <option value="Black">Black</option>
                             <option value="Blue">Blue</option>
@@ -113,12 +113,12 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddEngineCC">Engine CC</label>
-                        <input type="text" name="adminAddEngineCC" id="adminAddEngineCC">
+                        <input type="text" name="bikeEngineCC" id="adminAddEngineCC">
                     </div>
 
                     <div class="col-12 col-md-4">
                         <label for="adminAdddriveType">Drive Type</label>
-                        <select id="adminAdddriveType" name="adminAdddriveType">
+                        <select id="adminAdddriveType" name="driveType">
                             <option value="Motorcycle">Motorcycle</option>
                             <option value="Scooter">Scooter</option>
                         </select>
@@ -126,7 +126,7 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddInsurance">Insurance</label>
-                        <select id="adminAddInsurance" name="adminAddInsurance">
+                        <select id="adminAddInsurance" name="insurance">
                             <option value="Insurance Not Availabile">No</option>
                             <option value="Subject to Availability">Subject to Availability</option>
                             <option value="Insurance Availabile">Yes</option>
@@ -135,7 +135,7 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddHorsepower">HP</label>
-                        <select id="adminAddHorsepower" name="adminAddHorsepower">
+                        <select id="adminAddHorsepower" name="horsepower">
                             <option value="Horsepower Yes">Yes</option>
                             <option value="Horsepower No">No</option>
                         </select>
@@ -143,11 +143,11 @@
 
                     <div class="col-12 col-md-4">
                         <label for="adminAddLocation">Location</label>
-                        <input type="text" name="adminAddLocation" id="adminAddLocation">
+                        <input type="text" name="bikeLocation" id="adminAddLocation">
                     </div>
                     <div>
                         <label for="adminAdddescription">Description</label><br>
-                        <textarea id="adminAdddescription" name="adminAdddescription" rows="10" cols="80"></textarea>
+                        <textarea id="adminAdddescription" name="description" rows="10" cols="80"></textarea>
                     </div>
                 </div>
                 

@@ -27,7 +27,7 @@ document.getElementById("bikeForm").addEventListener("submit", async function (e
 
     try {
         const response = await fetch(`${window.API.BASE_URL}/addBike`, {
-            method: "POST",
+            method: form.method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
