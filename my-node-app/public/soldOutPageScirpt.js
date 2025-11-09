@@ -46,10 +46,12 @@ function renderSoldOut() {
             <p>Model: ${bike.bikeModel}</p>
             <p>Kms: ${bike.bikeKms}</p>
             <p>Selling Price: ${bike.sellingPrice}</p>
-            <p>Buying Price: ${bike.bikePrice}</p>
+            ${bike.bikePrice ? `<p>Buying Price: ${bike.bikePrice}</p>` : ``}
             <p>Owner: ${bike.bikeOwner}</p>
             <p>Year: ${bike.bikeBuyingYear}</p>
           </div>
+          ${bike.sellingPrice && bike.bikePrice ? `<h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>` : ``}
+
           <h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>
         </div>
     </div>

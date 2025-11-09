@@ -358,7 +358,6 @@ app.get('/soldout', (req, res) => {
       resultData = resultData.map(bike => ({
         ...bike,
         bikePrice: undefined,
-        sellingPrice: undefined
       }));
       return {
         state: "success",
