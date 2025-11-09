@@ -61,9 +61,11 @@ function printEnquiryDetails() {
             <p><strong>Status:</strong> 
               <span class="status-text ${enquiryStatus.toLowerCase()}">${enquiryStatus}</span>
             </p>
+            <div id="statusContainer-${enquiry.id}">
             <button class="btn btn-primary" onclick="changeStatus(${enquiry.id})">Edit Status</button>
             <button class="btn btn-primary" onclick="sendMessage(${enquiry.id})">Send Message</button>
             <button class="btn btn-danger" onclick="deleteEnquiry(${enquiry.id})">Delete</button>
+            </div>
           </div>
         </div>
       </div>
@@ -82,12 +84,21 @@ document.getElementById("statusFilter").addEventListener("change", () => {
 function renderPagination(totalItems, perPage) {
   let totalPages = Math.ceil(totalItems / perPage);
   let paginationDiv = document.getElementById("pagination");
+
+  let maxVisible = 3;
+  let start = Math.max(1, currentPage - 1);
+  let end = Math.min(totalPages, start + maxVisible - 1);
+
+  if (end - start < maxVisible - 1) {
+    start = Math.max(1, end - maxVisible + 1);
+  }
+
   let buttons = `
     <button class="btn btn-sm btn-light me-2" onclick="goToPrevPage()">
       <i class="bi bi-chevron-double-left"></i>
     </button>
   `;
-  for (let i = 1; i <= totalPages; i++) {
+  for (let i = start; i <= end; i++) {
     buttons += `
       <button 
         class="btn btn-sm ${i === currentPage ? 'btn-dark' : 'btn-light'} me-1"
@@ -154,7 +165,6 @@ async function deleteEnquiry(id) {
 }
 
 function changeStatus(id) {
-  alert("Hi")
   let container = document.getElementById(`statusContainer-${id}`);
   let options = window.CONFIG.enquiryStatusList.map(s => `<option value="${s}">${s}</option>`).join("");
   container.innerHTML = `

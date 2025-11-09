@@ -350,9 +350,30 @@ app.put('/bikes/:id/soldout', (req, res) => {
 });
 
 app.get('/soldout', (req, res) => {
+  const adminName = req.query.adminName;
   db.query('SELECT * FROM soldOutBike', (err, results) => {
     if (err) return res.status(500).json(err);
-    res.json(results);
+    let resultData = results;
+    if (adminName.toLowerCase() === "mani") {
+      resultData = resultData.map(bike => ({
+        ...bike,
+        bikePrice: undefined,
+        sellingPrice: undefined
+      }));
+      return {
+        state: "success",
+        data: res.json(resultData)
+      }
+    }
+    else if (adminName === "murugan" || adminName === "raja") {
+      
+      return {
+        state: "success",
+        data: res.json(resultData)
+      }
+      return res.json(resultData);
+    }
+    return res.status(403).json({ message: "Access denied" });
   });
 });
 

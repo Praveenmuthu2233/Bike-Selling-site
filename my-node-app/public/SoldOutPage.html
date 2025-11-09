@@ -16,10 +16,24 @@
         <h2 class="text-center mb-4">Sold Out Bikes</h2>
       </div>
     </div>
+    <div class="soldOut-sort text-end mb-3">
+      <select id="soldOutSort" class="form-select w-auto d-inline" onchange="sortSoldOut()">
+          <option value="newest">Newest First</option>
+          <option value="oldest">Oldest First</option>
+      </select>
+    </div>
+
     <div class="row" id="SoldOut"></div>
+    <div id="pagination" class="text-center my-3"></div>
+    <div class="text-end">
+      <button class="download-btn sheet" onclick="downloadSoldOutSheet()">Download Sheet</button>
+    </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <script src="config.js"></script>
   <script src="soldOutPageScirpt.js"></script>
+
   <script>
     window.onload = () => {
       soldOutPrint();
