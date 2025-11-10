@@ -6,6 +6,10 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+require('dotenv').config();
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -376,10 +380,11 @@ app.get('/soldout', (req, res) => {
   });
 });
 
-app.post('/addUser', (req, res) => {
+app.post('/addUser', async (req, res) => {
   const { firstName, lastName, mobileNumber, email, signUpPassword } = req.body;
+  const hashedPassword = await bcrypt.hash(signUpPassword, 10);
   const sql = 'INSERT INTO signUpList (firstName, lastName, mobileNumber, email, signUpPassword) VALUES (?, ?, ?, ?, ?)';
-  db.query(sql, [firstName, lastName, mobileNumber, email, signUpPassword], err => {
+  db.query(sql, [firstName, lastName, mobileNumber, email, hashedPassword], err => {
     if (err) return res.status(500).send(err);
     res.send({ message: 'User registered successfully' });
   });
@@ -387,17 +392,63 @@ app.post('/addUser', (req, res) => {
 
 app.post('/login', (req, res) => {
   const { mobileNumber, signUpPassword } = req.body;
-  const sql = 'SELECT * FROM signUpList WHERE mobileNumber = ? AND signUpPassword = ?';
-  db.query(sql, [mobileNumber, signUpPassword], (err, results) => {
-    if (err) return res.status(500).json({ success: false, message: 'Login failed', error: err });
-    if (results.length > 0) {
-      const user = results[0];
-      res.json({ success: true, message: 'Login successful', firstName: user.firstName, lastName: user.lastName, email: user.email });
-    } else {
-      res.json({ success: false, message: 'Invalid credentials' });
+  const sql = 'SELECT * FROM signUpList WHERE mobileNumber = ?';
+  db.query(sql, [mobileNumber], async (err, results) => {
+    if (err) return res.status(500).json({ success: false, message: "DB error" });
+
+    if (results.length === 0) {
+      return res.json({ success: false, message: "Mobile number not found" });
     }
+
+    const user = results[0];
+
+    const isMatch = await bcrypt.compare(signUpPassword, user.signUpPassword);
+    if (!isMatch) {
+      return res.json({ success: false, message: "Wrong password" });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, mobile: user.mobileNumber },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
+      }
+    });
   });
 });
+function auth(req, res, next) {
+  const header = req.headers.authorization;
+
+  if (!header) return res.status(401).json({ message: "Missing token" });
+
+  const token = header.split(" ")[1];
+
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(401).json({ message: "Invalid token" });
+    req.user = decoded;
+    next();
+  });
+}
+app.get("/profile", auth, (req, res) => {
+  const userId = req.user.id;
+
+  db.query("SELECT firstName, lastName, mobileNumber, email FROM signUpList WHERE id = ?", 
+  [userId], 
+  (err, results) => {
+    if (err) return res.status(500).json({ message: "DB error" });
+    res.json(results[0]);
+  });
+});
+
 
 app.get('/checkMobile/:mobile', (req, res) => {
   db.query('SELECT * FROM signUpList WHERE mobileNumber = ?', [req.params.mobile], (err, result) => {
@@ -405,6 +456,21 @@ app.get('/checkMobile/:mobile', (req, res) => {
     res.json({ exists: result.length > 0 });
   });
 });
+
+// app.update("/resetPassword", (req, res) => {
+//     const { mobileNumber, newPassword } = req.body;
+//     db.query(
+//         "UPDATE signup SET signUpPassword = ? WHERE mobileNumber = ?",
+//         [newPassword, mobileNumber],
+//         (err, result) => {
+//           if (err) return res.json({ success: false, message: "DB Error" });
+//           if (result.affectedRows === 0) {
+//               return res.json({ success: false, message: "Mobile number not found" });
+//           }
+//           res.json({ success: true });
+//         }
+//     );
+// });
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

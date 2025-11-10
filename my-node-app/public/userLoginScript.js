@@ -1,66 +1,95 @@
-let loginDB;
-let loginDetails = indexedDB.open("signUpDetailsDB", 1);
+// let loginDB;
+// let loginDetails = indexedDB.open("signUpDetailsDB", 1);
 
-loginDetails.onupgradeneeded = function (event) {
-    loginDB = event.target.result;
-    loginDB.createObjectStore("signUpList", { autoIncrement: true });
-};
+// loginDetails.onupgradeneeded = function (event) {
+//     loginDB = event.target.result;
+//     loginDB.createObjectStore("signUpList", { autoIncrement: true });
+// };
 
-loginDetails.onsuccess = function (event) {
-    loginDB = event.target.result;
-    profileOrLogin();
-};
+// loginDetails.onsuccess = function (event) {
+//     loginDB = event.target.result;
+//     profileOrLogin();
+// };
 
-window.onload = function() {
-    profileOrLogin();
-};
-function profileOrLogin() {
-    let transaction = loginDB.transaction(["signUpList"], "readonly");
-    let objectStore = transaction.objectStore("signUpList");
-    let request = objectStore.openCursor();
-    let foundLogin = false;
+// window.onload = function() {
+//     profileOrLogin();
+// };
+    // function profileOrLogin() {
+    //     let transaction = loginDB.transaction(["signUpList"], "readonly");
+    //     let objectStore = transaction.objectStore("signUpList");
+    //     let request = objectStore.openCursor();
+    //     let foundLogin = false;
 
-    request.onsuccess = function (event) {
-        let cursor = event.target.result;
-        if (cursor) {
-            let user = cursor.value;
-            if (user.isLogin) foundLogin = true;
-            cursor.continue();
-        } else {
-            profileView(foundLogin);
-        }
-    };
-}
+    //     request.onsuccess = function (event) {
+    //         let cursor = event.target.result;
+    //         if (cursor) {
+    //             let user = cursor.value;
+    //             if (user.isLogin) foundLogin = true;
+    //             cursor.continue();
+    //         } else {
+    //             profileView(foundLogin);
+    //         }
+    //     };
+    // }
 
-function profileView(foundLogin) {
+    // function profileView(foundLogin) {
+    //     let loginShowEle = document.getElementsByClassName("loginShow")[0];
+    //     let profileShowEle = document.getElementsByClassName("profileShow")[0];
+
+    //     if (foundLogin) {
+    //         loginShowEle.classList.add('d-none');
+    //         profileShowEle.classList.remove('d-none');
+    //     } else {
+    //         loginShowEle.classList.remove('d-none');
+    //         profileShowEle.classList.add('d-none');
+    //     }
+    // }
+function checkLoginStatus() {
+    const token = sessionStorage.getItem("token");
+
     let loginShowEle = document.getElementsByClassName("loginShow")[0];
     let profileShowEle = document.getElementsByClassName("profileShow")[0];
 
-    if (foundLogin) {
-        loginShowEle.classList.add('d-none');
-        profileShowEle.classList.remove('d-none');
-    } else {
-        loginShowEle.classList.remove('d-none');
-        profileShowEle.classList.add('d-none');
+    if (!token) {
+        loginShowEle.classList.remove("d-none");
+        profileShowEle.classList.add("d-none");
+        return;
     }
+    fetch(`${window.API.BASE_URL}/profile`, {
+        headers: { "Authorization": "Bearer " + token }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error("Invalid token");
+        return res.json();
+    })
+    .then(profile => {
+        loginShowEle.classList.add("d-none");
+        profileShowEle.classList.remove("d-none");
+        const userName = document.getElementById("userName");
+        if (userName) userName.innerText = profile.firstName;
+    })
+    .catch(() => {
+        sessionStorage.removeItem("token");
+
+        loginShowEle.classList.remove("d-none");
+        profileShowEle.classList.add("d-none");
+    });
 }
+window.onload = checkLoginStatus;
 
 document.addEventListener("DOMContentLoaded", function () {
-
-    showLoginForm();
-
-    function showLoginForm() {
+    window.showLoginForm = function () {
         document.getElementById('signUpBox').style.display = 'none';
         document.getElementById('loginBox').style.display = 'block';
         document.getElementById('loginForm').reset();
-    }
+    };
 
+    showLoginForm();
     document.getElementById('showSignUp').addEventListener('click', function () {
         document.getElementById('loginBox').style.display = 'none';
         document.getElementById('signUpBox').style.display = 'block';
         document.getElementById('signUpForm').reset();
     });
-
     document.getElementById('showLogin').addEventListener('click', showLoginForm);
 
 });
@@ -72,17 +101,15 @@ function clearErrors() {
 function signUpFormSubmit(event) {
     event.preventDefault();
     clearErrors();
-
     let firstName = document.getElementById("firstName").value.trim();
     let lastName = document.getElementById("lastName").value.trim();
-    let mobileNumber = document.getElementById('mobileNumber').value.trim();
-    let emailAddress = document.getElementById('email').value.trim();
-    let signUpPassword = document.getElementById('signUpPassword').value.trim();
-    let confirmPassword = document.getElementById('confirmPassword').value.trim();
-    let agreeTerms = document.getElementById('agreeTerms').checked;
+    let mobileNumber = document.getElementById("mobileNumber").value.trim();
+    let emailAddress = document.getElementById("email").value.trim();
+    let signUpPassword = document.getElementById("signUpPassword").value.trim();
+    let confirmPassword = document.getElementById("confirmPassword").value.trim();
+    let agreeTerms = document.getElementById("agreeTerms").checked;
 
     let valid = true;
-
     if (firstName.length < window.VALIDATION.firstNameMin) {
         document.getElementById("firstNameError").textContent = window.VALIDATION.MESSAGES.firstName;
         valid = false;
@@ -114,59 +141,21 @@ function signUpFormSubmit(event) {
     }
 
     if (!valid) return;
-
-
-    fetch(`${window.API.BASE_URL}/checkMobile/${mobileNumber}`)
+    let user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword };
+    fetch(`${window.API.BASE_URL}/addUser`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user)
+    })
     .then(res => res.json())
-    .then(data => {
-        if (data.exists) {
-            Swal.fire({
-                icon: 'warning',
-                title: 'Already Registered!',
-                text: 'This mobile number is already registered !',
-                confirmButtonColor: '#d33',
-                confirmButtonText: 'OK'
-            });
-            return;
-        }
-        const user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword, isLogin: false };
-        fetch(`${window.API.BASE_URL}/addUser`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(user)
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.success) {
-                const transaction = loginDB.transaction(["signUpList"], "readwrite");
-                const store = transaction.objectStore("signUpList");
-
-                let duplicate = false;
-                store.openCursor().onsuccess = function (event) {
-                    let cursor = event.target.result;
-                    if (cursor) {
-                        if (cursor.value.mobileNumber === mobileNumber) {
-                            duplicate = true;
-                        }
-                        cursor.continue();
-                    } else {
-                        if (!duplicate) {
-                            store.add(user);
-                                Swal.fire({
-                                    icon: 'success',
-                                    title: 'Enquiry Sent!',
-                                    text: 'We will contact you soon.',
-                                    confirmButtonColor: '#28a745',
-                                    confirmButtonText: 'OK'
-                                });
-                            showLoginForm();
-                        } else {
-                            document.getElementById("mobileError").textContent = "Mobile already exists locally";
-                        }
-                    }
-                };
-            }
+    .then(() => {
+        Swal.fire({
+            icon: 'success',
+            title: 'Signup Successful!',
+            text: 'Please login to continue.',
+            confirmButtonColor: '#28a745'
         });
+
         showLoginForm();
     });
 }
@@ -175,87 +164,189 @@ document.getElementById('signUpForm').addEventListener('submit', signUpFormSubmi
 
 function loginFormSubmit(event) {
     event.preventDefault();
-
+    
     let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
     let loginPassword = document.getElementById("loginPassword").value.trim();
 
     fetch(`${window.API.BASE_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mobileNumber: loginMobileNumber, signUpPassword: loginPassword })
+        body: JSON.stringify({
+            mobileNumber: loginMobileNumber,
+            signUpPassword: loginPassword
+        })
     })
     .then(res => res.json())
     .then(data => {
+
         if (data.success) {
-            const transaction = loginDB.transaction(["signUpList"], "readwrite");
-            const store = transaction.objectStore("signUpList");
+            sessionStorage.setItem("token", data.token);
 
-            store.openCursor().onsuccess = function (event) {
-                const cursor = event.target.result;
-                if (cursor) {
-                    let user = cursor.value;
-                    user.isLogin = false;
-                    cursor.update(user);
-                    cursor.continue();
-                }
-            };
-
-            transaction.oncomplete = function () {
-                const tx2 = loginDB.transaction(["signUpList"], "readwrite");
-                const store2 = tx2.objectStore("signUpList");
-                let updated = false;
-
-                store2.openCursor().onsuccess = function (event) {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        let user = cursor.value;
-                        if (user.mobileNumber === loginMobileNumber) {
-                            user.isLogin = true;
-                            cursor.update(user);
-                            updated = true;
-                        }
-                        cursor.continue();
-                    }
-                };
-
-                tx2.oncomplete = function () {
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Login Successful!',
-                        text: `Welcome ${data.firstName + " " + data.lastName}`,
-                        confirmButtonColor: '#28a745',
-                        confirmButtonText: 'Continue'
-                    }).then(() => {
-                        window.location.href = "index.html";
-                    });
-                };
-            };
+            Swal.fire({
+                icon: 'success',
+                title: 'Login Successful!',
+                text: `Welcome ${data.user.firstName} ${data.user.lastName}`,
+                confirmButtonColor: '#28a745',
+            }).then(() => {
+                window.location.href = "index.html";
+            });
 
         } else {
             Swal.fire({
                 icon: 'error',
-                title: 'Login Failed!',
-                text: data.message || "Invalid mobile number or password",
+                title: 'Login Failed',
+                text: data.message,
                 confirmButtonColor: '#d33'
             });
         }
-
     })
-    .catch(err => console.error("SQL login error:", err));
+    .catch(err => console.error("Login error:", err));
 }
-
 
 document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
 
-document.getElementById("rememberMe").addEventListener("change", function () {
-    const passwordField = document.getElementById("loginPassword");
+function fetchProfile() {
+    const token = sessionStorage.getItem("token");
+    if (!token) return;
 
-    if (this.checked) {
-        passwordField.type = "text";
-    } else {
-        passwordField.type = "password";
-    }
+    fetch(`${window.API.BASE_URL}/profile`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(res => res.json())
+    .then(profile => {
+        document.querySelector(".loginShow").classList.add("d-none");
+        document.querySelector(".profileShow").classList.remove("d-none");
+        document.getElementById("userName").innerText = profile.firstName;
+    })
+    .catch(() => sessionStorage.removeItem("token"));
+}
+function logout() {
+    sessionStorage.removeItem("token");
+    window.location.href = "userLogin.html";
+}
+
+document.getElementById("rememberMe").addEventListener("change", function () {
+    document.getElementById("loginPassword").type = this.checked ? "text" : "password";
 });
+
+// function verifyOtp() {
+//     let entered = document.getElementById("otpInput").value.trim();
+    
+//     document.getElementById('signUpForm').reset();
+//     document.getElementById('loginBox').style.display = 'block';
+//     document.getElementById('signUpBox').style.display = 'none';
+// }
+
+// document.getElementById("signUpOtpBtn").onclick = async function () {
+//     const mobile = document.getElementById("signUpMobileNumber").value.trim();
+//     clearErrors();
+
+//     if (!/^[6-9]\d{9}$/.test(mobile)) {
+//         document.getElementById("mobileError").textContent = "Enter valid 10-digit mobile number";
+//         return;
+//     }
+
+//     const check = await fetch(`${window.API.BASE_URL}/checkMobile/${mobile}`).then(r => r.json());
+//     if (check.exists) {
+//         Swal.fire({ icon: "warning", title: "Already Registered", text: "Mobile number already exists" });
+//         return;
+//     }
+
+//     const response = await fetch(`${window.API.BASE_URL}/send-otp`, {
+//         method: "POST",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ mobile })
+//     }).then(r => r.json());
+
+//     if (response.success) {
+//         receivedOTP = String(response.otp);
+
+//         const modal = new bootstrap.Modal(document.getElementById("otpModal"));
+//         modal.show();
+//     } else {
+//         Swal.fire({ icon: "error", title: "OTP Error", text: "OTP could not be sent" });
+//     }
+// };
+
+// document.getElementById("forgotPassword").addEventListener("click", function () {
+//     var modal = new bootstrap.Modal(document.getElementById('forgotPasswordModal'));
+//     modal.show();
+// });
+// document.getElementById("resetPasswordBtn").addEventListener("click", function () {
+
+//     let mobile = document.getElementById("forgotMobile").value.trim();
+//     let newPass = document.getElementById("newPassword").value.trim();
+//     let confirmPass = document.getElementById("confirmNewPassword").value.trim();
+
+//     document.getElementById("forgotMobileError").textContent = "";
+//     document.getElementById("newPasswordError").textContent = "";
+//     document.getElementById("confirmNewPasswordError").textContent = "";
+
+//     let valid = true;
+
+//     if (!window.VALIDATION.mobileRegex.test(mobile)) {
+//         document.getElementById("forgotMobileError").textContent = "Invalid mobile number!";
+//         valid = false;
+//     }
+
+//     if (newPass.length < window.VALIDATION.passwordMin) {
+//         document.getElementById("newPasswordError").textContent = "Password is too short!";
+//         valid = false;
+//     }
+
+//     if (newPass !== confirmPass) {
+//         document.getElementById("confirmNewPasswordError").textContent = "Password does not match!";
+//         valid = false;
+//     }
+
+//     if (!valid) return;
+//     fetch(`${window.API.BASE_URL}/resetPassword`, {
+//         method: "update",
+//         headers: { "Content-Type": "application/json" },
+//         body: JSON.stringify({ mobileNumber: mobile, newPassword: newPass })
+//     })
+//     .then(res => res.json())
+//     .then(data => {
+
+//         if (data.success) {
+
+//             const tx = loginDB.transaction(["signUpList"], "readwrite");
+//             const store = tx.objectStore("signUpList");
+
+//             store.openCursor().onsuccess = function (event) {
+//                 let cursor = event.target.result;
+//                 if (cursor) {
+//                     let user = cursor.value;
+//                     if (user.mobileNumber === mobile) {
+//                         user.signUpPassword = newPass;
+//                         cursor.update(user);
+//                     }
+//                     cursor.continue();
+//                 }
+//             };
+
+//             Swal.fire({
+//                 icon: 'success',
+//                 title: 'Password Updated',
+//                 text: 'Your password has been changed successfully.',
+//             });
+
+//             var modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+//             modal.hide();
+
+//         } else {
+//             Swal.fire({
+//                 icon: 'error',
+//                 title: 'Failed!',
+//                 text: data.message || "User not found!"
+//             });
+//         }
+
+//     })
+//     .catch(err => console.log(err));
+// });
 
 // let dbEnq;
 // function autoLogoutAdmin() {

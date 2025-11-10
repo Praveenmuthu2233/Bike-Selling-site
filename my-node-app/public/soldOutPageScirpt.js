@@ -51,8 +51,6 @@ function renderSoldOut() {
             <p>Year: ${bike.bikeBuyingYear}</p>
           </div>
           ${bike.sellingPrice && bike.bikePrice ? `<h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>` : ``}
-
-          <h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>
         </div>
     </div>
     `;
