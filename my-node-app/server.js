@@ -6,8 +6,6 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
-
-const bcrypt = require("bcrypt");
 const bcrypt = require("bcryptjs");
 
 const jwt = require("jsonwebtoken");
