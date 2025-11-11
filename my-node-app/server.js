@@ -7,8 +7,10 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
+
 const jwt = require("jsonwebtoken");
-require('dotenv').config();
+
 const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
@@ -31,15 +33,15 @@ app.use(express.static(path.join(__dirname, 'public')));
 //   }
 // });const upload = multer({ storage: storage });
 
-const upload = multer();
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + "-" + file.originalname);
-  }
-});
+// const upload = multer();
+// const storage = multer.diskStorage({
+//   destination: function (req, file, cb) {
+//     cb(null, "uploads/");
+//   },
+//   filename: function (req, file, cb) {
+//     cb(null, Date.now() + "-" + file.originalname);
+//   }
+// });
 
 const db = mysql.createPool({
   connectionLimit: process.env.DB_CONNECTION_LIMIT,
@@ -348,7 +350,7 @@ app.put('/bikes/:id/soldout', (req, res) => {
     if (err) return res.status(500).json({ message: 'Failed to copy bike', error: err });
     db.query('DELETE FROM bikesforsale WHERE id = ?', [bikeId], (err2) => {
       if (err2) return res.status(500).json({ message: 'Delete failed', error: err2 });
-      res.json({ message: '✅ Bike moved to Sold Out list successfully' });
+      res.json({ message: 'Bike moved to Sold Out list successfully' });
     });
   });
 });
@@ -369,12 +371,11 @@ app.get('/soldout', (req, res) => {
       }
     }
     else if (adminName === "murugan" || adminName === "raja") {
-      
+
       return {
         state: "success",
         data: res.json(resultData)
       }
-      return res.json(resultData);
     }
     return res.status(403).json({ message: "Access denied" });
   });
@@ -412,6 +413,7 @@ app.post('/login', (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
     );
+    console.log("JWT:", process.env.JWT_SECRET);
 
     res.json({
       success: true,
@@ -440,7 +442,6 @@ function auth(req, res, next) {
 }
 app.get("/profile", auth, (req, res) => {
   const userId = req.user.id;
-
   db.query("SELECT firstName, lastName, mobileNumber, email FROM signUpList WHERE id = ?", 
   [userId], 
   (err, results) => {

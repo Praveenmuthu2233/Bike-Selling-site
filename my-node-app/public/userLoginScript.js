@@ -14,36 +14,37 @@
 // window.onload = function() {
 //     profileOrLogin();
 // };
-    // function profileOrLogin() {
-    //     let transaction = loginDB.transaction(["signUpList"], "readonly");
-    //     let objectStore = transaction.objectStore("signUpList");
-    //     let request = objectStore.openCursor();
-    //     let foundLogin = false;
 
-    //     request.onsuccess = function (event) {
-    //         let cursor = event.target.result;
-    //         if (cursor) {
-    //             let user = cursor.value;
-    //             if (user.isLogin) foundLogin = true;
-    //             cursor.continue();
-    //         } else {
-    //             profileView(foundLogin);
-    //         }
-    //     };
-    // }
+// function profileOrLogin() {
+//     let transaction = loginDB.transaction(["signUpList"], "readonly");
+//     let objectStore = transaction.objectStore("signUpList");
+//     let request = objectStore.openCursor();
+//     let foundLogin = false;
 
-    // function profileView(foundLogin) {
-    //     let loginShowEle = document.getElementsByClassName("loginShow")[0];
-    //     let profileShowEle = document.getElementsByClassName("profileShow")[0];
+//     request.onsuccess = function (event) {
+//         let cursor = event.target.result;
+//         if (cursor) {
+//             let user = cursor.value;
+//             if (user.isLogin) foundLogin = true;
+//             cursor.continue();
+//         } else {
+//             profileView(foundLogin);
+//         }
+//     };
+// }
 
-    //     if (foundLogin) {
-    //         loginShowEle.classList.add('d-none');
-    //         profileShowEle.classList.remove('d-none');
-    //     } else {
-    //         loginShowEle.classList.remove('d-none');
-    //         profileShowEle.classList.add('d-none');
-    //     }
-    // }
+// function profileView(foundLogin) {
+//     let loginShowEle = document.getElementsByClassName("loginShow")[0];
+//     let profileShowEle = document.getElementsByClassName("profileShow")[0];
+
+//     if (foundLogin) {
+//         loginShowEle.classList.add('d-none');
+//         profileShowEle.classList.remove('d-none');
+//     } else {
+//         loginShowEle.classList.remove('d-none');
+//         profileShowEle.classList.add('d-none');
+//     }
+// }
 function checkLoginStatus() {
     const token = sessionStorage.getItem("token");
 
