@@ -2,22 +2,27 @@ require('dotenv').config();
 const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
-const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs');  
 const multer = require('multer');
 const bcrypt = require("bcryptjs");
-
+const cors = require('cors');
 const jwt = require("jsonwebtoken");
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const app = express();
 
+const corsOptions = {
+  origin: "*",
+  methods: "GET,POST,PUT,DELETE",
+  allowedHeaders: "Content-Type,Authorization"
+};
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
-
-app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
+app.use(bodyParser.json());
+app.use(express.urlencoded({ extended: true }));
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -35,16 +40,6 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage: storage });
-
-// const upload = multer();
-// const storage = multer.diskStorage({
-//   destination: function (req, file, cb) {
-//     cb(null, "uploads/");
-//   },
-//   filename: function (req, file, cb) {
-//     cb(null, Date.now() + "-" + file.originalname);
-//   }
-// });
 
 const db = mysql.createPool({
   connectionLimit: process.env.DB_CONNECTION_LIMIT,
