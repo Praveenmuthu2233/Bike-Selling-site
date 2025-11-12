@@ -4,42 +4,45 @@ const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
+
 const bcrypt = require("bcryptjs");
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
 
 const app = express();
 
+const multer = require("multer");
 const JWT_SECRET = process.env.JWT_SECRET;
-
-const corsOptions = {
+app.use(cors({
   origin: "*",
   methods: "GET,POST,PUT,DELETE",
   allowedHeaders: "Content-Type,Authorization"
-};
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
 
+const uploadDir = path.join('/tmp', 'uploads');
 
-if (!fs.existsSync('./uploads')) fs.mkdirSync('./uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+  console.log("✅ Upload directory created:", uploadDir);
+}
+app.use('/uploads', express.static(uploadDir));
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, "uploads/");
+    cb(null, uploadDir);
   },
   filename: function (req, file, cb) {
     cb(null, Date.now() + "-" + file.originalname);
   }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ storage });
 
 const db = mysql.createPool({
   connectionLimit: process.env.DB_CONNECTION_LIMIT,
@@ -397,7 +400,7 @@ app.post('/login', (req, res) => {
     }
     const token = jwt.sign(
       { id: user.id, mobile: user.mobileNumber },
-      process.env.JWT_SECRET,
+      JWT_SECRET,
       { expiresIn: "7d" }
     );
 
@@ -413,7 +416,9 @@ app.post('/login', (req, res) => {
     });
   });
 });
-
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
+});
 function auth(req, res, next) {
   const header = req.headers.authorization;
 
@@ -421,12 +426,13 @@ function auth(req, res, next) {
 
   const token = header.split(" ")[1];
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
     if (err) return res.status(401).json({ message: "Invalid token" });
     req.user = decoded;
     next();
   });
 }
+
 app.get("/profile", auth, (req, res) => {
   const userId = req.user.id;
   db.query("SELECT firstName, lastName, mobileNumber, email FROM signUpList WHERE id = ?", 

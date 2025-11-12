@@ -179,6 +179,7 @@ function loginFormSubmit(event) {
     })
     .then(async (res) => {
         const text = await res.text();
+        alert("HI")
         try {
             return JSON.parse(text);
         } catch {
