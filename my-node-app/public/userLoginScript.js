@@ -165,7 +165,7 @@ document.getElementById('signUpForm').addEventListener('submit', signUpFormSubmi
 
 function loginFormSubmit(event) {
     event.preventDefault();
-    
+
     let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
     let loginPassword = document.getElementById("loginPassword").value.trim();
 
@@ -177,9 +177,16 @@ function loginFormSubmit(event) {
             signUpPassword: loginPassword
         })
     })
-    .then(res => res.json())
+    .then(async (res) => {
+        const text = await res.text();
+        try {
+            return JSON.parse(text);
+        } catch {
+            console.error("NON-JSON RESPONSE:", text);
+            throw new Error("Server returned invalid JSON");
+        }
+    })
     .then(data => {
-
         if (data.success) {
             sessionStorage.setItem("token", data.token);
 
@@ -203,6 +210,47 @@ function loginFormSubmit(event) {
     })
     .catch(err => console.error("Login error:", err));
 }
+
+// function loginFormSubmit(event) {
+//     event.preventDefault();
+    
+//     let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
+//     let loginPassword = document.getElementById("loginPassword").value.trim();
+    
+//     fetch(`${window.API.BASE_URL}/login`, {
+//         method: 'POST',
+//         headers: { 'Content-Type': 'application/json' },
+//         body: JSON.stringify({
+//             mobileNumber: loginMobileNumber,
+//             signUpPassword: loginPassword
+//         })
+//     })
+//     .then(res => res.json())
+//     .then(data => {
+
+//         if (data.success) {
+//             sessionStorage.setItem("token", data.token);
+
+//             Swal.fire({
+//                 icon: 'success',
+//                 title: 'Login Successful!',
+//                 text: `Welcome ${data.user.firstName} ${data.user.lastName}`,
+//                 confirmButtonColor: '#28a745',
+//             }).then(() => {
+//                 window.location.href = "index.html";
+//             });
+
+//         } else {
+//             Swal.fire({
+//                 icon: 'error',
+//                 title: 'Login Failed',
+//                 text: data.message,
+//                 confirmButtonColor: '#d33'
+//             });
+//         }
+//     })
+//     .catch(err => console.error("Login error:", err));
+// }
 
 document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
 
