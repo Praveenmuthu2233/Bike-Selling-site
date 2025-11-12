@@ -3,13 +3,15 @@ const express = require('express');
 const mysql = require('mysql');
 const bodyParser = require('body-parser');
 const path = require('path');
-const fs = require('fs');  
+const fs = require('fs');
 const multer = require('multer');
 const bcrypt = require("bcryptjs");
 const cors = require('cors');
 const jwt = require("jsonwebtoken");
 
 const app = express();
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const corsOptions = {
   origin: "*",
@@ -21,8 +23,6 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
-
-const JWT_SECRET = process.env.JWT_SECRET;
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
