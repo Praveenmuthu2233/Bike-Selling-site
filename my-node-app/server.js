@@ -13,6 +13,9 @@ const app = express();
 
 const multer = require("multer");
 const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error("Missing JWT_SECRET in environment variables");
+}
 app.use(cors({
   origin: "*",
   methods: "GET,POST,PUT,DELETE",
@@ -45,20 +48,26 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const db = mysql.createPool({
-  connectionLimit: process.env.DB_CONNECTION_LIMIT,
+  connectionLimit: process.env.DB_CONNECTION_LIMIT || 10,
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
 
+db.getConnection((err) => {
+  if (err) {
+    console.error("❌ DB Connection Failed:", err);
+  } else {
+    console.log("✅ Database Connected Successfully");
+  }
+});
+initializeDatabase();
+startServer();
 function startServer() {
   const PORT = process.env.PORT || 5000;
   app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 }
-
-initializeDatabase();
-startServer();
 
 function initializeDatabase() {
   const queries = [
