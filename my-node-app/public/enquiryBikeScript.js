@@ -60,12 +60,11 @@ function printEnquiryDetails() {
                 Bike Link
               </a>
             </p>
-            <p><strong>Bike Details:</strong>
-            <a href="bike-details.html?id=${enquiry.listingId}" target="_blank">
+            <p><strong>Bike Details:</strong> 
+              <a href="enquiry-bike-details.html?id=${enquiry.listingId}" target="_blank">
                 View Bike
-            </a>
+              </a>
             </p>
-
             <p><strong>Status:</strong> 
               <span class="status-text ${enquiryStatus.toLowerCase()}">${enquiryStatus}</span>
             </p>
