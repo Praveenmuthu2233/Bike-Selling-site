@@ -60,7 +60,6 @@ async function MyEnquirys() {
     let profile = await fetch(`${window.API.BASE_URL}/profile`, {
         headers: { "Authorization": "Bearer " + token }
     }).then(res => res.json());
-
     fetch(`${window.API.BASE_URL}/enquiries/${profile.mobileNumber}`)
         .then(res => res.json())
         .then(enquiries => {
