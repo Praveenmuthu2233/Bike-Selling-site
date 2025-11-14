@@ -148,6 +148,31 @@ function initializeDatabase() {
   queries.forEach(sql => db.query(sql, err => { }));
 }
 
+const adminAccounts = {
+  raja: { password: "raja@22", name: "Raja" },
+  murugan: { password: "murugan@22", name: "Murugan" },
+  mani: { password: "mani@22", name: "Mani" }
+};
+app.post("/adminLogin", (req, res) => {
+  const { username, password } = req.body;
+
+  if (!adminAccounts[username]) {
+    return res.json({ success: false, message: "Invalid admin username" });
+  }
+
+  if (adminAccounts[username].password !== password) {
+    return res.json({ success: false, message: "Wrong password" });
+  }
+
+  return res.json({
+    success: true,
+    admin: {
+      username,
+      name: adminAccounts[username].name
+    }
+  });
+});
+
 app.post('/addBike', (req, res) => {
   const data = req.body;
   const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };

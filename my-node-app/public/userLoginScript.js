@@ -95,20 +95,25 @@ function signUpFormSubmit(event) {
     }
 
     if (!valid) return;
-    
+
     fetch(`${window.API.BASE_URL}/checkMobile/${mobileNumber}`)
     .then(res => res.json())
     .then(result => {
       if (result.exists) {
-        document.getElementById("mobileError").textContent = "Mobile already registered!";
+        Swal.fire({
+            icon: 'error',
+            title: 'Signup Failed!',
+            text: 'This mobile number is already registered.',
+            confirmButtonColor: '#d33'
+        });
         return;
       }
-
+      
       submitSignup(firstName, lastName, mobileNumber, emailAddress, signUpPassword);
-    });
+    })
 }
 function submitSignup(firstName, lastName, mobileNumber, email, password) {
-    let user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword };
+    let user = { firstName, lastName, mobileNumber, email, signUpPassword:password };
     fetch(`${window.API.BASE_URL}/addUser`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
