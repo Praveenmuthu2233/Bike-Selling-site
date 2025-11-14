@@ -1,50 +1,3 @@
-// let loginDB;
-// let loginDetails = indexedDB.open("signUpDetailsDB", 1);
-
-// loginDetails.onupgradeneeded = function (event) {
-//     loginDB = event.target.result;
-//     loginDB.createObjectStore("signUpList", { autoIncrement: true });
-// };
-
-// loginDetails.onsuccess = function (event) {
-//     loginDB = event.target.result;
-//     profileOrLogin();
-// };
-
-// window.onload = function() {
-//     profileOrLogin();
-// };
-
-// function profileOrLogin() {
-//     let transaction = loginDB.transaction(["signUpList"], "readonly");
-//     let objectStore = transaction.objectStore("signUpList");
-//     let request = objectStore.openCursor();
-//     let foundLogin = false;
-
-//     request.onsuccess = function (event) {
-//         let cursor = event.target.result;
-//         if (cursor) {
-//             let user = cursor.value;
-//             if (user.isLogin) foundLogin = true;
-//             cursor.continue();
-//         } else {
-//             profileView(foundLogin);
-//         }
-//     };
-// }
-
-// function profileView(foundLogin) {
-//     let loginShowEle = document.getElementsByClassName("loginShow")[0];
-//     let profileShowEle = document.getElementsByClassName("profileShow")[0];
-
-//     if (foundLogin) {
-//         loginShowEle.classList.add('d-none');
-//         profileShowEle.classList.remove('d-none');
-//     } else {
-//         loginShowEle.classList.remove('d-none');
-//         profileShowEle.classList.add('d-none');
-//     }
-// }
 function checkLoginStatus() {
     const token = sessionStorage.getItem("token");
 
@@ -142,6 +95,19 @@ function signUpFormSubmit(event) {
     }
 
     if (!valid) return;
+    
+    fetch(`${window.API.BASE_URL}/checkMobile/${mobileNumber}`)
+    .then(res => res.json())
+    .then(result => {
+      if (result.exists) {
+        document.getElementById("mobileError").textContent = "Mobile already registered!";
+        return;
+      }
+
+      submitSignup(firstName, lastName, mobileNumber, emailAddress, signUpPassword);
+    });
+}
+function submitSignup(firstName, lastName, mobileNumber, email, password) {
     let user = { firstName, lastName, mobileNumber, email: emailAddress, signUpPassword };
     fetch(`${window.API.BASE_URL}/addUser`, {
         method: 'POST',
@@ -179,7 +145,6 @@ function loginFormSubmit(event) {
     })
     .then(async (res) => {
         const text = await res.text();
-        alert("HI")
         try {
             return JSON.parse(text);
         } catch {

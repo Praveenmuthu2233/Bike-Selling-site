@@ -341,20 +341,31 @@ app.get('/soldout', (req, res) => {
     res.status(403).json({ message: "Access denied" });
   });
 });
-
 app.post('/addUser', async (req, res) => {
   const { firstName, lastName, mobileNumber, email, signUpPassword } = req.body;
-  const hashedPassword = await bcrypt.hash(signUpPassword, 10);
 
   db.query(
-    'INSERT INTO signUpList (firstName, lastName, mobileNumber, email, signUpPassword) VALUES (?, ?, ?, ?, ?)',
-    [firstName, lastName, mobileNumber, email, hashedPassword],
-    err => {
-      if (err) return res.status(500).send(err);
-      res.send({ message: 'User registered successfully' });
+    "SELECT * FROM signUpList WHERE mobileNumber = ?",
+    [mobileNumber],
+    async (err, result) => {
+      if (err) return res.status(500).json({ success: false, message: "Database error" });
+      if (result.length > 0) {
+        return res.json({ success: false, message: "Mobile number already registered!" });
+      }
+      const hashedPassword = await bcrypt.hash(signUpPassword, 10);
+      db.query(
+        "INSERT INTO signUpList (firstName, lastName, mobileNumber, email, signUpPassword) VALUES (?, ?, ?, ?, ?)",
+        [firstName, lastName, mobileNumber, email, hashedPassword],
+        (err) => {
+          if (err) return res.status(500).json({ success: false, message: "Registration failed" });
+
+          res.json({ success: true, message: "User registered successfully" });
+        }
+      );
     }
   );
 });
+
 
 app.post('/login', (req, res) => {
   const { mobileNumber, signUpPassword } = req.body;

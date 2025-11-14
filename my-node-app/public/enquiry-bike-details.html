@@ -136,7 +136,6 @@
     fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
       .then(res => res.json())
       .then(bike => {
-        console.log(bike)
         if (!bike) {
           document.getElementById("header").innerHTML = "<h2>Bike Not Found</h2>";
           document.getElementById("priceSection").style.display = "none";
@@ -150,7 +149,7 @@
         }
         document.getElementById("header").innerHTML = `
           <h2>${bike.listingTitle}</h2>
-          <p>${bike.bikeModel} - ${bike.bikeBuyingYear}</p>
+          <p>Bike Buying Year - ${bike.bikeBuyingYear}</p>
         `;
         document.getElementById("priceSection").innerHTML = `
           <p class="text-muted">Bike actual price ₹${bike.bikePrice}</p>
