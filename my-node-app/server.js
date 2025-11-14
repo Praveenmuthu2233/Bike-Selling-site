@@ -156,20 +156,20 @@ const adminAccounts = {
 app.post("/adminLogin", (req, res) => {
   const { username, password } = req.body;
 
-  if (!adminAccounts[username]) {
-    return res.json({ success: false, message: "Invalid admin username" });
+  if (!adminAccounts[username] || adminAccounts[username].password !== password) {
+    return res.json({ success: false, message: "Invalid Credentials" });
   }
-
-  if (adminAccounts[username].password !== password) {
-    return res.json({ success: false, message: "Wrong password" });
-  }
-
+   const adminData = {
+    username,
+    name: adminAccounts[username].name
+  };
+  const token = jwt.sign(adminData, process.env.ADMIN_JWT_SECRET, {
+    expiresIn: "2h"
+  });
   return res.json({
     success: true,
-    admin: {
-      username,
-      name: adminAccounts[username].name
-    }
+    token,
+    admin: adminData
   });
 });
 

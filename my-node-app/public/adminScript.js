@@ -179,8 +179,9 @@ function handleAdminLogin(event) {
         Swal.fire({
             icon: "success",
             title: `Welcome ${data.admin.name}!`,
-            confirmButtonColor: "#28a745"
-        }).then(() => {
+            confirmButtonColor: "#28a745",
+            confirmButtonText: "Continue"
+        }).then(() => { 
             checkAdminLoginStatus();
         });
     });
