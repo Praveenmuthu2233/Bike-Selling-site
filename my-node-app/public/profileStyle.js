@@ -57,9 +57,9 @@ async function MyEnquirys() {
         return;
     }
 
-    let profile = await fetch(`${window.API.BASE_URL}/profile`, {
-        headers: { "Authorization": "Bearer " + token }
-    }).then(res => res.json());
+    let profile = await fetch(`${window.API.BASE_URL}/profile`, {headers: { "Authorization": "Bearer " + token }
+    })
+    .then(res => res.json());
     fetch(`${window.API.BASE_URL}/enquiries/${profile.mobileNumber}`)
         .then(res => res.json())
         .then(enquiries => {
@@ -68,22 +68,24 @@ async function MyEnquirys() {
                 .then(bikes => {
                     let html = "";
                     enquiries.forEach(enquiry => {
-                        let bike = bikes.find(b => b.id === enquiry.listingId);
+                        let bike = bikes.find(b => b.id == enquiry.listingId);
+                        console.log(bikes)
                         html += `
-                            <div class="col-12 col-md-4 col-lg-3 mb-3">
-                                <div class="enquiry-card card shadow-sm">
-                                    <div class="card-body">
-                                        <h5>${bike ? bike.listingTitle : "Bike Removed"}</h5>
-                                        <p><strong>Message:</strong> ${enquiry.message}</p>
-                                    </div>
+                        <div class="col-12 col-md-4 col-lg-3 mb-3">
+                            <div class="enquiry-card card shadow-sm">
+                                <div class="card-body">
+                                    <h5>${bike ? bike.listingTitle : "Bike Sold Outed"}</h5>
+                                    <p><strong>Bike ID:</strong> ${bike.id}</p>
+                                    <p><strong>Vehicle Number:</strong> ${bike.vehicleNumber}</p>
+                                    <p><strong>Price:</strong> ₹${bike.bikePrice}</p>
+                                    <p><strong>Buying Year:</strong> ${bike.bikeBuyingYear}</p>
+                                    <p><strong>Message:</strong> ${enquiry.message}</p>
                                 </div>
-                            </div>`;
+                            </div>
+                        </div>`;
                     });
-
                     document.getElementById("MyEnquirys").innerHTML =
-                        enquiries.length
-                            ? `<div class="row">${html}</div>`
-                            : `<p class="text-center text-muted">No enquiries found.</p>`;
+                    enquiries.length ? `<div class="row">${html}</div>` : `<p class="text-center text-muted">No enquiries found.</p>`;
                 });
         });
 }
