@@ -1,6 +1,8 @@
 let currentPage = 1;
 let allEnquiries = [];
 
+window.onload = () => loadServerEnquiries();
+
 function loadServerEnquiries() {
   fetch(`${window.API.BASE_URL}/enquiries`)
     .then(res => res.json())
@@ -58,6 +60,12 @@ function printEnquiryDetails() {
                 Bike Link
               </a>
             </p>
+            <p><strong>Bike Details:</strong>
+            <a href="bike-details.html?id=${enquiry.listingId}" target="_blank">
+                View Bike
+            </a>
+            </p>
+
             <p><strong>Status:</strong> 
               <span class="status-text ${enquiryStatus.toLowerCase()}">${enquiryStatus}</span>
             </p>
