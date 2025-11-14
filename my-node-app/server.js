@@ -38,7 +38,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 const db = mysql.createPool({
-  connectionLimit: process.env.DB_CONNECTION_LIMIT || 10,
+  connectionLimit: process.env.DB_CONNECTION_LIMIT || 5,
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
