@@ -56,12 +56,7 @@ function printEnquiryDetails() {
             <p><strong>Location:</strong> ${enquiry.location}</p>
             <p><strong>Time:</strong> ${enquiry.timestamp}</p>
             <p><strong>Bike Details:</strong> 
-              <a href="${window.API.BASE_URL}/bikes/${enquiry.listingId}" target="_blank">
-                Bike Link
-              </a>
-            </p>
-            <p><strong>Bike Details:</strong> 
-              <a href="enquiry-bike-details.html?id=${enquiry.listingId}" target="_blank">
+              <a href="enquiry-bike-details.html?id=${enquiry.listingId}">
                 View Bike
               </a>
             </p>
