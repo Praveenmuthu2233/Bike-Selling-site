@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bike Details</title>
+
+  <!-- Bootstrap -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
+
+  <style>
+    body {
+      background: #f4f6f9;
+      font-family: "Poppins", sans-serif;
+    }
+
+    .header-section {
+      background: linear-gradient(135deg, #007bff, #4a00e0);
+      padding: 30px;
+      border-radius: 12px;
+      color: white;
+      text-align: center;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .soldout-badge {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: #ff0033;
+      color: white;
+      padding: 8px 15px;
+      font-weight: bold;
+      border-radius: 8px;
+      font-size: 14px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      transform: rotate(10deg);
+      z-index: 10;
+    }
+
+    .price-box {
+      background: #fff;
+      padding: 15px;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .price {
+      font-size: 30px;
+      font-weight: bold;
+      color: #28a745;
+    }
+
+    .spec-card {
+      background: #fff;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+
+    .spec-table td {
+      padding: 8px 5px;
+    }
+
+    .back-btn {
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="container py-4">
+
+    <!-- Back Button -->
+    <button class="btn btn-dark back-btn" onclick="window.history.back()">← Back</button>
+
+    <!-- SOLD OUT BADGE -->
+    <div id="soldOutBadge"></div>
+
+    <!-- Header -->
+    <div id="header" class="header-section">
+      <h2>Loading...</h2>
+    </div>
+
+    <!-- Price -->
+    <div id="priceSection" class="price-box">
+      <div class="price">₹ Loading...</div>
+    </div>
+
+    <!-- Specs -->
+    <div id="specSection" class="spec-card">
+      Loading specifications...
+    </div>
+
+  </div>
+
+  <!-- Config File for BASE_URL -->
+  <script src="config.js"></script>
+
+  <!-- Page Logic -->
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const bikeId = params.get("id");
+
+    fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
+      .then(res => res.json())
+      .then(bike => {
+        if (!bike) {
+          document.getElementById("header").innerHTML = "<h2>Bike Not Found</h2>";
+          document.getElementById("priceSection").style.display = "none";
+          document.getElementById("specSection").innerHTML = "";
+          return;
+        }
+
+        // --- SOLD OUT BADGE ---
+        if (bike.isSoldout === 1 || bike.isSoldout === true) {
+          document.getElementById("soldOutBadge").innerHTML = `
+            <div class="soldout-badge">SOLD OUT</div>
+          `;
+        }
+
+        // --- HEADER ---
+        document.getElementById("header").innerHTML = `
+          <h2>${bike.listingTitle}</h2>
+          <p>${bike.bikeModel} - ${bike.bikeBuyingYear}</p>
+        `;
+
+        // --- PRICE ---
+        document.getElementById("priceSection").innerHTML = `
+          <div class="price">₹${bike.bikePrice}</div>
+          <p class="text-muted">Selling Price: ₹${bike.sellingPrice}</p>
+        `;
+
+        // --- SPECIFICATIONS ---
+        document.getElementById("specSection").innerHTML = `
+          <h5 class="mb-3">Specifications</h5>
+
+          <table class="table spec-table">
+            <tbody>
+              <tr><td><strong>Vehicle Number</strong></td><td>${bike.vehicleNumber}</td></tr>
+              <tr><td><strong>Condition</strong></td><td>${bike.bikeCondition}</td></tr>
+              <tr><td><strong>Type</strong></td><td>${bike.bikeType}</td></tr>
+              <tr><td><strong>Kilometers</strong></td><td>${bike.bikeKms}</td></tr>
+              <tr><td><strong>Owner</strong></td><td>${bike.bikeOwner}</td></tr>
+              <tr><td><strong>Color</strong></td><td>${bike.bikeColor}</td></tr>
+              <tr><td><strong>Engine CC</strong></td><td>${bike.bikeEngineCC}</td></tr>
+              <tr><td><strong>Drive Type</strong></td><td>${bike.driveType}</td></tr>
+              <tr><td><strong>Insurance</strong></td><td>${bike.insurance}</td></tr>
+              <tr><td><strong>Horsepower</strong></td><td>${bike.horsepower}</td></tr>
+              <tr><td><strong>Location</strong></td><td>${bike.bikeLocation}</td></tr>
+            </tbody>
+          </table>
+
+          <h5>Description</h5>
+          <p>${bike.description || "No description available."}</p>
+        `;
+      })
+      .catch(() => {
+        document.getElementById("header").innerHTML = "<h2>Error Loading Bike</h2>";
+      });
+  </script>
+
+</body>
+</html>

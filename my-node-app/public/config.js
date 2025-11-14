@@ -8,7 +8,7 @@ window.API = {
 window.CONFIG = {
   enquiryStatusList: ["Cold", "Warm", "Hot"],
   paginationItemPerPage : 8,
-  enquiriesPerPage: 3
+  enquiriesPerPage: 4
 };
 window.DOWNLOAD_CONFIG = { 
   type: "excel" 
