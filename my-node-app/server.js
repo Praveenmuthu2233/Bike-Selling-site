@@ -159,17 +159,12 @@ app.post("/adminLogin", (req, res) => {
   if (!adminAccounts[username] || adminAccounts[username].password !== password) {
     return res.json({ success: false, message: "Invalid Credentials" });
   }
-   const adminData = {
-    username,
-    name: adminAccounts[username].name
-  };
-  const token = jwt.sign(adminData, process.env.ADMIN_JWT_SECRET, {
-    expiresIn: "2h"
-  });
   return res.json({
     success: true,
-    token,
-    admin: adminData
+    admin: {
+      username,
+      name: adminAccounts[username].name
+    }
   });
 });
 
