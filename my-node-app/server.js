@@ -285,11 +285,12 @@ app.put('/enquiries/:id/message', (req, res) => {
 });
 app.get('/enquiries/:mobile', (req, res) => {
   const mobile = req.params.mobile;
+
   db.query(
-    "SELECT * FROM enquiries WHERE mobile = ?",
-    [mobile],
+    'SELECT * FROM enquiries WHERE mobile = ?', 
+    [mobile], 
     (err, results) => {
-      if (err) return res.status(500).json({ error: "DB error" });
+      if (err) return res.status(500).json({ error: err });
       res.json(results);
     }
   );
