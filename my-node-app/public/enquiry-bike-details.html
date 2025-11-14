@@ -9,98 +9,126 @@
 
   <style>
     body {
-      background: #f4f6f9;
+      background: linear-gradient(135deg, #eef2f7, #ffffff);
       font-family: "Poppins", sans-serif;
+      padding-bottom: 50px;
+    }
+
+    .container {
+      max-width: 900px;
     }
 
     .header-section {
-      background: linear-gradient(135deg, #007bff, #4a00e0);
-      padding: 30px;
-      border-radius: 12px;
+      background: linear-gradient(135deg, #0052d4, #4364f7, #6fb1fc);
+      padding: 40px 25px;
+      border-radius: 20px;
       color: white;
       text-align: center;
-      margin-bottom: 20px;
+      margin-bottom: 25px;
       position: relative;
+      box-shadow: 0px 15px 35px rgba(0, 0, 0, 0.15);
+      transition: transform .2s ease;
     }
 
+    .header-section:hover {
+      transform: scale(1.02);
+    }
     .soldout-badge {
       position: absolute;
-      top: 15px;
-      right: 15px;
+      top: -10px;
+      right: -10px;
       background: #ff0033;
       color: white;
-      padding: 8px 15px;
-      font-weight: bold;
-      border-radius: 8px;
-      font-size: 14px;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      padding: 10px 18px;
+      font-weight: 700;
+      border-radius: 14px;
+      font-size: 16px;
+      box-shadow: 0 8px 20px rgba(255,0,51,0.5);
       transform: rotate(10deg);
-      z-index: 10;
+      z-index: 99;
     }
 
     .price-box {
-      background: #fff;
-      padding: 15px;
-      border-radius: 12px;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      background: #ffffff;
+      padding: 25px;
+      border-radius: 18px;
+      margin-bottom: 25px;
       text-align: center;
-      margin-bottom: 20px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+      transition: all .3s ease;
+    }
+
+    .price-box:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.15);
     }
 
     .price {
-      font-size: 30px;
-      font-weight: bold;
-      color: #28a745;
+      font-size: 34px;
+      color: #2ecc71;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .spec-card {
+      background: #ffffff;
+      padding: 28px;
+      border-radius: 18px;
+      box-shadow: 0 7px 18px rgba(0,0,0,0.07);
+      transition: all .3s ease;
     }
 
-    .spec-card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    .spec-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 10px 28px rgba(0,0,0,0.10);
+    }
+
+    .spec-table {
+      width: 100%;
+      margin-bottom: 20px;
     }
 
     .spec-table td {
-      padding: 8px 5px;
+      padding: 12px 8px;
+      font-size: 16px;
+      border-bottom: 1px solid #f0f0f0;
     }
 
-    .back-btn {
-      margin-bottom: 20px;
+    .spec-table tr:last-child td {
+      border-bottom: none;
     }
+    .back-btn {
+      border-radius: 8px;
+      padding: 10px 20px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      transition: all .3s ease;
+    }
+
+    .back-btn:hover {
+      background: #000;
+      transform: scale(1.03);
+    }
+
   </style>
 </head>
 
 <body>
 
   <div class="container py-4">
-
-    <!-- Back Button -->
     <button class="btn btn-dark back-btn" onclick="window.history.back()">← Back</button>
-
-    <!-- SOLD OUT BADGE -->
     <div id="soldOutBadge"></div>
-
-    <!-- Header -->
     <div id="header" class="header-section">
       <h2>Loading...</h2>
     </div>
-
-    <!-- Price -->
     <div id="priceSection" class="price-box">
       <div class="price">₹ Loading...</div>
     </div>
-
-    <!-- Specs -->
     <div id="specSection" class="spec-card">
       Loading specifications...
     </div>
 
   </div>
-
-  <!-- Config File for BASE_URL -->
   <script src="config.js"></script>
-
-  <!-- Page Logic -->
   <script>
     const params = new URLSearchParams(window.location.search);
     const bikeId = params.get("id");
@@ -108,33 +136,27 @@
     fetch(`${window.API.BASE_URL}/bikes/${bikeId}`)
       .then(res => res.json())
       .then(bike => {
+        console.log(bike)
         if (!bike) {
           document.getElementById("header").innerHTML = "<h2>Bike Not Found</h2>";
           document.getElementById("priceSection").style.display = "none";
           document.getElementById("specSection").innerHTML = "";
           return;
         }
-
-        // --- SOLD OUT BADGE ---
         if (bike.isSoldout === 1 || bike.isSoldout === true) {
           document.getElementById("soldOutBadge").innerHTML = `
             <div class="soldout-badge">SOLD OUT</div>
           `;
         }
-
-        // --- HEADER ---
         document.getElementById("header").innerHTML = `
           <h2>${bike.listingTitle}</h2>
           <p>${bike.bikeModel} - ${bike.bikeBuyingYear}</p>
         `;
-
-        // --- PRICE ---
         document.getElementById("priceSection").innerHTML = `
-          <div class="price">₹${bike.bikePrice}</div>
+          <p class="text-muted">Bike actual price ₹${bike.bikePrice}</p>
           <p class="text-muted">Selling Price: ₹${bike.sellingPrice}</p>
+          <div class="price">Bike Profit : ₹${bike.sellingPrice- bike.bikePrice}</div>
         `;
-
-        // --- SPECIFICATIONS ---
         document.getElementById("specSection").innerHTML = `
           <h5 class="mb-3">Specifications</h5>
 
