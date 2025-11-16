@@ -149,24 +149,39 @@ function initializeDatabase() {
 }
 
 const adminAccounts = {
-  raja: { password: "raja@22", name: "Raja" },
-  murugan: { password: "murugan@22", name: "Murugan" },
-  mani: { password: "mani@22", name: "Mani" }
+  mani: { password: "mani@22", name: "Mani", role: "limited" },
+  murugan: { password: "murugan@22", name: "Murugan", role: "main" },
+  raja: { password: "raja@22", name: "Raja", role: "main" }
 };
+
+
 app.post("/adminLogin", (req, res) => {
   const { username, password } = req.body;
-
-  if (!adminAccounts[username] || adminAccounts[username].password !== password) {
+  const admin = adminAccounts[username];
+  if (!admin || admin.password !== password) {
     return res.json({ success: false, message: "Invalid Credentials" });
   }
+  const token = jwt.sign(
+    {
+      username,
+      adminName: admin.name,
+      role: admin.role
+    },
+    JWT_SECRET,
+    { expiresIn: "7d" }
+  );
+
   return res.json({
     success: true,
+    token,
     admin: {
       username,
-      name: adminAccounts[username].name
+      name: admin.name,
+      role: admin.role
     }
   });
 });
+
 
 app.post('/addBike', (req, res) => {
   const data = req.body;
@@ -343,24 +358,95 @@ app.put('/bikes/:id/soldout', (req, res) => {
   });
 });
 
-app.get('/soldout', (req, res) => {
-  const adminName = req.query.adminName;
-  db.query('SELECT * FROM soldOutBike', (err, results) => {
-    let resultData = results;
+const adminRules = {
+  mani: { hidePrice: true },
+  raja: { hidePrice: false },
+  murugan: { hidePrice: false }
+};
+const roles = {
+  main: {
+    routeAccess: true,
+    canDelete: true,
+    canUpdate: true,
+    hideFields: []
+  },
+  limited: {
+    routeAccess: true,
+    canDelete: false,
+    canUpdate: false,
+    hideFields: ["sellingPrice"]
+  }
+};
 
-    if (adminName.toLowerCase() === "mani") {
-      resultData = resultData.map(bike => ({
-        ...bike,
-        bikePrice: undefined,
-      }));
-      return res.json(resultData);
-    } else if (adminName === "murugan" || adminName === "raja") {
-      return res.json(resultData);
+function applyDataRestriction(data, fields) {
+  return data.map(item => {
+    let newItem = { ...item };
+    fields.forEach(f => delete newItem[f]);
+    return newItem;
+  });
+}
+
+// app.get('/soldout', adminAuth, (req, res) => {
+//   const username = req.admin.username.toLowerCase();
+//   const admin = adminAccounts[username];
+//   if (!admin) {
+//     return res.status(403).json({ message: "Unauthorized admin" });
+//   }
+//   const roleRule = roles[admin.role];
+//   if (!roleRule.routeAccess) {
+//     return res.status(403).json({ message: "Route access denied" });
+//   }
+
+//   db.query("SELECT * FROM soldOutBike", (err, results) => {
+//     if (err) return res.status(500).json({ message: "Database error" });
+
+//     let finalData = results;
+//     if (roleRule.hideFields.length > 0) {
+//       finalData = applyDataRestriction(finalData, roleRule.hideFields);
+//     }
+//     res.json({
+//       role: admin.role,
+//       permissions: {
+//         canUpdate: roleRule.canUpdate,
+//         canDelete: roleRule.canDelete
+//       },
+//       data: finalData
+//     });
+//   });
+// });
+
+
+app.get('/soldout', adminAuth, (req, res) => {
+  const username = req.admin.username.toLowerCase();
+  const admin = adminAccounts[username];
+  if (!admin) {
+    return res.status(403).json({ message: "Unauthorized admin" });
+  }
+
+  const roleRule = roles[admin.role];
+  if (!roleRule.routeAccess) {
+    return res.status(403).json({ message: "Route access denied" });
+  }
+
+  db.query("SELECT * FROM soldOutBike", (err, results) => {
+    if (err) return res.status(500).json({ message: "Database error" });
+
+    let finalData = results;
+    if (roleRule.hideFields.length > 0) {
+      finalData = applyDataRestriction(finalData, roleRule.hideFields);
     }
-
-    res.status(403).json({ message: "Access denied" });
+    res.json({
+      role: admin.role,
+      permissions: {
+        canUpdate: roleRule.canUpdate,
+        canDelete: roleRule.canDelete
+      },
+      data: finalData
+    });
   });
 });
+
+
 app.post('/addUser', async (req, res) => {
   const { firstName, lastName, mobileNumber, email, signUpPassword } = req.body;
 
@@ -373,6 +459,7 @@ app.post('/addUser', async (req, res) => {
         return res.json({ success: false, message: "Mobile number already registered!" });
       }
       const hashedPassword = await bcrypt.hash(signUpPassword, 10);
+    
       db.query(
         "INSERT INTO signUpList (firstName, lastName, mobileNumber, email, signUpPassword) VALUES (?, ?, ?, ?, ?)",
         [firstName, lastName, mobileNumber, email, hashedPassword],
