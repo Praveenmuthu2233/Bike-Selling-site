@@ -168,7 +168,6 @@ function adminAuth(req, res, next) {
     if (err) {
       return res.status(401).json({ message: "Invalid admin token" });
     }
-
     req.admin = decoded;
     next();
   });
@@ -434,20 +433,17 @@ function applyDataRestriction(data, fields) {
 //     });
 //   });
 // });
+
 app.get('/soldout', adminAuth, (req, res) => {
   const username = req.admin.username.toLowerCase();
   const admin = adminAccounts[username];
-
   if (!admin) {
     return res.status(403).json({ message: "Unauthorized admin" });
   }
-
   const roleRule = roles[admin.role];
-
   if (!roleRule.routeAccess) {
     return res.status(403).json({ message: "Route access denied" });
   }
-
   db.query("SELECT * FROM soldOutBike", (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Database error" });
@@ -458,7 +454,6 @@ app.get('/soldout', adminAuth, (req, res) => {
     if (roleRule.hideFields.length > 0) {
       finalData = applyDataRestriction(finalData, roleRule.hideFields);
     }
-
     res.json({
       role: admin.role,
       permissions: {
