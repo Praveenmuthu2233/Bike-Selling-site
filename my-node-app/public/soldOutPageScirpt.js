@@ -3,12 +3,16 @@ let currentPage = 1;
 let itemsPerPage = window.CONFIG.paginationItemPerPage;
 
 function soldOutPrint() {
-  getCurrentAdmin(adminName => {
-    fetch(`${window.API.BASE_URL}/soldout?adminName=${adminName}`)
+  getCurrentAdmin((adminName, token) => {
+    fetch(`${window.API.BASE_URL}/soldout?adminName=${adminName}`, {
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    })
       .then(res => res.json())
       .then(data => {
-        soldOutData = data;
-        console.log(soldOutData)
+        soldOutData = data.data;
+        console.log(soldOutData);
         currentPage = 1;
         renderSoldOut();
         renderPagination();
@@ -123,10 +127,17 @@ function getCurrentAdmin(callback) {
     getAll.onsuccess = function () {
       let admins = getAll.result || [];
       let logged = admins.find(admin => admin.isAdminLogin === true);
-      if (callback) callback(logged ? logged.name : null);
+
+      if (callback) {
+        callback(
+          logged ? logged.name : null,
+          logged ? logged.token : null
+        );
+      }
     };
   };
 }
+
 
 async function downloadSoldOutSheet() {
   try {
