@@ -33,8 +33,8 @@ function renderSoldOut() {
     output += `
       <div class="col-12 col-md-6 col-lg-3">
         <div class="sold-out-card">
-          <div class="sold-out-badge">
-            SOLD OUT <span class="green">BIKE ID ${bike.originalBikeId}</span>
+        <div class="soldout-badge">SOLD OUT</div>
+          <div class="sold-out-badge"><span class="green">BIKE ID ${bike.originalBikeId}</span>
           </div>
           <img src="${bike.image}" class="img-fluid rounded" style="max-height:180px; object-fit:cover;">
           <div class="m-3">
@@ -85,7 +85,6 @@ function renderPagination() {
   buttons += `<button class="btn btn-dark ms-2" ${currentPage === totalPages ? "disabled" : ""} onclick="goToPage(${currentPage + 1})">></button>`;
   paginationContainer.innerHTML = buttons;
 }
-
 
 function goToPage(page) {
   currentPage = page;
