@@ -153,6 +153,26 @@ const adminAccounts = {
   murugan: { password: "murugan@22", name: "Murugan", role: "main" },
   raja: { password: "raja@22", name: "Raja", role: "main" }
 };
+function adminAuth(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header) {
+    return res.status(401).json({ message: "Missing admin token" });
+  }
+
+  const token = header.split(" ")[1];
+  if (!token) {
+    return res.status(401).json({ message: "Missing admin token" });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: "Invalid admin token" });
+    }
+
+    req.admin = decoded;
+    next();
+  });
+}
 
 
 app.post("/adminLogin", (req, res) => {
@@ -414,14 +434,16 @@ function applyDataRestriction(data, fields) {
 //     });
 //   });
 // });
-
 app.get('/soldout', adminAuth, (req, res) => {
   const username = req.admin.username.toLowerCase();
   const admin = adminAccounts[username];
+
   if (!admin) {
     return res.status(403).json({ message: "Unauthorized admin" });
   }
+
   const roleRule = roles[admin.role];
+
   if (!roleRule.routeAccess) {
     return res.status(403).json({ message: "Route access denied" });
   }
