@@ -201,7 +201,6 @@ app.post("/adminLogin", (req, res) => {
   });
 });
 
-
 app.post('/addBike', (req, res) => {
   const data = req.body;
   const bikeData = { ...data, isAccepted: data.isAccepted ? 1 : 0, isSoldout: data.isSoldout ? 1 : 0 };

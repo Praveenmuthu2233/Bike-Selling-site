@@ -173,8 +173,7 @@ function handleAdminLogin(event) {
             });
             return;
         }
-
-        sessionStorage.setItem("admin", JSON.stringify(data.admin));
+        sessionStorage.setItem("adminToken", data.token);
 
         Swal.fire({
             icon: "success",
@@ -188,22 +187,34 @@ function handleAdminLogin(event) {
 }
 
 function checkAdminLoginStatus() {
-    let adminData = sessionStorage.getItem("admin");
+    let token = sessionStorage.getItem("adminToken");
     let adminLinks = document.getElementById("adminLinks");
     let loginContainer = document.querySelector(".containerAdmin");
     let showName = document.getElementById("adminNameShow");
 
-    if (adminData) {
-        let admin = JSON.parse(adminData);
-        showName.innerHTML = `<h3>Admin ${admin.name}</h3>`;
+    if (!token) {
+        loginContainer.classList.remove("d-none");
+        adminLinks.classList.add("d-none");
+        return;
+    }
+    fetch(`${window.API.BASE_URL}/adminProfile`, {
+        headers: { "Authorization": "Bearer " + token }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (!data.success) {
+            sessionStorage.removeItem("adminToken");
+            return checkAdminLoginStatus();
+        }
+
+        let admin = data.admin;
+        showName.innerHTML = `<h3>Admin ${admin.adminName} (${admin.role})</h3>`;
 
         loginContainer.classList.add("d-none");
         adminLinks.classList.remove("d-none");
-    } else {
-        loginContainer.classList.remove("d-none");
-        adminLinks.classList.add("d-none");
-    }
+    });
 }
+
 
 document.getElementById("logoutBtn").addEventListener("click", () => {
     sessionStorage.removeItem("admin");
