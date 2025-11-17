@@ -212,7 +212,6 @@ app.post('/addBike', (req, res) => {
     res.json({ message: 'Bike added successfully', id: result.insertId });
   });
 });
-
 app.post("/userAddBike", (req, res) => {
   const data = req.body;
   const bikeData = {

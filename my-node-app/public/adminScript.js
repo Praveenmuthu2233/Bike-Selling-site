@@ -173,10 +173,11 @@ function handleAdminLogin(event) {
             });
             return;
         }
-        sessionStorage.setItem("adminToken", data.token);
-        if (sessionStorage.getItem("adminToken")) {
-            sessionStorage.removeItem("token");
-        }
+        saveAdminToken(data.token);
+        //sessionStorage.setItem("adminToken", data.token);
+        // if (sessionStorage.getItem("adminToken")) {
+        //     sessionStorage.removeItem("token");
+        // }
 
         Swal.fire({
             icon: "success",
@@ -211,6 +212,7 @@ function checkAdminLoginStatus() {
         }
         console.log(data.admin)
         let admin = data.admin;
+        showName.innerHTML = `<h3>Admin ${admin.adminName}</h3>`;
         showName.innerHTML = `<h3>Admin ${admin.name}</h3>`;
 
         loginContainer.classList.add("d-none");
@@ -222,17 +224,17 @@ document.addEventListener("DOMContentLoaded", () => {
   const logoutBtn = document.getElementById("logoutBtn");
   logoutBtn.addEventListener("click", () => {
     sessionStorage.removeItem("adminToken");
-    sessionStorage.removeItem("admin");
-
-    sessionStorage.clear();
-
     Swal.fire({
       icon: "success",
       title: "Logged Out",
       confirmButtonColor: "#28a745"
     }).then(() => {
       checkAdminLoginStatus();
-      window.location.href = "/admin.html";
+      window.location.href = "/my-node-app/public/admin.html";
     });
   });
 });
+
+function saveAdminToken(token) {
+    sessionStorage.setItem("adminToken", token);
+}
