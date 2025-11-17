@@ -4,6 +4,7 @@ let itemsPerPage = window.CONFIG.paginationItemPerPage;
 
 function soldOutPrint() {
   getCurrentAdmin((adminName, token) => {
+    console.log(adminName)
     fetch(`${window.API.BASE_URL}/soldout?adminName=${adminName}`, {
       headers: {
         "Authorization": "Bearer " + token

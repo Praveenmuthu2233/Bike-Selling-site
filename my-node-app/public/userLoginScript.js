@@ -1,16 +1,23 @@
 function checkLoginStatus() {
-    const token = sessionStorage.getItem("token");
+    const userToken = sessionStorage.getItem("token");
+    const adminToken = sessionStorage.getItem("adminToken");
 
     let loginShowEle = document.getElementsByClassName("loginShow")[0];
     let profileShowEle = document.getElementsByClassName("profileShow")[0];
-
-    if (!token) {
+    
+    if (adminToken) {
+        loginShowEle.classList.add("d-none");
+        profileShowEle.classList.add("d-none");
+        return;
+    }
+    if (!userToken) {
         loginShowEle.classList.remove("d-none");
         profileShowEle.classList.add("d-none");
         return;
     }
+    
     fetch(`${window.API.BASE_URL}/profile`, {
-        headers: { "Authorization": "Bearer " + token }
+        headers: { "Authorization": "Bearer " + userToken }
     })
     .then(res => {
         if (!res.ok) throw new Error("Invalid token");
