@@ -182,11 +182,9 @@ app.post("/adminLogin", (req, res) => {
   }
   const token = jwt.sign(
     {
-      adminName: admin.name,
       role: admin.role
     },
-    JWT_SECRET,
-    { expiresIn: "7d" }
+    JWT_SECRET, { expiresIn: "7d" }
   );
 
   return res.json({
@@ -458,7 +456,6 @@ app.get('/soldout', adminAuth, (req, res) => {
     }
     res.json({
       adminUsername: username,
-      adminName: admin.name,
       role: admin.role,
       permissions: {
         canUpdate: roleRule.canUpdate,
