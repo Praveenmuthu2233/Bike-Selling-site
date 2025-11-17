@@ -149,9 +149,9 @@ function initializeDatabase() {
 }
 
 const adminAccounts = {
-  mani: { password: "mani@22", name: "Mani", role: "limited" },
-  murugan: { password: "murugan@22", name: "Murugan", role: "main" },
-  raja: { password: "raja@22", name: "Raja", role: "main" }
+  mani: { password: "mani@22", name: "Mani", role: "main" },
+  murugan: { password: "murugan@22", name: "Murugan", role: "limited" },
+  raja: { password: "raja@22", name: "Raja", role: "limited" }
 };
 function adminAuth(req, res, next) {
   const header = req.headers.authorization;
@@ -381,11 +381,11 @@ app.put('/bikes/:id/soldout', (req, res) => {
   });
 });
 
-const adminRules = {
-  mani: { hidePrice: true },
-  raja: { hidePrice: false },
-  murugan: { hidePrice: false }
-};
+// const adminRules = {
+//   mani: { hidePrice: true },
+//   raja: { hidePrice: false },
+//   murugan: { hidePrice: false }
+// };
 const roles = {
   main: {
     routeAccess: true,
@@ -459,12 +459,15 @@ app.get('/soldout', adminAuth, (req, res) => {
       finalData = applyDataRestriction(finalData, roleRule.hideFields);
     }
     res.json({
+      adminUsername: username,
+      adminName: admin.name,
       role: admin.role,
       permissions: {
         canUpdate: roleRule.canUpdate,
         canDelete: roleRule.canDelete
       },
       data: finalData
+      
     });
   });
 });

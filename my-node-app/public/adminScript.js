@@ -174,6 +174,9 @@ function handleAdminLogin(event) {
             return;
         }
         sessionStorage.setItem("adminToken", data.token);
+        if (sessionStorage.getItem("adminToken")) {
+            sessionStorage.removeItem("token");
+        }
 
         Swal.fire({
             icon: "success",
@@ -215,15 +218,21 @@ function checkAdminLoginStatus() {
     });
 }
 
-
-document.getElementById("logoutBtn").addEventListener("click", () => {
+document.addEventListener("DOMContentLoaded", () => {
+  const logoutBtn = document.getElementById("logoutBtn");
+  logoutBtn.addEventListener("click", () => {
+    sessionStorage.removeItem("adminToken");
     sessionStorage.removeItem("admin");
 
+    sessionStorage.clear();
+
     Swal.fire({
-        icon: "success",
-        title: "Logged Out",
-        confirmButtonColor: "#28a745"
+      icon: "success",
+      title: "Logged Out",
+      confirmButtonColor: "#28a745"
     }).then(() => {
-        checkAdminLoginStatus();
+      checkAdminLoginStatus();
+      window.location.href = "/admin.html";
     });
+  });
 });
