@@ -160,6 +160,9 @@ function loginFormSubmit(event) {
     .then(data => {
         if (data.success) {
             sessionStorage.setItem("token", data.token);
+            if (sessionStorage.getItem("token")) {
+                sessionStorage.removeItem("adminToken");
+            }
 
             Swal.fire({
                 icon: 'success',

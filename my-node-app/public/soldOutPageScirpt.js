@@ -11,6 +11,7 @@ function soldOutPrint() {
     })
       .then(res => res.json())
       .then(data => {
+        console.log(data)
         soldOutData = data.data;
         console.log(soldOutData);
         currentPage = 1;
@@ -114,28 +115,14 @@ function sortSoldOut() {
         renderPagination();
     });
 }
-
 function getCurrentAdmin(callback) {
-  let requestDB = indexedDB.open("adminLoginDataBase", 1);
+    const adminName = sessionStorage.getItem("adminName");
+    const token = sessionStorage.getItem("adminToken");
 
-  requestDB.onsuccess = function(event) {
-    const db = event.target.result;
-    let transaction = db.transaction(["admins"], "readonly");
-    let store = transaction.objectStore("admins");
-    let getAll = store.getAll();
+    console.log("ADMIN NAME:", adminName);
+    console.log("ADMIN TOKEN:", token);
 
-    getAll.onsuccess = function () {
-      let admins = getAll.result || [];
-      let logged = admins.find(admin => admin.isAdminLogin === true);
-
-      if (callback) {
-        callback(
-          logged ? logged.name : null,
-          logged ? logged.token : null
-        );
-      }
-    };
-  };
+    callback(adminName, token);
 }
 
 
