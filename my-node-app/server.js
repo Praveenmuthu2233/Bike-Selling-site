@@ -182,6 +182,7 @@ app.post("/adminLogin", (req, res) => {
   }
   const token = jwt.sign(
     {
+      name: admin.name,
       role: admin.role
     },
     JWT_SECRET, { expiresIn: "7d" }

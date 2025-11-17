@@ -211,7 +211,7 @@ function checkAdminLoginStatus() {
         }
         console.log(data.admin)
         let admin = data.admin;
-        showName.innerHTML = `<h3>Admin ${admin.adminName}</h3>`;
+        showName.innerHTML = `<h3>Admin ${admin.name}</h3>`;
 
         loginContainer.classList.add("d-none");
         adminLinks.classList.remove("d-none");
