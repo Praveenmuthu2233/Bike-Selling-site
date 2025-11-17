@@ -149,9 +149,9 @@ function initializeDatabase() {
 }
 
 const adminAccounts = {
-  mani: { password: "mani@22", name: "Mani", role: "main" },
-  murugan: { password: "murugan@22", name: "Murugan", role: "limited" },
-  raja: { password: "raja@22", name: "Raja", role: "limited" }
+  mani: { password: "mani@22", name: "Mani", role: "limited" },
+  murugan: { password: "murugan@22", name: "Murugan", role: "main" },
+  raja: { password: "raja@22", name: "Raja", role: "main" }
 };
 function adminAuth(req, res, next) {
   const header = req.headers.authorization;
@@ -182,7 +182,6 @@ app.post("/adminLogin", (req, res) => {
   }
   const token = jwt.sign(
     {
-      username,
       adminName: admin.name,
       role: admin.role
     },
@@ -194,7 +193,6 @@ app.post("/adminLogin", (req, res) => {
     success: true,
     token,
     admin: {
-      username,
       name: admin.name,
       role: admin.role
     }
@@ -452,7 +450,7 @@ app.get('/soldout', adminAuth, (req, res) => {
     if (err) {
       return res.status(500).json({ message: "Database error" });
     }
-
+  
     let finalData = results;
 
     if (roleRule.hideFields.length > 0) {

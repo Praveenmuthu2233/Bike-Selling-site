@@ -185,6 +185,36 @@ function loginFormSubmit(event) {
     .catch(err => console.error("Login error:", err));
 }
 
+document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
+
+function fetchProfile() {
+    const token = sessionStorage.getItem("token");
+    if (!token) return;
+
+    fetch(`${window.API.BASE_URL}/profile`, {
+        headers: {
+            "Authorization": "Bearer " + token
+        }
+    })
+    .then(res => res.json())
+    .then(profile => {
+        document.querySelector(".loginShow").classList.add("d-none");
+        document.querySelector(".profileShow").classList.remove("d-none");
+        document.getElementById("userName").innerText = profile.firstName;
+    })
+    .catch(() => sessionStorage.removeItem("token"));
+}
+function logout() {
+    sessionStorage.removeItem("token");
+    window.location.href = "userLogin.html";
+}
+
+document.getElementById("rememberMe").addEventListener("change", function () {
+    document.getElementById("loginPassword").type = this.checked ? "text" : "password";
+});
+
+
+
 // function loginFormSubmit(event) {
 //     event.preventDefault();
     
@@ -225,34 +255,6 @@ function loginFormSubmit(event) {
 //     })
 //     .catch(err => console.error("Login error:", err));
 // }
-
-document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
-
-function fetchProfile() {
-    const token = sessionStorage.getItem("token");
-    if (!token) return;
-
-    fetch(`${window.API.BASE_URL}/profile`, {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    })
-    .then(res => res.json())
-    .then(profile => {
-        document.querySelector(".loginShow").classList.add("d-none");
-        document.querySelector(".profileShow").classList.remove("d-none");
-        document.getElementById("userName").innerText = profile.firstName;
-    })
-    .catch(() => sessionStorage.removeItem("token"));
-}
-function logout() {
-    sessionStorage.removeItem("token");
-    window.location.href = "userLogin.html";
-}
-
-document.getElementById("rememberMe").addEventListener("change", function () {
-    document.getElementById("loginPassword").type = this.checked ? "text" : "password";
-});
 
 // function verifyOtp() {
 //     let entered = document.getElementById("otpInput").value.trim();

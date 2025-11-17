@@ -60,6 +60,7 @@ function printEnquiryDetails() {
                 View Bike
               </a>
             </p>
+            <p>Message : ${enquiry.message || "Not updated"}</p>
             <p><strong>Status:</strong> 
               <span class="status-text ${enquiryStatus.toLowerCase()}">${enquiryStatus}</span>
             </p>

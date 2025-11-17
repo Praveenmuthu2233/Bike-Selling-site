@@ -209,9 +209,9 @@ function checkAdminLoginStatus() {
             sessionStorage.removeItem("adminToken");
             return checkAdminLoginStatus();
         }
-
+        console.log(data.admin)
         let admin = data.admin;
-        showName.innerHTML = `<h3>Admin ${admin.adminName} (${admin.role})</h3>`;
+        showName.innerHTML = `<h3>Admin ${admin.adminName}</h3>`;
 
         loginContainer.classList.add("d-none");
         adminLinks.classList.remove("d-none");
