@@ -183,6 +183,7 @@ app.post("/adminLogin", (req, res) => {
   }
   const token = jwt.sign(
     {
+      username, 
       name: admin.name,
       role: admin.role
     },
