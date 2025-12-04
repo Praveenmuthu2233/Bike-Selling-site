@@ -11,20 +11,77 @@ window.CONFIG = {
   enquiriesPerPage: 4
 };
 window.DOWNLOAD_CONFIG = { 
-  type: "excel" 
+  type: "excel"
 };
 
 window.gallery_image = [
   {
-    url: "https://cdn.bikedekho.com/processedimages/kawasaki/kawasaki-ninja-zx-10r/source/kawasaki-ninja-zx-10r674008194e755.jpg",
-    alt: "Kawasaki Ninja ZX-10R"
+    url: "/IMG-20251204-WA0049.jpg",
+    alt: "Bike Image"
   },
   {
-    url: "https://acko-cms.ackoassets.com/Best_selling_Bikes_In_India_8f877a56c0.png",
-    alt: "Best Selling Bikes in India"
+    url: "/IMG-20251204-WA0051.jpg",
+    alt: "Bike Image"
   },
   {
-    url: "https://m.rediff.com/getahead/2015/oct/14bike2.jpg",
+    url: "/IMG-20251204-WA0052.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0053.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0054.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0055.jpg",
+    alt: "Bike Image"
+  }
+  ,
+  {
+    url: "/IMG-20251204-WA0056.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0057.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0058.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0059.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0060.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0061.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0062.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0063.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0064.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0065.jpg",
+    alt: "Bike Image"
+  },
+  {
+    url: "/IMG-20251204-WA0066.jpg",
     alt: "Bike Image"
   }
 ];
