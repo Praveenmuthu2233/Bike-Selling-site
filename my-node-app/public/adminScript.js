@@ -174,10 +174,7 @@ function handleAdminLogin(event) {
             return;
         }
         saveAdminToken(data.token);
-        //sessionStorage.setItem("adminToken", data.token);
-        // if (sessionStorage.getItem("adminToken")) {
-        //     sessionStorage.removeItem("token");
-        // }
+        sessionStorage.setItem("adminName", username);
 
         Swal.fire({
             icon: "success",
@@ -212,8 +209,7 @@ function checkAdminLoginStatus() {
         }
         console.log(data.admin)
         let admin = data.admin;
-        showName.innerHTML = `<h3>Admin ${admin.adminName}</h3>`;
-        showName.innerHTML = `<h3>Admin ${admin.name}</h3>`;
+        showName.innerHTML = `<h3>Admin ${admin.username}</h3>`;
 
         loginContainer.classList.add("d-none");
         adminLinks.classList.remove("d-none");

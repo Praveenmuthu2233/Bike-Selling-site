@@ -2,30 +2,44 @@ let soldOutData = [];
 let currentPage = 1;
 let itemsPerPage = window.CONFIG.paginationItemPerPage;
 
+function getAdminToken() {
+  return sessionStorage.getItem("adminToken");
+}
+
 function soldOutPrint() {
-  getCurrentAdmin((adminName, token) => {
-    console.log(adminName)
-    fetch(`${window.API.BASE_URL}/soldout?adminName=${adminName}`, {
-      headers: {
-        "Authorization": "Bearer " + token
-      }
+  const token = getAdminToken();
+
+  if (!token) {
+    Swal.fire({
+      icon: "warning",
+      title: "Admin Login Required",
+      text: "Please login as admin.",
+    }).then(() => {
+      window.location.href = "/my-node-app/public/admin.html";
+    });
+    return;
+  }
+
+  fetch(`${window.API.BASE_URL}/soldout`, {
+    method: "GET",
+    headers: {
+      "Authorization": "Bearer " + token
+    }
+  })
+    .then(res => res.json())
+    .then(data => {
+      console.log("SOLDOUT RESPONSE:", data);
+      soldOutData = Array.isArray(data.data) ? data.data : [];
+      currentPage = 1;
+      renderSoldOut();
+      renderPagination();
     })
-      .then(res => res.json())
-      .then(data => {
-        console.log(data)
-        soldOutData = data.data;
-        console.log(soldOutData);
-        currentPage = 1;
-        renderSoldOut();
-        renderPagination();
-      })
-      .catch(err => console.error("Error:", err));
-  });
+    .catch(err => console.error("Error:", err));
 }
 
 function renderSoldOut() {
   const container = document.getElementById("SoldOut");
-  if (soldOutData.length === 0) {
+  if (!soldOutData || soldOutData.length === 0) {
     container.innerHTML = "<p class='text-center text-muted'>No bikes sold out</p>";
     return;
   }
@@ -36,13 +50,19 @@ function renderSoldOut() {
 
   let output = "";
   pageData.forEach(bike => {
+    const selling = bike.sellingPrice ? Number(bike.sellingPrice) : null;
+    const buying = bike.bikePrice ? Number(bike.bikePrice) : null;
+    let profitHtml = "";
+    if (selling != null && buying != null && !isNaN(selling) && !isNaN(buying)) {
+      profitHtml = `<h3>Profit : ${selling - buying}</h3>`;
+    }
+
     output += `
       <div class="col-12 col-md-6 col-lg-3">
         <div class="sold-out-card">
-        <div class="soldout-badge">SOLD OUT</div>
-          <div class="sold-out-badge"><span class="green">BIKE ID ${bike.originalBikeId}</span>
-          </div>
-          <img src="${bike.image}" class="img-fluid rounded" style="max-height:180px; object-fit:cover;">
+          <div class="soldout-badge">SOLD OUT</div>
+          <div class="sold-out-badge"><span class="green">BIKE ID ${bike.originalBikeId}</span></div>
+          <img src="${bike.image || ""}" class="img-fluid rounded" style="max-height:180px; object-fit:cover;">
           <div class="m-3">
             <h5>Title: ${bike.listingTitle}</h5>
             <p>Vehicle Number: ${bike.vehicleNumber}</p>
@@ -56,9 +76,9 @@ function renderSoldOut() {
             <p>Owner: ${bike.bikeOwner}</p>
             <p>Year: ${bike.bikeBuyingYear}</p>
           </div>
-          ${bike.sellingPrice && bike.bikePrice ? `<h3>Profit : ${bike.sellingPrice - bike.bikePrice}</h3>` : ``}
+          ${profitHtml}
         </div>
-    </div>
+      </div>
     `;
   });
   container.innerHTML = output;
@@ -72,8 +92,10 @@ function renderPagination() {
     paginationContainer.innerHTML = "";
     return;
   }
+
   let start = currentPage - 1;
   let end = currentPage + 1;
+
   if (start < 1) {
     start = 1;
     end = Math.min(3, totalPages);
@@ -83,6 +105,7 @@ function renderPagination() {
     end = totalPages;
     start = Math.max(1, totalPages - 2);
   }
+
   let buttons = "";
   buttons += `<button class="btn btn-dark me-2" ${currentPage === 1 ? "disabled" : ""} onclick="goToPage(${currentPage - 1})"><</button>`;
   for (let i = start; i <= end; i++) {
@@ -94,41 +117,40 @@ function renderPagination() {
 
 function goToPage(page) {
   currentPage = page;
-  getCurrentAdmin(name => {
-    renderSoldOut(name);
-    renderPagination();
-  });
+  renderSoldOut();
+  renderPagination();
 }
 
 function sortSoldOut() {
-    let type = document.getElementById("soldOutSort").value;
+  let type = document.getElementById("soldOutSort").value;
 
-    if (type === "newest") {
-        soldOutData.sort((a, b) => b.originalBikeId - a.originalBikeId);
-    }
+  if (type === "newest") {
+    soldOutData.sort((a, b) => b.originalBikeId - a.originalBikeId);
+  }
 
-    if (type === "oldest") {
-        soldOutData.sort((a, b) => a.originalBikeId - b.originalBikeId);
-    }
-    currentPage = 1;
-    getCurrentAdmin(name => {
-        renderSoldOut(name);
-        renderPagination();
-    });
+  if (type === "oldest") {
+    soldOutData.sort((a, b) => a.originalBikeId - b.originalBikeId);
+  }
+
+  currentPage = 1;
+  renderSoldOut();
+  renderPagination();
 }
-function getCurrentAdmin(callback) {
-    const adminName = sessionStorage.getItem("adminName");
-    const token = sessionStorage.getItem("adminToken");
-
-    console.log("ADMIN NAME:", adminName);
-    console.log("ADMIN TOKEN:", token);
-
-    callback(adminName, token);
-}
-
 
 async function downloadSoldOutSheet() {
   try {
+    const token = getAdminToken();
+    if (!token) {
+      await Swal.fire({
+        icon: "warning",
+        title: "Admin Login Required",
+        text: "Please login as admin.",
+        confirmButtonColor: "#28a745"
+      });
+      window.location.href = "/my-node-app/public/admin.html";
+      return;
+    }
+
     const confirmDownload = await Swal.fire({
       title: "Download Sheet?",
       text: "Do you want to download the SoldOut bikes sheet?",
@@ -142,26 +164,36 @@ async function downloadSoldOutSheet() {
 
     if (!confirmDownload.isConfirmed) return;
 
-    const response = await fetch(`${window.API.BASE_URL}/soldout`);
-    const soldOutData = await response.json();
+    const response = await fetch(`${window.API.BASE_URL}/soldout`, {
+      method: "GET",
+      headers: {
+        "Authorization": "Bearer " + token
+      }
+    });
 
-    if (!soldOutData || soldOutData.length === 0) {
+    const result = await response.json();
+    const dataArray = Array.isArray(result.data) ? result.data : [];
+
+    if (!dataArray || dataArray.length === 0) {
       Swal.fire("No Data", "No soldout entries found.", "warning");
       return;
     }
 
     const now = new Date();
     const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
     const fileName = `soldOut_${day}-${month}-${year}.csv`;
 
-    const headers = Object.keys(soldOutData[0]);
+    const headers = Object.keys(dataArray[0]);
     const csvRows = [];
 
     csvRows.push(headers.join(","));
-    soldOutData.forEach(row => {
-      const values = headers.map(header => `"${row[header]}"`);
+    dataArray.forEach(row => {
+      const values = headers.map(header => {
+        const value = row[header] != null ? String(row[header]).replace(/"/g, '""') : "";
+        return `"${value}"`;
+      });
       csvRows.push(values.join(","));
     });
 
@@ -183,7 +215,6 @@ async function downloadSoldOutSheet() {
       timer: 2000,
       showConfirmButton: false
     });
-
   } catch (error) {
     console.error("Error downloading soldout data:", error);
     Swal.fire("Error", "Something went wrong while downloading.", "error");
