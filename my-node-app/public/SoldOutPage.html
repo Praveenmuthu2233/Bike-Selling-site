@@ -21,6 +21,12 @@
           <option value="newest">Newest First</option>
           <option value="oldest">Oldest First</option>
       </select>
+      <select id="soldOutFilter" class="form-select w-auto d-inline-block" onchange="filterSoldOut()">
+        <option value="all">All Soldout</option>
+        <option value="lastweek">Last week</option>
+        <option value="last30">Last 30 Days</option>
+      </select>
+
     </div>
 
     <div class="row" id="SoldOut"></div>

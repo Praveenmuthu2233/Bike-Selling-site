@@ -149,9 +149,9 @@ function initializeDatabase() {
 }
 
 const adminAccounts = {
-  mani: { password: "mani@22", name: "Mani", role: "limited" },
+  mani:    { password: "mani@22",    name: "Mani",    role: "limited" },
   murugan: { password: "murugan@22", name: "Murugan", role: "main" },
-  raja: { password: "raja@22", name: "Raja", role: "main" }
+  raja:    { password: "raja@22",    name: "Raja",    role: "main" }
 };
 
 function adminAuth(req, res, next) {
@@ -398,7 +398,6 @@ const roles = {
     hideFields: ["sellingPrice"]
   }
 };
-
 function applyDataRestriction(data, fields) {
   return data.map(item => {
     let newItem = { ...item };
@@ -406,35 +405,6 @@ function applyDataRestriction(data, fields) {
     return newItem;
   });
 }
-
-// app.get('/soldout', adminAuth, (req, res) => {
-//   const username = req.admin.username.toLowerCase();
-//   const admin = adminAccounts[username];
-//   if (!admin) {
-//     return res.status(403).json({ message: "Unauthorized admin" });
-//   }
-//   const roleRule = roles[admin.role];
-//   if (!roleRule.routeAccess) {
-//     return res.status(403).json({ message: "Route access denied" });
-//   }
-
-//   db.query("SELECT * FROM soldOutBike", (err, results) => {
-//     if (err) return res.status(500).json({ message: "Database error" });
-
-//     let finalData = results;
-//     if (roleRule.hideFields.length > 0) {
-//       finalData = applyDataRestriction(finalData, roleRule.hideFields);
-//     }
-//     res.json({
-//       role: admin.role,
-//       permissions: {
-//         canUpdate: roleRule.canUpdate,
-//         canDelete: roleRule.canDelete
-//       },
-//       data: finalData
-//     });
-//   });
-// });
 
 app.get('/soldout', adminAuth, (req, res) => {
   const username = req.admin.username.toLowerCase();
