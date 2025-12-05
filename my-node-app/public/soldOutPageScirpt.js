@@ -13,7 +13,7 @@ function soldOutPrint() {
     Swal.fire({
       icon: "warning",
       title: "Admin Login Required",
-      text: "Please login as admin.",
+      text: "Please login as admin."
     }).then(() => {
       window.location.href = "/my-node-app/public/admin.html";
     });
@@ -37,16 +37,37 @@ function soldOutPrint() {
     .catch(err => console.error("Error:", err));
 }
 
+function getFilteredSoldOutData() {
+  const filter = document.getElementById("soldOutFilter")?.value || "all";
+
+  if (filter === "lastweek" || filter === "last30") {
+    const now = new Date();
+    const days = filter === "lastweek" ? 7 : 30;
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
+
+    return soldOutData.filter(bike => {
+      if (!bike.soldoutDate) return false;
+      const d = new Date(bike.soldoutDate);
+      return !isNaN(d) && d >= cutoff;
+    });
+  }
+
+  return soldOutData;
+}
+
+
 function renderSoldOut() {
   const container = document.getElementById("SoldOut");
-  if (!soldOutData || soldOutData.length === 0) {
+  const filteredData = getFilteredSoldOutData();
+
+  if (!filteredData || filteredData.length === 0) {
     container.innerHTML = "<p class='text-center text-muted'>No bikes sold out</p>";
     return;
   }
 
   const start = (currentPage - 1) * itemsPerPage;
   const end = start + itemsPerPage;
-  const pageData = soldOutData.slice(start, end);
+  const pageData = filteredData.slice(start, end);
 
   let output = "";
   pageData.forEach(bike => {
@@ -85,7 +106,8 @@ function renderSoldOut() {
 }
 
 function renderPagination() {
-  const totalPages = Math.ceil(soldOutData.length / itemsPerPage);
+  const filteredData = getFilteredSoldOutData();
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginationContainer = document.getElementById("pagination");
 
   if (totalPages <= 1) {
@@ -132,6 +154,12 @@ function sortSoldOut() {
     soldOutData.sort((a, b) => a.originalBikeId - b.originalBikeId);
   }
 
+  currentPage = 1;
+  renderSoldOut();
+  renderPagination();
+}
+
+function filterSoldOut() {
   currentPage = 1;
   renderSoldOut();
   renderPagination();
