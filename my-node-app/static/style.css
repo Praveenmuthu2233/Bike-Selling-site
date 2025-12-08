@@ -619,16 +619,104 @@ select {
   background: #21867a;
 }
 .soldout-badge {
-      position: absolute;
-      top: -10px;
-      right: -10px;
-      background: #ff0033;
-      color: white;
-      padding: 10px 18px;
-      font-weight: 700;
-      border-radius: 14px;
-      font-size: 16px;
-      box-shadow: 0 8px 20px rgba(255,0,51,0.5);
-      transform: rotate(10deg);
-      z-index: 99;
-    }
+    position: absolute;
+    top: -10px;
+    right: -10px;
+    background: #ff0033;
+    color: white;
+    padding: 10px 18px;
+    font-weight: 700;
+    border-radius: 14px;
+    font-size: 16px;
+    box-shadow: 0 8px 20px rgba(255,0,51,0.5);
+    transform: rotate(10deg);
+    z-index: 99;
+}
+.swal-popup-custom {
+  border-radius: 12px !important;
+  padding: 20px !important;
+}
+
+.swal-title-custom {
+  font-size: 24px !important;
+  font-weight: 700 !important;
+  margin-bottom: 15px !important;
+}
+
+.swal-input-custom {
+  width: 90% !important;
+  margin: 0 auto !important;
+  padding: 10px !important;
+  font-size: 16px !important;
+  border-radius: 8px !important;
+}
+
+.swal-actions-custom {
+  margin-top: 20px !important;
+  display: flex !important;
+  justify-content: center !important;
+  gap: 20px !important;
+}
+
+.swal-confirm-custom {
+  padding: 8px 25px !important;
+  font-size: 16px !important;
+  border-radius: 8px !important;
+}
+
+.swal-cancel-custom {
+  padding: 8px 25px !important;
+  font-size: 16px !important;
+  border-radius: 8px !important;
+  background-color: #6c757d !important;
+}
+#reviews {
+  background: #f8f9fa;
+  padding: 60px 0;
+  overflow: hidden;
+}
+
+.review-scroll-container {
+  display: flex;
+  gap: 20px;
+  width: max-content;
+  animation: scrollReviews 25s linear infinite;
+}
+
+.review-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: 350px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.10);
+  transition: 0.3s ease;
+}
+
+.review-card:hover {
+  transform: translateY(-5px);
+}
+
+.review-rating {
+  color: #ffb300;
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.review-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.review-photo {
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #198754;
+}
+
+@keyframes scrollReviews {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
