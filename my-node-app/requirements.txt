@@ -1,2 +1,6 @@
 Flask
 gunicorn
+python-dotenv
+PyMySQL
+Flask-Cors
+PyJWT
