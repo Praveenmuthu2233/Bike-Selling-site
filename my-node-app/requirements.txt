@@ -1,6 +1,7 @@
 Flask
 gunicorn
 python-dotenv
-PyMySQL
+mysql-connector-python
 Flask-Cors
+bcrypt
 PyJWT
