@@ -46,15 +46,14 @@ function getFilteredSoldOutData() {
     const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
 
     return soldOutData.filter(bike => {
-      if (!bike.soldoutDate) return false;
-      const d = new Date(bike.soldoutDate);
+      if (!bike.soldOutDate) return false;
+      const d = new Date(bike.soldOutDate);
       return !isNaN(d) && d >= cutoff;
     });
   }
 
   return soldOutData;
 }
-
 
 function renderSoldOut() {
   const container = document.getElementById("SoldOut");
@@ -165,7 +164,66 @@ function filterSoldOut() {
   renderPagination();
 }
 
-async function downloadSoldOutSheet() {
+// async function chooseDownloadType() {
+
+//   const options = {};
+//   window.DOWNLOAD_CONFIG.types.forEach(t => {
+//     options[t] = t.toUpperCase() + "excel" === (.xlsx), "pdf" === (.pdf)");
+//   });
+
+//   const { value: format } = await Swal.fire({
+//     title: "Choose Format",
+//     input: "select",
+//     inputOptions: options,
+//     inputPlaceholder: "Select format",
+//     showCancelButton: true,
+//     width: 400,
+//     customClass: {
+//       popup: "swal-popup-custom",
+//       title: "swal-title-custom",
+//       input: "swal-input-custom",
+//       actions: "swal-actions-custom",
+//       confirmButton: "swal-confirm-custom",
+//       cancelButton: "swal-cancel-custom"
+//     }
+//   });
+
+//   if (!format) return;
+
+//   if (format === "excel") {
+//     downloadSoldOutExcel();
+//   }
+//   if (format === "pdf") {
+//     downloadSoldOutPDF();
+//   }
+// }
+
+async function chooseDownloadType() {
+  const inputOptions = window.DOWNLOAD_CONFIG.types;
+
+  const { value: format } = await Swal.fire({
+    title: "Choose Format",
+    input: "select",
+    inputOptions: inputOptions,
+    inputPlaceholder: "Select format",
+    showCancelButton: true,
+    width: 400,
+    customClass: {
+      popup: "swal-popup-custom",
+      title: "swal-title-custom",
+      input: "swal-input-custom",
+      actions: "swal-actions-custom",
+      confirmButton: "swal-confirm-custom",
+      cancelButton: "swal-cancel-custom"
+    }
+  });
+
+  if (format === "excel") downloadSoldOutExcel();
+  if (format === "pdf") downloadSoldOutPDF();
+  if (format === "text") downloadSoldOutText();
+}
+
+async function downloadSoldOutExcel() {
   try {
     const token = getAdminToken();
     if (!token) {
@@ -192,15 +250,7 @@ async function downloadSoldOutSheet() {
 
     if (!confirmDownload.isConfirmed) return;
 
-    const response = await fetch(`${window.API.BASE_URL}/soldout`, {
-      method: "GET",
-      headers: {
-        "Authorization": "Bearer " + token
-      }
-    });
-
-    const result = await response.json();
-    const dataArray = Array.isArray(result.data) ? result.data : [];
+    const dataArray = getFilteredSoldOutData();
 
     if (!dataArray || dataArray.length === 0) {
       Swal.fire("No Data", "No soldout entries found.", "warning");
@@ -247,4 +297,71 @@ async function downloadSoldOutSheet() {
     console.error("Error downloading soldout data:", error);
     Swal.fire("Error", "Something went wrong while downloading.", "error");
   }
+}
+function downloadSoldOutPDF() {
+  const dataArray = getFilteredSoldOutData();
+  if (!dataArray.length) {
+    Swal.fire("No Data", "No soldout entries found.", "warning");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+
+  let y = 10;
+
+  dataArray.forEach((bike, index) => {
+    doc.text(`Bike ID: ${bike.originalBikeId}`, 10, y);
+    doc.text(`Title: ${bike.listingTitle}`, 10, y + 6);
+    doc.text(`Vehicle No: ${bike.vehicleNumber}`, 10, y + 12);
+    doc.text(`Selling: ${bike.sellingPrice}`, 10, y + 18);
+    doc.text(`Buying: ${bike.bikePrice}`, 10, y + 24);
+
+    y += 32;
+    if (y > 270) {
+      doc.addPage();
+      y = 10;
+    }
+  });
+
+  const now = new Date();
+  const fileName = `soldout_${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear()}.pdf`;
+
+  doc.save(fileName);
+
+  Swal.fire("Downloaded!", `${fileName} saved successfully.`, "success");
+}
+function downloadSoldOutText() {
+  const dataArray = getFilteredSoldOutData();
+
+  if (!dataArray.length) {
+    Swal.fire("No Data", "No soldout entries found!", "warning");
+    return;
+  }
+
+  let textContent = "";
+
+  dataArray.forEach((bike, index) => {
+    textContent += `Bike ${index + 1}\n`;
+    textContent += `-----------------------------\n`;
+    for (const key in bike) {
+      textContent += `${key}: ${bike[key]}\n`;
+    }
+    textContent += `\n`;
+  });
+
+  const now = new Date();
+  const fileName = `soldout_${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear()}.txt`;
+
+  const blob = new Blob([textContent], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  a.click();
+
+  URL.revokeObjectURL(url);
+
+  Swal.fire("Downloaded!", `${fileName} saved successfully.`, "success");
 }

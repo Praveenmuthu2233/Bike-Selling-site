@@ -10,10 +10,13 @@ window.CONFIG = {
   paginationItemPerPage : 8,
   enquiriesPerPage: 4
 };
-window.DOWNLOAD_CONFIG = { 
-  type: "excel"
+window.DOWNLOAD_CONFIG = {
+  types: {
+    excel: "Excel (.xlsx)",
+    pdf: "PDF (.pdf)",
+    text: "Text (.txt)"
+  }
 };
-
 window.gallery_image = [
   {
     url: "/IMG-20251204-WA0049.jpg",
