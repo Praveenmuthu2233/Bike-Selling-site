@@ -25,9 +25,6 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 def uploads(filename):
     return send_from_directory(UPLOAD_DIR, filename)
 
-PUBLIC_DIR = os.path.join(os.path.dirname(__file__), "public")
-
-
 dbconfig = {
     "host": os.getenv("DB_HOST"),
     "user": os.getenv("DB_USER"),
@@ -694,15 +691,21 @@ def get_soldout():
         "data": finalData
     })
 
+from flask import render_template
+
+@app.before_first_request
+def setup_db():
+    initialize_database()
+
 @app.route("/")
 def index():
-    return send_from_directory(PUBLIC_DIR, "index.html")
+    return render_template("index.html")
 
 @app.route("/bike-details")
 def bike_details():
-    return send_from_directory(PUBLIC_DIR, "bike-details.html")
+    return render_template("bike-details.html")
 
-# if __name__ == "__main__":
-#     initialize_database()
-#     port = int(os.getenv("PORT", "5000"))
-#     app.run(host="0.0.0.0", port=port)
+if __name__ == "__main__":
+    initialize_database()
+    port = int(os.getenv("PORT", "5000"))
+    app.run(host="0.0.0.0", port=port)
