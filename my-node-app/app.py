@@ -142,7 +142,6 @@ def initialize_database():
     cursor.close()
     conn.close()
     
-initialize_database()
 
 adminAccounts = {
     "mani":    {"password": "mani@22",    "name": "Mani",    "role": "limited"},
@@ -700,5 +699,6 @@ def bike_details():
     return render_template("bike-details.html")
 
 if __name__ == "__main__":
+    initialize_database()
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=True)
