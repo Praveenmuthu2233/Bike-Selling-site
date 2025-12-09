@@ -702,7 +702,7 @@ def index():
 def bike_details():
     return send_from_directory(PUBLIC_DIR, "bike-details.html")
 
-if __name__ == "__main__":
-    initialize_database()
-    port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port)
+# if __name__ == "__main__":
+#     initialize_database()
+#     port = int(os.getenv("PORT", "5000"))
+#     app.run(host="0.0.0.0", port=port)
