@@ -3,7 +3,7 @@ import datetime
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-import mysql.connector.pooling
+import mysql.connector
 import bcrypt
 import jwt
 
@@ -31,13 +31,13 @@ dbconfig = {
     "password": os.getenv("DB_PASSWORD"),
     "database": os.getenv("DB_NAME"),
 }
-connection_limit = int(os.getenv("DB_CONNECTION_LIMIT", "10"))
+# connection_limit = int(os.getenv("DB_CONNECTION_LIMIT", "10"))
 
-db_pool = mysql.connector.pooling.MySQLConnectionPool(
-    pool_name="mypool",
-    pool_size=connection_limit,
-    **dbconfig
-)
+# db_pool = mysql.connector.pooling.MySQLConnectionPool(
+#     pool_name="mypool",
+#     pool_size=connection_limit,
+#     **dbconfig
+# )
 
 def get_db():
     return db_pool.get_connection()
