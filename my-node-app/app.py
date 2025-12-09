@@ -31,16 +31,9 @@ dbconfig = {
     "password": os.getenv("DB_PASSWORD"),
     "database": os.getenv("DB_NAME"),
 }
-# connection_limit = int(os.getenv("DB_CONNECTION_LIMIT", "10"))
-
-# db_pool = mysql.connector.pooling.MySQLConnectionPool(
-#     pool_name="mypool",
-#     pool_size=connection_limit,
-#     **dbconfig
-# )
 
 def get_db():
-    return db_pool.get_connection()
+    return mysql.connector.connect(**dbconfig)
 
 
 def initialize_database():
@@ -148,7 +141,8 @@ def initialize_database():
     conn.commit()
     cursor.close()
     conn.close()
-
+    
+initialize_database()
 
 adminAccounts = {
     "mani":    {"password": "mani@22",    "name": "Mani",    "role": "limited"},
@@ -693,9 +687,9 @@ def get_soldout():
 
 from flask import render_template
 
-@app.before_first_request
-def setup_db():
-    initialize_database()
+# @app.before_first_request
+# def setup_db():
+#     initialize_database()
 
 @app.route("/")
 def index():
@@ -706,6 +700,5 @@ def bike_details():
     return render_template("bike-details.html")
 
 if __name__ == "__main__":
-    initialize_database()
     port = int(os.getenv("PORT", "5000"))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host="0.0.0.0", port=port, debug=True)
