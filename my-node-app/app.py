@@ -9,7 +9,12 @@ import jwt
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    static_folder="static",
+    template_folder="templates"
+)
+
 
 JWT_SECRET = os.getenv("JWT_SECRET", "dev-secret")
 
