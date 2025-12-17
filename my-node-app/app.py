@@ -169,6 +169,8 @@ roles = {
     }
 }
 
+
+
 def apply_data_restriction(data, fields):
     new_list = []
     for row in data:
