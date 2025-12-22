@@ -26,16 +26,16 @@ CORS(app, resources={r"*": {"origins": "*"}},
 UPLOAD_DIR = os.path.join("/tmp", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-@app.route("/uploads/<path:filename>")
-def uploads(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
+# @app.route("/uploads/<path:filename>")
+# def uploads(filename):
+#     return send_from_directory(UPLOAD_DIR, filename)
 
-dbconfig = {
-    "host": os.getenv("DB_HOST"),
-    "user": os.getenv("DB_USER"),
-    "password": os.getenv("DB_PASSWORD"),
-    "database": os.getenv("DB_NAME"),
-}
+# dbconfig = {
+#     "host": os.getenv("DB_HOST"),
+#     "user": os.getenv("DB_USER"),
+#     "password": os.getenv("DB_PASSWORD"),
+#     "database": os.getenv("DB_NAME"),
+# }
 
 def get_db():
     return mysql.connector.connect(**dbconfig)
@@ -168,8 +168,6 @@ roles = {
         "hideFields": ["sellingPrice"]
     }
 }
-
-
 
 def apply_data_restriction(data, fields):
     new_list = []
