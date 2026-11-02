@@ -3,6 +3,10 @@ node_modules/
 package-lock.json
 
 # Environment variables
+# Python
+__pycache__/
+*.pyc
+*.pyo
 .env
 my-node-app/.env
 

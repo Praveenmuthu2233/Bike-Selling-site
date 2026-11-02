@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Us | SMR Motors - Showroom Location & Enquiries</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link active">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <section style="padding: 4.5rem 0 3rem; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); text-align: center;">
+      <div class="container" style="max-width: 750px;">
+        <span class="section-tag"><i class="fas fa-comments"></i> Get In Touch</span>
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">Let's Talk Motorcycles</h1>
+        <p style="font-size: 1.15rem; color: var(--text-secondary);">
+          Have a question about a listed bike or want to schedule a test ride? Drop us a note or visit our showroom.
+        </p>
+      </div>
+    </section>
+
+    <section style="padding: 5rem 0;">
+      <div class="container">
+        <div style="display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 3.5rem;" class="hero-grid">
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-xl); padding: 2.5rem; box-shadow: var(--shadow-md);">
+            <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Send Us a Message</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 2rem;">We typically respond within 2-4 business hours.</p>
+
+            <form id="contact-form">
+              <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <div>
+                  <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Name *</label>
+                  <input type="text" name="name" class="form-control" required placeholder="e.g. Rahul Sharma">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                  <div>
+                    <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Email Address *</label>
+                    <input type="email" name="email" class="form-control" required placeholder="name@example.com">
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Phone Number</label>
+                    <input type="tel" name="phone" class="form-control" placeholder="10-digit mobile">
+                  </div>
+                </div>
+
+                <div>
+                  <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Message *</label>
+                  <textarea name="message" class="form-control" rows="5" required placeholder="Tell us how we can help you..."></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-lg btn-primary" style="margin-top: 0.5rem;">
+                  <i class="fas fa-paper-plane"></i> Send Message
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.75rem;">
+              <h3 style="font-size: 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-store" style="color: var(--accent-primary);"></i> Showroom Headquarters
+              </h3>
+              <p style="color: var(--text-secondary); font-size: 0.95rem; margin-bottom: 1rem; line-height: 1.6;">
+                <strong>SMR Motors Premium Auto Hub</strong><br>
+                Plot No. 42, Main Bypass Highway Road,<br>
+                Near City Junction, Landmark Automotive Zone.
+              </p>
+            </div>
+
+            <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.75rem;">
+              <h3 style="font-size: 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-clock" style="color: var(--color-success);"></i> Working Hours
+              </h3>
+              <div style="display: flex; justify-content: space-between; padding: 0.5rem 0; font-size: 0.92rem;">
+                <span>Monday - Saturday:</span>
+                <span style="color: var(--text-primary); font-weight: 600;">9:30 AM - 8:30 PM</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All rights reserved.</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

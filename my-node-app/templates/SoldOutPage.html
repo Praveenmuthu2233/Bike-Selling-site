@@ -9,34 +9,34 @@
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Mandatory Stylesheets -->
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/components.css">
-  <link rel="stylesheet" href="assets/css/responsive.css">
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </head>
 <body>
 
   <!-- Navigation -->
   <header class="navbar">
     <div class="container">
-      <a href="index.html" class="nav-brand">
+      <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html" class="nav-link">Home</a></li>
-        <li><a href="index.html#inventory" class="nav-link">Inventory</a></li>
-        <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
-        <li><a href="sold-bikes.html" class="nav-link active">Sold Gallery</a></li>
-        <li><a href="about.html" class="nav-link">About Us</a></li>
-        <li><a href="contact.html" class="nav-link">Contact</a></li>
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link active">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
       </ul>
 
       <div class="nav-actions">
         <div class="nav-auth-slot">
-          <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
-          <a href="sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
         </div>
         <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
       </div>
@@ -51,7 +51,6 @@
         <p class="section-subtitle">Take a look at pre-owned bikes happily handed over to their new owners with verified papers.</p>
       </div>
 
-      <!-- Stats Bar -->
       <div class="stats-grid" style="margin-bottom: 3.5rem;">
         <div class="stat-card">
           <div class="stat-icon green"><i class="fas fa-handshake"></i></div>
@@ -76,14 +75,10 @@
         </div>
       </div>
 
-      <!-- Sold Bikes Grid -->
-      <div id="sold-bikes-grid" class="bike-grid">
-        <!-- Injected via JS or fallback cards -->
-      </div>
+      <div id="sold-bikes-grid" class="bike-grid"></div>
     </div>
   </main>
 
-  <!-- Global Footer -->
   <footer class="footer">
     <div class="container">
       <div class="footer-bottom">
@@ -93,29 +88,24 @@
   </footer>
 
   <!-- Scripts -->
-  <script src="assets/js/config.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/main.js"></script>
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script>
     async function loadSoldBikes() {
       const container = document.getElementById('sold-bikes-grid');
-      container.innerHTML = `
-        <div style="grid-column: 1/-1; text-align: center; padding: 3rem 0;">
-          <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i>
-        </div>
-      `;
+      container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem 0;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i></div>`;
 
       try {
         const res = await apiRequest('/api/bikes?status=soldout');
         const soldBikes = res.data || [];
 
         if (soldBikes.length === 0) {
-          // Render showcased sold bikes with local images
           container.innerHTML = `
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
-                <img src="assets/images/IMG-20251204-WA0051.jpg" class="bike-card-img" />
+                <img src="/static/IMG-20251204-WA0051.jpg" class="bike-card-img" />
                 <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
               </div>
               <div class="bike-card-body">
@@ -133,7 +123,7 @@
             </div>
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
-                <img src="assets/images/IMG-20251204-WA0054.jpg" class="bike-card-img" />
+                <img src="/static/IMG-20251204-WA0054.jpg" class="bike-card-img" />
                 <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
               </div>
               <div class="bike-card-body">
@@ -149,24 +139,6 @@
                 </div>
               </div>
             </div>
-            <div class="bike-card">
-              <div class="bike-card-img-wrapper">
-                <img src="assets/images/IMG-20251204-WA0059.jpg" class="bike-card-img" />
-                <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
-              </div>
-              <div class="bike-card-body">
-                <div class="bike-card-brand">Royal Enfield</div>
-                <h3 class="bike-card-title">Royal Enfield Meteor 350 Supernova</h3>
-                <div class="bike-specs-row">
-                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> 2023</div>
-                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> 6,800 km</div>
-                </div>
-                <div class="bike-card-footer">
-                  <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹1,75,000</span>
-                  <span class="badge badge-approved"><i class="fas fa-check"></i> Delivered</span>
-                </div>
-              </div>
-            </div>
           `;
           return;
         }
@@ -174,7 +146,7 @@
         container.innerHTML = soldBikes.map(bike => {
           let imgs = [];
           try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
-          const cover = imgs[0] || 'assets/images/IMG-20251204-WA0051.jpg';
+          const cover = imgs[0] || '/static/IMG-20251204-WA0051.jpg';
           return `
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
@@ -184,10 +156,6 @@
               <div class="bike-card-body">
                 <div class="bike-card-brand">${bike.brand}</div>
                 <h3 class="bike-card-title">${bike.title}</h3>
-                <div class="bike-specs-row">
-                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
-                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> ${(bike.kilometers_driven||0).toLocaleString()} km</div>
-                </div>
                 <div class="bike-card-footer">
                   <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹${Number(bike.price).toLocaleString('en-IN')}</span>
                   <span class="badge badge-approved"><i class="fas fa-check"></i> Delivered</span>

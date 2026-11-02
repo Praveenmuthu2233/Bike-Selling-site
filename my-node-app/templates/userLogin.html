@@ -9,11 +9,11 @@
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Mandatory Stylesheets -->
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/components.css">
-  <link rel="stylesheet" href="assets/css/auth.css">
-  <link rel="stylesheet" href="assets/css/responsive.css">
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='auth.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -23,12 +23,12 @@
   <!-- Navigation -->
   <header class="navbar">
     <div class="container">
-      <a href="index.html" class="nav-brand">
+      <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
       <div class="nav-actions">
-        <a href="index.html" class="btn btn-sm btn-outline"><i class="fas fa-arrow-left"></i> Back to Marketplace</a>
+        <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline"><i class="fas fa-arrow-left"></i> Back to Marketplace</a>
       </div>
     </div>
   </header>
@@ -90,23 +90,22 @@
         </div>
 
         <div style="margin-top: 1.5rem; text-align: center; font-size: 0.88rem; color: var(--text-secondary);">
-          Are you a store manager? <a href="admin/login.html" style="color: var(--accent-primary); font-weight: 600;">Admin Sign In &rarr;</a>
+          Are you a store manager? <a href="{{ url_for('admin_login_page') }}" style="color: var(--accent-primary); font-weight: 600;">Admin Sign In &rarr;</a>
         </div>
       </div>
     </div>
   </main>
 
   <!-- Scripts -->
-  <script src="assets/js/config.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/main.js"></script>
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Check if already authenticated
       const user = AuthService.getUser();
       if (user) {
-        window.location.href = 'user/dashboard.html';
+        window.location.href = "{{ url_for('user_profile') }}";
         return;
       }
       setTimeout(() => initGoogleAuth('google-signin-btn'), 300);

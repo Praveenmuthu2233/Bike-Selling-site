@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>About Us | SMR Motors - Automotive Excellence & Integrity</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link active">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <section style="padding: 4.5rem 0 3rem; background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); text-align: center;">
+      <div class="container" style="max-width: 800px;">
+        <span class="section-tag"><i class="fas fa-award"></i> The SMR Standard</span>
+        <h1 style="font-size: 3rem; margin-bottom: 1rem;">Driven By Passion. Defined By Trust.</h1>
+        <p style="font-size: 1.15rem; color: var(--text-secondary);">
+          Building the most transparent, reliable, and rider-centric pre-owned motorcycle marketplace in the industry.
+        </p>
+      </div>
+    </section>
+
+    <section style="padding: 5rem 0;">
+      <div class="container">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;" class="hero-grid">
+          <div>
+            <span class="badge badge-featured" style="margin-bottom: 1rem;"><i class="fas fa-history"></i> Our Heritage</span>
+            <h2 style="font-size: 2.25rem; margin-bottom: 1.25rem;">Revolutionizing Two-Wheeler Buying & Selling</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem; line-height: 1.7;">
+              SMR Motors was founded on a simple realization: buying or selling a pre-owned motorcycle was often plagued by opaque pricing, hidden mechanical faults, and complex paperwork.
+            </p>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.7;">
+              Every motorbike in our inventory undergoes a rigorous 45-point mechanical inspection by master technicians. We verify structural frame integrity, engine compression, electrical harnesses, and legal paperwork.
+            </p>
+            <div style="display: flex; gap: 1rem;">
+              <a href="{{ url_for('index') }}" class="btn btn-primary"><i class="fas fa-motorcycle"></i> View Current Inventory</a>
+              <a href="{{ url_for('contact_page') }}" class="btn btn-outline"><i class="fas fa-map-marker-alt"></i> Visit Showroom</a>
+            </div>
+          </div>
+          <div>
+            <div style="border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border-medium); box-shadow: var(--shadow-lg);">
+              <img src="/static/IMG-20251204-WA0056.jpg" alt="Showroom" style="width: 100%; height: 420px; object-fit: cover;" onerror="this.src='/static/IMG-20251204-WA0053.jpg';" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All rights reserved.</div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

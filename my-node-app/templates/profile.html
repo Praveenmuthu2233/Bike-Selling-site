@@ -3,30 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Dashboard | SMR Motors</title>
+  <title>User Dashboard & Profile | SMR Motors</title>
   
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Mandatory Stylesheets -->
-  <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/components.css">
-  <link rel="stylesheet" href="../assets/css/user.css">
-  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='user.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </head>
 <body>
 
   <!-- Top Navigation -->
   <header class="navbar">
     <div class="container">
-      <a href="../index.html" class="nav-brand">
+      <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
 
       <div class="nav-actions">
-        <a href="../sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> List Bike</a>
-        <a href="../index.html" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
+        <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> List Bike</a>
+        <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
         <button onclick="AuthService.logout()" class="btn btn-sm btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
       </div>
     </div>
@@ -46,27 +46,27 @@
 
       <ul class="user-nav-list">
         <li>
-          <a href="dashboard.html" class="user-nav-link active">
+          <a class="user-nav-link active" onclick="switchUserTab('user-tab-overview', this)">
             <i class="fas fa-tachometer-alt"></i> Dashboard Overview
           </a>
         </li>
         <li>
-          <a href="profile.html" class="user-nav-link">
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-profile', this)">
             <i class="fas fa-user-edit"></i> My Profile
           </a>
         </li>
         <li>
-          <a href="my-listings.html" class="user-nav-link">
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-listings', this)">
             <i class="fas fa-motorcycle"></i> My Listed Bikes
           </a>
         </li>
         <li>
-          <a href="enquiries.html" class="user-nav-link">
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-enquiries', this)">
             <i class="fas fa-envelope-open-text"></i> My Enquiries
           </a>
         </li>
         <li>
-          <a href="favorites.html" class="user-nav-link">
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-favorites', this)">
             <i class="fas fa-heart"></i> Saved Favorites
           </a>
         </li>
@@ -81,112 +81,234 @@
 
     <!-- Main Content Area -->
     <main class="user-main-content">
-      <div style="margin-bottom: 2rem;">
-        <span class="section-tag"><i class="fas fa-chart-line"></i> Rider Overview</span>
-        <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Welcome back, <span id="welcome-user-name" style="color: var(--accent-primary);">Rider</span></h1>
-        <p style="color: var(--text-secondary);">Manage your motorcycle listings, track buyer enquiries, and review saved motorcycles.</p>
+      <!-- 1. TAB: OVERVIEW -->
+      <div id="user-tab-overview" class="user-tab-pane active">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-chart-line"></i> Rider Overview</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Welcome back, <span id="welcome-user-name" style="color: var(--accent-primary);">Rider</span></h1>
+          <p style="color: var(--text-secondary);">Manage your motorcycle listings, track buyer enquiries, and review saved motorcycles.</p>
+        </div>
+
+        <!-- Quick Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
+            <div class="stat-content">
+              <span id="stat-total-bikes" class="stat-val">0</span>
+              <span class="stat-label">My Listed Bikes</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+              <span id="stat-approved-bikes" class="stat-val">0</span>
+              <span class="stat-label">Approved & Active</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
+            <div class="stat-content">
+              <span id="stat-pending-bikes" class="stat-val">0</span>
+              <span class="stat-label">Pending Approval</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon blue"><i class="fas fa-paper-plane"></i></div>
+            <div class="stat-content">
+              <span id="stat-enquiries" class="stat-val">0</span>
+              <span class="stat-label">Active Enquiries</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2.5rem;" class="hero-grid">
+          <div class="table-card">
+            <div class="table-header">
+              <h3 style="font-size: 1.15rem; margin: 0;"><i class="fas fa-motorcycle" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> My Recent Listings</h3>
+              <button onclick="switchUserTab('user-tab-listings', document.querySelectorAll('.user-nav-link')[2])" class="btn btn-sm btn-outline">View All</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Price</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                  </tr>
+                </thead>
+                <tbody id="user-recent-listings-body">
+                  <tr><td colspan="4" style="text-align:center; padding: 2rem;">Loading listings...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.75rem; display: flex; flex-direction: column; justify-content: space-between;">
+            <div>
+              <h3 style="font-size: 1.15rem; margin-bottom: 1rem;"><i class="fas fa-shield-alt" style="color: var(--color-success); margin-right: 0.5rem;"></i> Google Identity Security</h3>
+              <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+                Passwordless login via Google OAuth 2.0. Account protected against credential stuffing.
+              </p>
+              <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.5rem;">
+                <div style="color: var(--text-muted); margin-bottom: 0.25rem;">Linked Email</div>
+                <div id="security-email" style="font-weight: 600; color: var(--text-primary);">-</div>
+              </div>
+            </div>
+            <a href="{{ url_for('bike_selling') }}" class="btn btn-primary" style="width: 100%;">
+              <i class="fas fa-plus-circle"></i> Add New Motorcycle
+            </a>
+          </div>
+        </div>
       </div>
 
-      <!-- Quick Stats Grid -->
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
-          <div class="stat-content">
-            <span id="stat-total-bikes" class="stat-val">0</span>
-            <span class="stat-label">My Listed Bikes</span>
-          </div>
+      <!-- 2. TAB: PROFILE SETTINGS -->
+      <div id="user-tab-profile" class="user-tab-pane">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-id-badge"></i> Account Management</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Rider Profile Settings</h1>
         </div>
 
-        <div class="stat-card">
-          <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
-          <div class="stat-content">
-            <span id="stat-approved-bikes" class="stat-val">0</span>
-            <span class="stat-label">Approved & Active</span>
-          </div>
-        </div>
+        <div style="background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-xl); padding: 2.5rem; max-width: 680px; box-shadow: var(--shadow-sm);">
+          <form id="profile-edit-form" onsubmit="handleProfileUpdate(event)">
+            <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Full Name *</label>
+                <input type="text" id="input-name" name="name" class="form-control" required>
+              </div>
 
-        <div class="stat-card">
-          <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
-          <div class="stat-content">
-            <span id="stat-pending-bikes" class="stat-val">0</span>
-            <span class="stat-label">Pending Approval</span>
-          </div>
-        </div>
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Google Account Email (Locked)</label>
+                <input type="email" id="input-email" class="form-control" readonly disabled style="opacity: 0.7; cursor: not-allowed; background: rgba(0,0,0,0.2);">
+              </div>
 
-        <div class="stat-card">
-          <div class="stat-icon blue"><i class="fas fa-paper-plane"></i></div>
-          <div class="stat-content">
-            <span id="stat-enquiries" class="stat-val">0</span>
-            <span class="stat-label">Active Enquiries</span>
-          </div>
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Contact Phone Number</label>
+                <input type="tel" id="input-phone" name="phone" class="form-control" placeholder="e.g. +91 9876543210">
+              </div>
+
+              <div style="margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end;">
+                <button type="submit" id="save-profile-btn" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Save Profile Changes
+                </button>
+              </div>
+            </div>
+          </form>
         </div>
       </div>
 
-      <!-- Quick Action Shortcuts -->
-      <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-bottom: 2.5rem;" class="hero-grid">
-        <!-- Recent Listed Bikes Box -->
+      <!-- 3. TAB: MY LISTINGS -->
+      <div id="user-tab-listings" class="user-tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <span class="section-tag"><i class="fas fa-warehouse"></i> Inventory Portfolio</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">My Listed Motorcycles</h1>
+          </div>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add New Bike</a>
+        </div>
+
         <div class="table-card">
-          <div class="table-header">
-            <h3 style="font-size: 1.15rem; margin: 0;"><i class="fas fa-motorcycle" style="color: var(--accent-primary); margin-right: 0.5rem;"></i> My Recent Listings</h3>
-            <a href="my-listings.html" class="btn btn-sm btn-outline">View All</a>
-          </div>
           <div class="table-responsive">
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Vehicle</th>
+                  <th>Motorcycle</th>
+                  <th>Brand</th>
                   <th>Price</th>
+                  <th>Kilometers</th>
                   <th>Status</th>
-                  <th>Date</th>
+                  <th>Action</th>
                 </tr>
               </thead>
-              <tbody id="user-recent-listings-body">
-                <tr><td colspan="4" style="text-align:center; padding: 2rem;">Loading listings...</td></tr>
+              <tbody id="my-listings-table-body">
+                <tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading listings...</td></tr>
               </tbody>
             </table>
           </div>
         </div>
+      </div>
 
-        <!-- Account Security & Quick Card -->
-        <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.75rem; display: flex; flex-direction: column; justify-content: space-between;">
-          <div>
-            <h3 style="font-size: 1.15rem; margin-bottom: 1rem;"><i class="fas fa-shield-alt" style="color: var(--color-success); margin-right: 0.5rem;"></i> Security & Google ID</h3>
-            <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-              Your account is authenticated with Google Identity Services. Passwordless login ensures maximum account protection.
-            </p>
-            <div style="background: var(--bg-surface-elevated); padding: 1rem; border-radius: var(--radius-md); font-size: 0.85rem; margin-bottom: 1.5rem;">
-              <div style="color: var(--text-muted); margin-bottom: 0.25rem;">Linked Email</div>
-              <div id="security-email" style="font-weight: 600; color: var(--text-primary);">-</div>
-            </div>
+      <!-- 4. TAB: MY ENQUIRIES -->
+      <div id="user-tab-enquiries" class="user-tab-pane">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-inbox"></i> Lead Follow-up</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">My Submitted Enquiries</h1>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Vehicle Enquired</th>
+                  <th>Price</th>
+                  <th>Message</th>
+                  <th>Status</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody id="my-enquiries-table-body">
+                <tr><td colspan="5" style="text-align: center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading enquiries...</td></tr>
+              </tbody>
+            </table>
           </div>
-          <a href="../sell-bike.html" class="btn btn-primary" style="width: 100%;">
-            <i class="fas fa-plus-circle"></i> Add New Motorcycle
-          </a>
+        </div>
+      </div>
+
+      <!-- 5. TAB: SAVED FAVORITES -->
+      <div id="user-tab-favorites" class="user-tab-pane">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-bookmark"></i> Wishlist</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Saved Motorcycles</h1>
+        </div>
+
+        <div id="favorites-grid" class="bike-grid">
+          <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i>
+          </div>
         </div>
       </div>
     </main>
   </div>
 
   <!-- Scripts -->
-  <script src="../assets/js/config.js"></script>
-  <script src="../assets/js/api.js"></script>
-  <script src="../assets/js/auth.js"></script>
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script>
+    function switchUserTab(tabId, el) {
+      document.querySelectorAll('.user-tab-pane').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.user-nav-link').forEach(i => i.classList.remove('active'));
+      const target = document.getElementById(tabId);
+      if (target) target.classList.add('active');
+      if (el) el.classList.add('active');
+
+      if (tabId === 'user-tab-listings') loadUserListings();
+      if (tabId === 'user-tab-enquiries') loadUserEnquiries();
+      if (tabId === 'user-tab-favorites') loadFavorites();
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await AuthService.verifySession();
       if (!user) {
-        window.location.href = '../login.html';
+        window.location.href = "{{ url_for('user_login') }}";
         return;
       }
 
-      // Populate user info
       document.getElementById('user-avatar-img').src = user.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
       document.getElementById('user-display-name').innerText = user.name;
       document.getElementById('user-display-email').innerText = user.email;
       document.getElementById('welcome-user-name').innerText = user.name.split(' ')[0];
       document.getElementById('security-email').innerText = user.email;
 
-      // Load user metrics & recent listings
+      document.getElementById('input-name').value = user.name;
+      document.getElementById('input-email').value = user.email;
+      if (user.phone) document.getElementById('input-phone').value = user.phone;
+
+      // Load user stats
       try {
         const statsRes = await apiRequest('/api/users/dashboard');
         if (statsRes.success && statsRes.data) {
@@ -196,11 +318,10 @@
           document.getElementById('stat-pending-bikes').innerText = s.pending_listings || 0;
           document.getElementById('stat-enquiries').innerText = s.total_enquiries || 0;
 
-          // Render recent listings
           const tableBody = document.getElementById('user-recent-listings-body');
           const bikes = statsRes.data.my_listings || [];
           if (bikes.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color:var(--text-muted);">No listings yet. <a href="../sell-bike.html" style="color:var(--accent-primary);">List your first bike!</a></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color:var(--text-muted);">No listings yet. <a href="{{ url_for('bike_selling') }}" style="color:var(--accent-primary);">List your first bike!</a></td></tr>`;
           } else {
             tableBody.innerHTML = bikes.slice(0, 5).map(b => `
               <tr>
@@ -213,9 +334,129 @@
           }
         }
       } catch (err) {
-        showToast('Failed to load dashboard metrics', 'error');
+        console.warn('Dashboard stats fallback:', err);
       }
     });
+
+    async function handleProfileUpdate(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('save-profile-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+      const payload = {
+        name: document.getElementById('input-name').value.trim(),
+        phone: document.getElementById('input-phone').value.trim()
+      };
+
+      try {
+        const res = await apiRequest('/api/users/profile', {
+          method: 'PUT',
+          body: payload
+        });
+        showToast(res.message || 'Profile saved successfully!', 'success');
+        await AuthService.verifySession();
+      } catch (err) {
+        showToast(err.message || 'Failed to update profile', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Profile Changes';
+      }
+    }
+
+    async function loadUserListings() {
+      const tbody = document.getElementById('my-listings-table-body');
+      try {
+        const res = await apiRequest('/api/users/listings');
+        const listings = res.data || [];
+        if (listings.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem;">No listings yet.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = listings.map(bike => `
+          <tr>
+            <td style="font-weight:700;">${bike.year} ${bike.title}</td>
+            <td>${bike.brand}</td>
+            <td style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
+            <td>${(bike.kilometers_driven||0).toLocaleString()} km</td>
+            <td><span class="badge badge-${bike.status==='approved'?'approved':(bike.status==='rejected'?'rejected':'pending')}">${bike.status}</span></td>
+            <td>
+              <button onclick="deleteMyBike(${bike.id})" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function deleteMyBike(bikeId) {
+      if (!confirm('Are you sure you want to delete this listing?')) return;
+      try {
+        const res = await apiRequest(`/api/bikes/${bikeId}`, { method: 'DELETE' });
+        showToast(res.message || 'Listing deleted', 'success');
+        loadUserListings();
+      } catch (err) {
+        showToast(err.message || 'Failed to delete listing', 'error');
+      }
+    }
+
+    async function loadUserEnquiries() {
+      const tbody = document.getElementById('my-enquiries-table-body');
+      try {
+        const res = await apiRequest('/api/users/enquiries');
+        const enquiries = res.data || [];
+        if (enquiries.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2rem;">No enquiries yet.</td></tr>`;
+          return;
+        }
+        tbody.innerHTML = enquiries.map(e => `
+          <tr>
+            <td style="font-weight:700;">${e.bike_title || 'General Motorcycle Inquiry'}</td>
+            <td>${e.bike_price ? '₹'+Number(e.bike_price).toLocaleString('en-IN') : '-'}</td>
+            <td>${e.message}</td>
+            <td><span class="badge badge-${e.status==='completed'?'approved':'pending'}">${e.status}</span></td>
+            <td>${new Date(e.created_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadFavorites() {
+      const grid = document.getElementById('favorites-grid');
+      try {
+        const res = await apiRequest('/api/users/favorites');
+        const favs = res.data || [];
+        if (favs.length === 0) {
+          grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><h3>No saved favorites yet</h3></div>`;
+          return;
+        }
+        grid.innerHTML = favs.map(bike => {
+          let imgs = [];
+          try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
+          const cover = imgs[0] || '/static/IMG-20251204-WA0051.jpg';
+          return `
+            <div class="bike-card">
+              <div class="bike-card-img-wrapper">
+                <img src="${cover}" class="bike-card-img" />
+              </div>
+              <div class="bike-card-body">
+                <div class="bike-card-brand">${bike.brand}</div>
+                <h3 class="bike-card-title">${bike.title}</h3>
+                <div class="bike-card-footer">
+                  <span class="bike-price-value">₹${Number(bike.price).toLocaleString('en-IN')}</span>
+                  <a href="/bike-details?id=${bike.id}" class="btn btn-sm btn-primary">View</a>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;
+      }
+    }
   </script>
 </body>
 </html>

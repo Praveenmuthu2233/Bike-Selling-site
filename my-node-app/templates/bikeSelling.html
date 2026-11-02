@@ -9,33 +9,33 @@
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Mandatory Stylesheets -->
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/components.css">
-  <link rel="stylesheet" href="assets/css/responsive.css">
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </head>
 <body>
 
   <!-- Navigation -->
   <header class="navbar">
     <div class="container">
-      <a href="index.html" class="nav-brand">
+      <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html" class="nav-link">Home</a></li>
-        <li><a href="index.html#inventory" class="nav-link">Inventory</a></li>
-        <li><a href="sell-bike.html" class="nav-link active">Sell Your Bike</a></li>
-        <li><a href="sold-bikes.html" class="nav-link">Sold Gallery</a></li>
-        <li><a href="about.html" class="nav-link">About Us</a></li>
-        <li><a href="contact.html" class="nav-link">Contact</a></li>
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link active">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
       </ul>
 
       <div class="nav-actions">
         <div class="nav-auth-slot">
-          <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
         </div>
         <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
       </div>
@@ -52,7 +52,7 @@
 
       <div style="background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-xl); padding: 2.5rem; box-shadow: var(--shadow-lg);">
         <form id="sell-bike-form" onsubmit="handleSellBikeSubmit(event)">
-          <!-- 1. Vehicle Basic Details -->
+          <!-- 1. Vehicle Details -->
           <h3 style="font-size: 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
             <i class="fas fa-motorcycle" style="color: var(--accent-primary);"></i> 1. Vehicle Information
           </h3>
@@ -70,36 +70,33 @@
                 <option value="TVS">TVS</option>
                 <option value="Suzuki">Suzuki</option>
                 <option value="Hero">Hero</option>
-                <option value="Kawasaki">Kawasaki</option>
-                <option value="Harley-Davidson">Harley-Davidson</option>
-                <option value="BMW">BMW</option>
                 <option value="Other">Other</option>
               </select>
             </div>
 
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Model Name *</label>
-              <input type="text" name="model" class="form-control" required placeholder="e.g. Classic 350, MT-15, Duke 250">
+              <input type="text" name="model" class="form-control" required placeholder="e.g. Classic 350, MT-15">
             </div>
 
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Listing Title *</label>
-              <input type="text" name="title" class="form-control" required placeholder="e.g. 2022 Royal Enfield Classic 350 Gunmetal Grey">
+              <input type="text" name="title" class="form-control" required placeholder="e.g. 2022 Royal Enfield Classic 350">
             </div>
 
             <div>
-              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Manufacturing Year *</label>
-              <input type="number" name="year" class="form-control" min="1990" max="2026" required value="2022">
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Year *</label>
+              <input type="number" name="year" class="form-control" min="1995" max="2026" required value="2022">
             </div>
 
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Expected Price (₹) *</label>
-              <input type="number" name="price" class="form-control" min="5000" step="500" required placeholder="e.g. 150000">
+              <input type="number" name="price" class="form-control" min="5000" step="500" required placeholder="145000">
             </div>
 
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Kilometers Driven *</label>
-              <input type="number" name="kilometers_driven" class="form-control" min="0" required placeholder="e.g. 12500">
+              <input type="number" name="kilometers_driven" class="form-control" min="0" required placeholder="12500">
             </div>
 
             <div>
@@ -121,29 +118,27 @@
 
           <!-- Description -->
           <div style="margin-bottom: 2rem;">
-            <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Detailed Description & Service History</label>
-            <textarea name="description" class="form-control" rows="4" placeholder="Detail any modifications, service records, tyre condition, insurance validity, or cosmetic notes..."></textarea>
+            <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Description & Condition</label>
+            <textarea name="description" class="form-control" rows="4" placeholder="Detail any modifications, service records, or cosmetic notes..."></textarea>
           </div>
 
-          <!-- 2. Multi-Image Upload -->
+          <!-- 2. Photos -->
           <h3 style="font-size: 1.25rem; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
             <i class="fas fa-camera" style="color: var(--accent-primary);"></i> 2. Vehicle Photos (Up to 6)
           </h3>
           <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
-            Upload clear photos from multiple angles (front, rear, side, speedometer). JPEG, PNG, or WebP up to 5MB each.
+            JPEG, PNG, or WebP up to 5MB each.
           </p>
 
           <div style="border: 2px dashed var(--border-medium); border-radius: var(--radius-lg); padding: 2.5rem; text-align: center; background: var(--bg-surface-elevated); margin-bottom: 1.5rem; cursor: pointer;" onclick="document.getElementById('bike-images-input').click()">
             <i class="fas fa-cloud-upload-alt" style="font-size: 2.5rem; color: var(--accent-primary); margin-bottom: 0.75rem;"></i>
             <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Click to Select Photos</h4>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">or drag and drop your motorcycle photos here</p>
-            <input type="file" id="bike-images-input" name="attachments" multiple accept="image/jpeg,image/png,image/webp,image/avif" style="display: none;" onchange="previewSelectedImages(event)">
+            <input type="file" id="bike-images-input" name="attachments" multiple accept="image/*" style="display: none;" onchange="previewSelectedImages(event)">
           </div>
 
-          <!-- Image Previews Container -->
           <div id="image-previews-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 1rem; margin-bottom: 2rem;"></div>
 
-          <!-- 3. Seller Contact Information -->
+          <!-- 3. Seller -->
           <h3 style="font-size: 1.25rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
             <i class="fas fa-user-check" style="color: var(--accent-primary);"></i> 3. Seller Contact Information
           </h3>
@@ -154,13 +149,13 @@
               <input type="text" id="seller-name" name="seller_name" class="form-control" required placeholder="Full Name">
             </div>
             <div>
-              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Contact Mobile Phone *</label>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Mobile Phone *</label>
               <input type="tel" id="seller-phone" name="seller_phone" class="form-control" required placeholder="10-digit number">
             </div>
           </div>
 
           <div style="padding-top: 1rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 1rem;">
-            <a href="index.html" class="btn btn-secondary">Cancel</a>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
             <button type="submit" id="submit-bike-btn" class="btn btn-lg btn-primary">
               <i class="fas fa-check-circle"></i> Submit Motorcycle Listing
             </button>
@@ -170,20 +165,11 @@
     </div>
   </main>
 
-  <!-- Global Footer -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-bottom">
-        <div>&copy; 2026 SMR Motors. All rights reserved.</div>
-      </div>
-    </div>
-  </footer>
-
   <!-- Scripts -->
-  <script src="assets/js/config.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/main.js"></script>
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script>
     let selectedFiles = [];
 
@@ -213,32 +199,6 @@
 
           item.innerHTML = `
             <img src="${event.target.result}" style="width:100%;height:100%;object-fit:cover;" />
-            <button type="button" onclick="removeImage(${index})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;background:rgba(239,68,68,0.9);color:#FFF;border:none;border-radius:50%;cursor:pointer;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">&times;</button>
-          `;
-          container.appendChild(item);
-        };
-        reader.readAsDataURL(file);
-      });
-    }
-
-    function removeImage(idx) {
-      selectedFiles.splice(idx, 1);
-      const input = document.getElementById('bike-images-input');
-      // Re-trigger preview
-      const container = document.getElementById('image-previews-grid');
-      container.innerHTML = '';
-      selectedFiles.forEach((file, i) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const item = document.createElement('div');
-          item.style.position = 'relative';
-          item.style.borderRadius = 'var(--radius-md)';
-          item.style.overflow = 'hidden';
-          item.style.height = '90px';
-          item.style.border = '1px solid var(--border-medium)';
-          item.innerHTML = `
-            <img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;" />
-            <button type="button" onclick="removeImage(${i})" style="position:absolute;top:4px;right:4px;width:22px;height:22px;background:rgba(239,68,68,0.9);color:#FFF;border:none;border-radius:50%;cursor:pointer;font-size:0.75rem;display:flex;align-items:center;justify-content:center;">&times;</button>
           `;
           container.appendChild(item);
         };
@@ -252,7 +212,7 @@
       const submitBtn = document.getElementById('submit-bike-btn');
       const origText = submitBtn.innerHTML;
       submitBtn.disabled = true;
-      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading & Submitting...';
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 
       const formData = new FormData(form);
 
@@ -262,12 +222,12 @@
           body: formData
         });
 
-        showToast(res.message || 'Motorcycle listing submitted! It will appear after administrative approval.', 'success');
+        showToast(res.message || 'Motorcycle listing submitted!', 'success');
         setTimeout(() => {
-          window.location.href = 'user/my-listings.html';
+          window.location.href = "{{ url_for('user_profile') }}";
         }, 1200);
       } catch (err) {
-        showToast(err.message || 'Failed to submit motorcycle listing', 'error');
+        showToast(err.message || 'Failed to submit listing', 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = origText;
       }

@@ -9,34 +9,34 @@
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
-  <!-- Mandatory Stylesheets -->
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/components.css">
-  <link rel="stylesheet" href="assets/css/responsive.css">
+  <!-- Mandatory Stylesheets using Flask url_for -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
 </head>
 <body>
 
   <!-- Global Header Navigation -->
   <header class="navbar">
     <div class="container">
-      <a href="index.html" class="nav-brand">
+      <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
 
       <ul class="nav-links">
-        <li><a href="index.html" class="nav-link active">Home</a></li>
+        <li><a href="{{ url_for('index') }}" class="nav-link active">Home</a></li>
         <li><a href="#inventory" class="nav-link">Inventory</a></li>
-        <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
-        <li><a href="sold-bikes.html" class="nav-link">Sold Gallery</a></li>
-        <li><a href="about.html" class="nav-link">About Us</a></li>
-        <li><a href="contact.html" class="nav-link">Contact</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
       </ul>
 
       <div class="nav-actions">
         <div class="nav-auth-slot">
-          <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
-          <a href="sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
         </div>
         <button class="mobile-menu-btn" aria-label="Toggle Navigation">
           <i class="fas fa-bars"></i>
@@ -56,18 +56,18 @@
       <button class="drawer-close btn-icon btn-ghost"><i class="fas fa-times"></i></button>
     </div>
     <ul class="mobile-nav-links">
-      <li><a href="index.html" class="nav-link active">Home</a></li>
+      <li><a href="{{ url_for('index') }}" class="nav-link active">Home</a></li>
       <li><a href="#inventory" class="nav-link">Motorcycles</a></li>
-      <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
-      <li><a href="sold-bikes.html" class="nav-link">Sold Inventory</a></li>
-      <li><a href="about.html" class="nav-link">About Us</a></li>
-      <li><a href="contact.html" class="nav-link">Contact</a></li>
-      <li><a href="user/dashboard.html" class="nav-link">My Dashboard</a></li>
-      <li><a href="admin/login.html" class="nav-link" style="color:var(--text-muted); font-size:0.9rem;">Admin Portal</a></li>
+      <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+      <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Inventory</a></li>
+      <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+      <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      <li><a href="{{ url_for('user_profile') }}" class="nav-link">My Dashboard</a></li>
+      <li><a href="{{ url_for('admin_page') }}" class="nav-link" style="color:var(--text-muted); font-size:0.9rem;">Admin Portal</a></li>
     </ul>
     <div class="mobile-nav-footer nav-auth-slot">
-      <a href="login.html" class="btn btn-outline"><i class="fas fa-user"></i> Sign In</a>
-      <a href="sell-bike.html" class="btn btn-primary"><i class="fas fa-plus"></i> List Motorcycle</a>
+      <a href="{{ url_for('user_login') }}" class="btn btn-outline"><i class="fas fa-user"></i> Sign In</a>
+      <a href="{{ url_for('bike_selling') }}" class="btn btn-primary"><i class="fas fa-plus"></i> List Motorcycle</a>
     </div>
   </div>
 
@@ -87,7 +87,7 @@
             </p>
             <div class="hero-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
               <a href="#inventory" class="btn btn-lg btn-primary"><i class="fas fa-search"></i> Explore Inventory</a>
-              <a href="sell-bike.html" class="btn btn-lg btn-secondary"><i class="fas fa-tag"></i> Sell Your Bike</a>
+              <a href="{{ url_for('bike_selling') }}" class="btn btn-lg btn-secondary"><i class="fas fa-tag"></i> Sell Your Bike</a>
             </div>
 
             <!-- Trust Counters -->
@@ -110,7 +110,7 @@
           <!-- Hero Vehicle Card Showcase -->
           <div class="hero-visual" style="position: relative;">
             <div style="position: relative; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border-medium); box-shadow: var(--shadow-lg), var(--shadow-glow);">
-              <img src="assets/images/IMG-20251204-WA0053.jpg" alt="Featured Motorcycle" style="width: 100%; height: 380px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80';" />
+              <img src="{{ url_for('static', filename='images/IMG-20251204-WA0053.jpg') }}" alt="Featured Motorcycle" style="width: 100%; height: 380px; object-fit: cover;" onerror="this.src='/static/IMG-20251204-WA0053.jpg';" />
               <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(11,15,23,0.95), transparent); padding: 2rem 1.5rem 1.25rem;">
                 <span class="badge badge-featured"><i class="fas fa-award"></i> Featured Arrival</span>
                 <h3 style="font-size: 1.35rem; margin: 0.5rem 0 0.25rem;">Royal Enfield Hunter 350</h3>
@@ -209,7 +209,7 @@
 
         <!-- Dynamic Bikes Grid -->
         <div id="marketplace-bikes-grid" class="bike-grid">
-          <!-- Populated dynamically via assets/js/marketplace.js -->
+          <!-- Populated dynamically via static/marketplace.js -->
         </div>
       </div>
     </section>
@@ -223,8 +223,8 @@
           Get an instant evaluation, direct buyers, and zero commission fees. List your bike in less than 2 minutes.
         </p>
         <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
-          <a href="sell-bike.html" class="btn btn-lg btn-primary"><i class="fas fa-camera"></i> List Bike For Free</a>
-          <a href="contact.html" class="btn btn-lg btn-secondary"><i class="fas fa-phone-alt"></i> Speak to An Expert</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-lg btn-primary"><i class="fas fa-camera"></i> List Bike For Free</a>
+          <a href="{{ url_for('contact_page') }}" class="btn btn-lg btn-secondary"><i class="fas fa-phone-alt"></i> Speak to An Expert</a>
         </div>
       </div>
     </section>
@@ -274,7 +274,7 @@
     <div class="container">
       <div class="footer-grid">
         <div class="footer-brand">
-          <a href="index.html" class="nav-brand">
+          <a href="{{ url_for('index') }}" class="nav-brand">
             <span class="brand-badge">SMR</span>
             <span>MOTORS<span class="brand-accent">.</span></span>
           </a>
@@ -290,21 +290,21 @@
         <div class="footer-column">
           <h4>Quick Links</h4>
           <ul class="footer-links">
-            <li><a href="index.html" class="footer-link">Home</a></li>
+            <li><a href="{{ url_for('index') }}" class="footer-link">Home</a></li>
             <li><a href="#inventory" class="footer-link">Motorcycles</a></li>
-            <li><a href="sell-bike.html" class="footer-link">Sell Your Bike</a></li>
-            <li><a href="sold-bikes.html" class="footer-link">Sold Inventory</a></li>
-            <li><a href="about.html" class="footer-link">About SMR Motors</a></li>
+            <li><a href="{{ url_for('bike_selling') }}" class="footer-link">Sell Your Bike</a></li>
+            <li><a href="{{ url_for('sold_out_page') }}" class="footer-link">Sold Inventory</a></li>
+            <li><a href="{{ url_for('about_page') }}" class="footer-link">About SMR Motors</a></li>
           </ul>
         </div>
 
         <div class="footer-column">
           <h4>Customer Care</h4>
           <ul class="footer-links">
-            <li><a href="contact.html" class="footer-link">Contact Showroom</a></li>
-            <li><a href="user/dashboard.html" class="footer-link">User Dashboard</a></li>
-            <li><a href="login.html" class="footer-link">Google Sign In</a></li>
-            <li><a href="admin/login.html" class="footer-link">Admin Portal</a></li>
+            <li><a href="{{ url_for('contact_page') }}" class="footer-link">Contact Showroom</a></li>
+            <li><a href="{{ url_for('user_profile') }}" class="footer-link">User Dashboard</a></li>
+            <li><a href="{{ url_for('user_login') }}" class="footer-link">Google Sign In</a></li>
+            <li><a href="{{ url_for('admin_page') }}" class="footer-link">Admin Portal</a></li>
           </ul>
         </div>
 
@@ -336,11 +336,11 @@
     </div>
   </footer>
 
-  <!-- Scripts -->
-  <script src="assets/js/config.js"></script>
-  <script src="assets/js/api.js"></script>
-  <script src="assets/js/auth.js"></script>
-  <script src="assets/js/marketplace.js"></script>
-  <script src="assets/js/main.js"></script>
+  <!-- Scripts using Flask url_for -->
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='marketplace.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
 </body>
 </html>

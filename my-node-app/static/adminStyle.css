@@ -1,85 +1,156 @@
-/* Modern Admin Styles - SMR Motors */
-:root {
-  --admin-primary: #0f172a;
-  --admin-accent: #10b981;
-  --admin-bg: #f8fafc;
-  --admin-border: #e2e8f0;
-}
+/* ==============================================================================
+   SMR MOTORS - ADMIN CONSOLE STYLESHEET
+   Professional Management Portal & Security Architecture
+   ============================================================================== */
 
-body.admin-body {
-  font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: var(--admin-bg);
-  color: #1e293b;
+.admin-layout {
+  display: flex;
   min-height: 100vh;
-}
-
-/* Admin Login Card */
-.admin-login-card {
-  width: 100%;
-  max-width: 440px;
-  background: #ffffff;
-  border-radius: 20px;
-}
-.admin-logo {
-  width: 60px;
-  height: 60px;
-  object-fit: contain;
-}
-
-/* Admin Nav */
-.admin-navbar {
-  background: #ffffff;
-  z-index: 1020;
-}
-.admin-nav-logo {
-  width: 36px;
-  height: 36px;
-  object-fit: contain;
+  background: var(--bg-primary);
 }
 
 /* Sidebar */
 .admin-sidebar {
-  background: #ffffff;
-  min-height: calc(100vh - 60px);
+  width: 270px;
+  background: var(--bg-surface);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  transition: transform var(--transition-normal);
 }
-.admin-nav-pills .nav-link {
-  color: #475569;
+
+.admin-brand {
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-nav {
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.admin-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.92rem;
+  font-weight: 500;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.admin-nav-item i {
+  font-size: 1.15rem;
+  width: 20px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.admin-nav-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+.admin-nav-item.active {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
   font-weight: 600;
-  font-size: 13.5px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  transition: all 0.2s ease;
-}
-.admin-nav-pills .nav-link:hover {
-  background-color: #f1f5f9;
-  color: #0f172a;
-}
-.admin-nav-pills .nav-link.active {
-  background-color: #0f172a;
-  color: #ffffff;
 }
 
-/* Metric Cards */
-.admin-metric-card {
-  transition: transform 0.2s ease;
-}
-.admin-metric-card:hover {
-  transform: translateY(-2px);
+.admin-nav-item.active i {
+  color: var(--accent-primary);
 }
 
-/* Tabs */
-.admin-tab {
+.admin-sidebar-footer {
+  padding: 1.25rem 1.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+/* Main Area */
+.admin-main {
+  flex: 1;
+  margin-left: 270px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-topbar {
+  height: 70px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 90;
+}
+
+.admin-page-content {
+  padding: 2rem;
+  flex: 1;
+}
+
+.admin-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.admin-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+  background: var(--accent-subtle);
+  border: 1px solid rgba(255, 107, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  font-weight: 700;
+}
+
+/* Tab Sections */
+.admin-tab-pane {
   display: none;
 }
-.admin-tab.active {
+
+.admin-tab-pane.active {
   display: block;
-  animation: fadeIn 0.2s ease-in-out;
+  animation: fadeIn 0.25s ease-in-out;
 }
+
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.max-w-700 {
-  max-width: 700px;
+@media (max-width: 992px) {
+  .admin-sidebar {
+    transform: translateX(-100%);
+  }
+  .admin-sidebar.open {
+    transform: translateX(0);
+  }
+  .admin-main {
+    margin-left: 0;
+  }
 }
