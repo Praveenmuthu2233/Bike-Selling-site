@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motorcycle Details | SMR Motors</title>
+  <meta name="description" content="View verified motorcycle specs, multi-angle photos, condition report, and arrange an inspection at SMR Motors.">
+
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body>
+
+  <!-- Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link">Home</a></li>
+        <li><a href="index.html#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="sold-bikes.html" class="nav-link">Sold Gallery</a></li>
+        <li><a href="about.html" class="nav-link">About Us</a></li>
+        <li><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn"><i class="fas fa-bars"></i></button>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content" style="padding-top: calc(var(--header-height) + 2rem); padding-bottom: 5rem;">
+    <div class="container">
+      <!-- Breadcrumb -->
+      <div style="display: flex; gap: 0.5rem; font-size: 0.88rem; color: var(--text-muted); margin-bottom: 2rem;">
+        <a href="index.html" style="color: var(--text-secondary);">Home</a>
+        <span>/</span>
+        <a href="index.html#inventory" style="color: var(--text-secondary);">Motorcycles</a>
+        <span>/</span>
+        <span id="breadcrumb-title" style="color: var(--accent-primary);">Loading...</span>
+      </div>
+
+      <div id="bike-details-container" style="display: grid; grid-template-columns: 1.25fr 0.75fr; gap: 3rem;" class="hero-grid">
+        <!-- Left: Image Gallery & Description -->
+        <div>
+          <!-- Main Photo -->
+          <div style="border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border-medium); background: #000; position: relative; margin-bottom: 1rem; max-height: 480px; box-shadow: var(--shadow-md);">
+            <img id="main-bike-photo" src="" alt="Motorcycle Photo" style="width: 100%; height: 440px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80';" />
+            <div id="bike-status-badge" style="position: absolute; top: 1.25rem; left: 1.25rem;"></div>
+          </div>
+
+          <!-- Thumbnails Row -->
+          <div id="thumbnails-row" style="display: flex; gap: 0.75rem; overflow-x: auto; padding-bottom: 0.5rem; margin-bottom: 2.5rem;">
+            <!-- Thumbnails injected here -->
+          </div>
+
+          <!-- Vehicle Description Card -->
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2rem; margin-bottom: 2rem;">
+            <h3 style="font-size: 1.35rem; margin-bottom: 1rem;">Vehicle Overview & Condition</h3>
+            <p id="bike-description" style="color: var(--text-secondary); line-height: 1.7; font-size: 0.95rem; white-space: pre-line;"></p>
+          </div>
+
+          <!-- Certification Checklist -->
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 2rem;">
+            <h3 style="font-size: 1.35rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-certificate" style="color: var(--accent-primary);"></i> 45-Point Inspection Passed
+            </h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; font-size: 0.9rem;">
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Engine Compression Verified</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Clean Title & Clear RC</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Original Paint & Chassis</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Suspension Seals Intact</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Tyres & Brake Rotors Tested</div>
+              <div style="display: flex; align-items: center; gap: 0.5rem; color: var(--color-success);"><i class="fas fa-check-circle"></i> Zero Accidental Damage</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Specs, Pricing & Enquiry Action Card -->
+        <div>
+          <div style="background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-xl); padding: 2.25rem; box-shadow: var(--shadow-lg); position: sticky; top: calc(var(--header-height) + 1.5rem);">
+            <div id="bike-brand-badge" style="font-size: 0.85rem; text-transform: uppercase; font-weight: 700; color: var(--accent-primary); letter-spacing: 0.08em; margin-bottom: 0.4rem;"></div>
+            <h1 id="bike-title-heading" style="font-size: 2rem; margin-bottom: 1rem; line-height: 1.25;"></h1>
+
+            <!-- Price Tag -->
+            <div style="background: var(--bg-surface-elevated); padding: 1.25rem 1.5rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle); margin-bottom: 1.75rem; display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Direct Buy Price</div>
+                <div id="bike-price-tag" style="font-family: var(--font-display); font-size: 2rem; font-weight: 800; color: #FFF;"></div>
+              </div>
+              <span class="badge badge-approved" style="font-size: 0.82rem;"><i class="fas fa-shield-alt"></i> Best Price</span>
+            </div>
+
+            <!-- Key Specifications Grid -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+              <div>
+                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Manufacturing Year</span>
+                <span id="bike-spec-year" style="font-weight: 600; font-size: 1rem; color: var(--text-primary);"></span>
+              </div>
+              <div>
+                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Kilometers Driven</span>
+                <span id="bike-spec-km" style="font-weight: 600; font-size: 1rem; color: var(--text-primary);"></span>
+              </div>
+              <div>
+                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Fuel Type</span>
+                <span id="bike-spec-fuel" style="font-weight: 600; font-size: 1rem; color: var(--text-primary);"></span>
+              </div>
+              <div>
+                <span style="font-size: 0.78rem; color: var(--text-muted); display: block;">Transmission</span>
+                <span id="bike-spec-transmission" style="font-weight: 600; font-size: 1rem; color: var(--text-primary);"></span>
+              </div>
+            </div>
+
+            <!-- Lead / Enquiry Submission -->
+            <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Interested in this Motorcycle?</h3>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1.25rem;">
+              Fill out your details to schedule a test ride or get direct seller contact.
+            </p>
+
+            <form id="direct-enquiry-form" onsubmit="handleDirectBikeEnquiry(event)">
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <input type="text" id="direct-name" name="name" class="form-control" required placeholder="Your Full Name">
+                <input type="email" id="direct-email" name="email" class="form-control" required placeholder="Email Address">
+                <input type="tel" id="direct-phone" name="phone" class="form-control" required placeholder="Phone Number">
+                <textarea name="message" class="form-control" rows="2" placeholder="I would like to inspect this motorcycle..."></textarea>
+                <button type="submit" class="btn btn-lg btn-primary" style="width: 100%;">
+                  <i class="fas fa-paper-plane"></i> Book Test Ride / Enquiry
+                </button>
+              </div>
+            </form>
+
+            <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem;">
+              <a href="tel:+919876543210" class="btn btn-secondary" style="flex: 1;"><i class="fas fa-phone"></i> Call Showroom</a>
+              <button id="direct-fav-btn" class="btn btn-outline" style="flex: 1;" onclick="toggleDirectFav()"><i class="far fa-heart"></i> Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Global Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All rights reserved.</div>
+        <div>Showroom enquiries: +91 98765 43210</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/main.js"></script>
+  <script>
+    let currentBike = null;
+
+    async function loadBikeDetails() {
+      const urlParams = new URLSearchParams(window.location.search);
+      const bikeId = urlParams.get('id');
+
+      if (!bikeId) {
+        window.location.href = 'index.html#inventory';
+        return;
+      }
+
+      try {
+        const res = await apiRequest(`/api/bikes/${bikeId}`);
+        currentBike = res.data;
+
+        if (!currentBike) throw new Error('Motorcycle not found');
+
+        // Populate fields
+        document.title = `${currentBike.year} ${currentBike.title} | SMR Motors`;
+        document.getElementById('breadcrumb-title').innerText = currentBike.title;
+        document.getElementById('bike-brand-badge').innerText = currentBike.brand || 'Motorcycle';
+        document.getElementById('bike-title-heading').innerText = currentBike.title;
+        document.getElementById('bike-price-tag').innerText = `₹${Number(currentBike.price).toLocaleString('en-IN')}`;
+        document.getElementById('bike-spec-year').innerText = currentBike.year;
+        document.getElementById('bike-spec-km').innerText = `${(currentBike.kilometers_driven || 0).toLocaleString()} km`;
+        document.getElementById('bike-spec-fuel').innerText = currentBike.fuel_type || 'Petrol';
+        document.getElementById('bike-spec-transmission').innerText = currentBike.transmission || 'Manual';
+        document.getElementById('bike-description').innerText = currentBike.description || 'Inspected pre-owned motorcycle in top mechanical condition. Clear title and complete documentation ready for immediate transfer.';
+
+        // Status badge
+        const badgeContainer = document.getElementById('bike-status-badge');
+        if (currentBike.status === 'soldout' || currentBike.status === 'sold') {
+          badgeContainer.innerHTML = '<span class="badge badge-soldout">Sold Out</span>';
+          document.getElementById('direct-enquiry-form').innerHTML = '<div class="badge badge-soldout" style="padding:0.75rem 1rem; width:100%; text-align:center;">This motorcycle has been sold.</div>';
+        } else {
+          badgeContainer.innerHTML = '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Inspected & Ready</span>';
+        }
+
+        // Parse images
+        let images = [];
+        try {
+          images = typeof currentBike.images === 'string' ? JSON.parse(currentBike.images) : (currentBike.images || []);
+        } catch (e) {
+          images = [];
+        }
+
+        const mainPhoto = document.getElementById('main-bike-photo');
+        const defaultImg = 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80';
+        mainPhoto.src = (images.length > 0) ? images[0] : defaultImg;
+
+        // Thumbnails
+        const thumbRow = document.getElementById('thumbnails-row');
+        if (images.length > 1) {
+          thumbRow.innerHTML = images.map((img, idx) => `
+            <img src="${img}" style="width: 80px; height: 60px; object-fit: cover; border-radius: var(--radius-sm); border: 2px solid ${idx===0 ? 'var(--accent-primary)' : 'var(--border-subtle)'}; cursor: pointer; flex-shrink: 0;" onclick="selectPhoto('${img}', this)" />
+          `).join('');
+        } else {
+          thumbRow.style.display = 'none';
+        }
+
+        // Prefill form if user logged in
+        const user = AuthService.getUser();
+        if (user) {
+          document.getElementById('direct-name').value = user.name || '';
+          document.getElementById('direct-email').value = user.email || '';
+          if (user.phone) document.getElementById('direct-phone').value = user.phone;
+        }
+
+      } catch (err) {
+        showToast(err.message, 'error');
+        document.getElementById('bike-details-container').innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <i class="fas fa-exclamation-circle empty-state-icon"></i>
+            <h3>Motorcycle Not Found</h3>
+            <p>The vehicle you requested may have been removed or sold.</p>
+            <a href="index.html#inventory" class="btn btn-primary" style="margin-top: 1rem;">Back to Inventory</a>
+          </div>
+        `;
+      }
+    }
+
+    function selectPhoto(url, element) {
+      document.getElementById('main-bike-photo').src = url;
+      document.querySelectorAll('#thumbnails-row img').forEach(img => img.style.borderColor = 'var(--border-subtle)');
+      element.style.borderColor = 'var(--accent-primary)';
+    }
+
+    async function handleDirectBikeEnquiry(e) {
+      e.preventDefault();
+      if (!currentBike) return;
+
+      const form = e.target;
+      const submitBtn = form.querySelector('button[type="submit"]');
+      const origText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+      const formData = new FormData(form);
+      const payload = {
+        bike_id: currentBike.id,
+        name: formData.get('name'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        message: formData.get('message')
+      };
+
+      try {
+        const res = await apiRequest('/api/enquiries', {
+          method: 'POST',
+          body: payload
+        });
+        showToast(res.message || 'Enquiry submitted successfully! Our team will contact you shortly.', 'success');
+        form.reset();
+      } catch (err) {
+        showToast(err.message || 'Failed to submit enquiry', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origText;
+      }
+    }
+
+    async function toggleDirectFav() {
+      if (!currentBike) return;
+      const btn = document.getElementById('direct-fav-btn');
+      const user = AuthService.getUser();
+      if (!user) {
+        showToast('Please sign in with Google to save favorites', 'info');
+        setTimeout(() => window.location.href = 'login.html', 1000);
+        return;
+      }
+      try {
+        const res = await apiRequest('/api/users/favorites', {
+          method: 'POST',
+          body: { bike_id: currentBike.id }
+        });
+        showToast(res.message || 'Favorites updated', 'success');
+      } catch (err) {
+        showToast(err.message || 'Failed to save', 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadBikeDetails);
+  </script>
+</body>
+</html>

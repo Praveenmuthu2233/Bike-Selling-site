@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SMR Motors | Verified Pre-Owned Motorcycles Marketplace</title>
+  <meta name="description" content="Buy and sell verified pre-owned motorcycles in premium condition. Best price guarantee, multi-point inspection, and instant paperwork at SMR Motors.">
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+<body>
+
+  <!-- Global Header Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="index.html" class="nav-link active">Home</a></li>
+        <li><a href="#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="sold-bikes.html" class="nav-link">Sold Gallery</a></li>
+        <li><a href="about.html" class="nav-link">About Us</a></li>
+        <li><a href="contact.html" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn" aria-label="Toggle Navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-nav-backdrop"></div>
+  <div class="mobile-nav-drawer">
+    <div class="mobile-nav-header">
+      <div class="nav-brand">
+        <span class="brand-badge">SMR</span>
+        <span>MOTORS</span>
+      </div>
+      <button class="drawer-close btn-icon btn-ghost"><i class="fas fa-times"></i></button>
+    </div>
+    <ul class="mobile-nav-links">
+      <li><a href="index.html" class="nav-link active">Home</a></li>
+      <li><a href="#inventory" class="nav-link">Motorcycles</a></li>
+      <li><a href="sell-bike.html" class="nav-link">Sell Your Bike</a></li>
+      <li><a href="sold-bikes.html" class="nav-link">Sold Inventory</a></li>
+      <li><a href="about.html" class="nav-link">About Us</a></li>
+      <li><a href="contact.html" class="nav-link">Contact</a></li>
+      <li><a href="user/dashboard.html" class="nav-link">My Dashboard</a></li>
+      <li><a href="admin/login.html" class="nav-link" style="color:var(--text-muted); font-size:0.9rem;">Admin Portal</a></li>
+    </ul>
+    <div class="mobile-nav-footer nav-auth-slot">
+      <a href="login.html" class="btn btn-outline"><i class="fas fa-user"></i> Sign In</a>
+      <a href="sell-bike.html" class="btn btn-primary"><i class="fas fa-plus"></i> List Motorcycle</a>
+    </div>
+  </div>
+
+  <main class="main-content">
+    <!-- Hero Showcase Section -->
+    <section class="hero-section" style="padding: 5rem 0 4rem; position: relative; overflow: hidden;">
+      <div class="container">
+        <div class="hero-grid" style="display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 4rem; align-items: center;">
+          <div class="hero-content">
+            <span class="section-tag"><i class="fas fa-shield-alt"></i> 100% Certified Pre-Owned</span>
+            <h1 style="font-size: 3.5rem; line-height: 1.15; margin-bottom: 1.5rem; font-weight: 800;">
+              Find Your Next <br>
+              <span style="background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Dream Motorcycle</span>
+            </h1>
+            <p style="font-size: 1.15rem; color: var(--text-secondary); margin-bottom: 2rem; max-width: 540px;">
+              Premium pre-owned motorcycles rigorously inspected with transparent pricing, instant paper verification, and fair trade-in values.
+            </p>
+            <div class="hero-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+              <a href="#inventory" class="btn btn-lg btn-primary"><i class="fas fa-search"></i> Explore Inventory</a>
+              <a href="sell-bike.html" class="btn btn-lg btn-secondary"><i class="fas fa-tag"></i> Sell Your Bike</a>
+            </div>
+
+            <!-- Trust Counters -->
+            <div style="display: flex; gap: 2.5rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid var(--border-subtle);">
+              <div>
+                <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-display); color: #FFF;">500+</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase;">Bikes Delivered</div>
+              </div>
+              <div>
+                <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-display); color: #FFF;">45+</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase;">Check Points</div>
+              </div>
+              <div>
+                <div style="font-size: 1.75rem; font-weight: 800; font-family: var(--font-display); color: #FFF;">4.9/5</div>
+                <div style="font-size: 0.82rem; color: var(--text-muted); text-transform: uppercase;">Customer Rating</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hero Vehicle Card Showcase -->
+          <div class="hero-visual" style="position: relative;">
+            <div style="position: relative; border-radius: var(--radius-xl); overflow: hidden; border: 1px solid var(--border-medium); box-shadow: var(--shadow-lg), var(--shadow-glow);">
+              <img src="assets/images/IMG-20251204-WA0053.jpg" alt="Featured Motorcycle" style="width: 100%; height: 380px; object-fit: cover;" onerror="this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=800&q=80';" />
+              <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(11,15,23,0.95), transparent); padding: 2rem 1.5rem 1.25rem;">
+                <span class="badge badge-featured"><i class="fas fa-award"></i> Featured Arrival</span>
+                <h3 style="font-size: 1.35rem; margin: 0.5rem 0 0.25rem;">Royal Enfield Hunter 350</h3>
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.9rem; color: var(--text-secondary);">2023 • 8,400 KM • Petrol</span>
+                  <span style="font-family: var(--font-display); font-size: 1.3rem; font-weight: 800; color: #FFF;">₹1,45,000</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Trust Pillars Section -->
+    <section style="padding: 3rem 0; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); background: var(--bg-surface);">
+      <div class="container">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2rem;">
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div class="stat-icon orange" style="font-size: 1.25rem;"><i class="fas fa-clipboard-check"></i></div>
+            <div>
+              <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">45+ Point Inspection</h4>
+              <p style="font-size: 0.88rem; margin: 0;">Comprehensive engine, transmission, and frame evaluation by certified mechanics.</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div class="stat-icon green" style="font-size: 1.25rem;"><i class="fas fa-file-contract"></i></div>
+            <div>
+              <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Verified Paperwork</h4>
+              <p style="font-size: 0.88rem; margin: 0;">100% clean title guarantee, authentic RC transfer, and legal insurance verification.</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div class="stat-icon blue" style="font-size: 1.25rem;"><i class="fas fa-hand-holding-usd"></i></div>
+            <div>
+              <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Best Market Value</h4>
+              <p style="font-size: 0.88rem; margin: 0;">Transparent pricing with no hidden charges and fair market valuation for trade-ins.</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 1rem; align-items: flex-start;">
+            <div class="stat-icon purple" style="font-size: 1.25rem;"><i class="fas fa-shipping-fast"></i></div>
+            <div>
+              <h4 style="font-size: 1.1rem; margin-bottom: 0.25rem;">Instant Ownership</h4>
+              <p style="font-size: 0.88rem; margin: 0;">Drive away on the same day with quick digital documentation and doorstep delivery.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Inventory Section -->
+    <section id="inventory" style="padding: 5rem 0;">
+      <div class="container">
+        <div class="section-header">
+          <span class="section-tag"><i class="fas fa-motorcycle"></i> Verified Collection</span>
+          <h2 class="section-title">Explore Available Motorcycles</h2>
+          <p class="section-subtitle">Browse through our hand-picked inventory of inspected and road-tested motorbikes.</p>
+        </div>
+
+        <!-- Filter & Search Controls -->
+        <div class="filters-panel">
+          <div class="filters-grid">
+            <div class="input-group">
+              <i class="fas fa-search input-icon"></i>
+              <input type="text" id="search-input" class="form-control" placeholder="Search by brand, model or keyword (e.g. Yamaha, Hunter, Duke)...">
+            </div>
+
+            <div class="input-group">
+              <select id="filter-brand" class="form-control" style="cursor: pointer;">
+                <option value="">All Brands</option>
+              </select>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary);">
+                <span>Max Budget</span>
+                <span id="price-val-display" style="color: var(--accent-primary); font-weight: 700;">Up to ₹5,00,000</span>
+              </div>
+              <input type="range" id="filter-price" min="20000" max="600000" step="10000" value="600000" style="accent-color: var(--accent-primary); cursor: pointer;">
+            </div>
+
+            <div class="input-group">
+              <select id="filter-sort" class="form-control" style="cursor: pointer;">
+                <option value="newest">Latest Arrivals</option>
+                <option value="price-low">Price: Low to High</option>
+                <option value="price-high">Price: High to Low</option>
+                <option value="year-new">Year: Newest First</option>
+              </select>
+            </div>
+
+            <button onclick="document.getElementById('search-input').value=''; document.getElementById('filter-brand').value=''; document.getElementById('filter-price').value=600000; document.getElementById('price-val-display').innerText='Up to ₹6,00,000'; applyFilters();" class="btn btn-outline" title="Reset Filters">
+              <i class="fas fa-redo"></i> Reset
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Bikes Grid -->
+        <div id="marketplace-bikes-grid" class="bike-grid">
+          <!-- Populated dynamically via assets/js/marketplace.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Banner -->
+    <section style="padding: 4.5rem 0; background: linear-gradient(135deg, rgba(255, 107, 0, 0.12) 0%, rgba(18, 24, 36, 0.95) 100%); border-top: 1px solid var(--border-medium); border-bottom: 1px solid var(--border-medium);">
+      <div class="container" style="text-align: center; max-width: 750px;">
+        <span class="badge badge-featured" style="margin-bottom: 1rem;"><i class="fas fa-coins"></i> Instant Liquidity</span>
+        <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">Ready to Sell Your Motorcycle?</h2>
+        <p style="font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 2rem;">
+          Get an instant evaluation, direct buyers, and zero commission fees. List your bike in less than 2 minutes.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
+          <a href="sell-bike.html" class="btn btn-lg btn-primary"><i class="fas fa-camera"></i> List Bike For Free</a>
+          <a href="contact.html" class="btn btn-lg btn-secondary"><i class="fas fa-phone-alt"></i> Speak to An Expert</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Quick Enquiry Modal -->
+  <div id="enquiry-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Motorcycle Enquiry</h3>
+          <p id="enquiry-modal-bike-title" style="font-size: 0.85rem; color: var(--accent-primary); margin: 0;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('enquiry-modal')">&times;</button>
+      </div>
+      <form onsubmit="submitEnquiry(event)">
+        <div class="modal-body">
+          <div style="display: flex; flex-direction: column; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Full Name *</label>
+              <input type="text" id="enquiry-name" name="name" class="form-control" required placeholder="Enter your full name">
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Email Address *</label>
+              <input type="email" id="enquiry-email" name="email" class="form-control" required placeholder="your.email@example.com">
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Phone Number *</label>
+              <input type="tel" id="enquiry-phone" name="phone" class="form-control" required placeholder="10-digit mobile number">
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Message / Preferred Test Ride Time</label>
+              <textarea name="message" class="form-control" rows="3" placeholder="I am interested in this motorcycle and would like to arrange an inspection or discuss the price."></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('enquiry-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-paper-plane"></i> Send Enquiry</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Global Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="nav-brand">
+            <span class="brand-badge">SMR</span>
+            <span>MOTORS<span class="brand-accent">.</span></span>
+          </a>
+          <p>Your premier destination for certified pre-owned motorcycles. Trusted by riders across the region with verified quality and transparent deals.</p>
+          <div class="footer-socials">
+            <a href="#" class="footer-social-link"><i class="fab fa-facebook-f"></i></a>
+            <a href="#" class="footer-social-link"><i class="fab fa-instagram"></i></a>
+            <a href="#" class="footer-social-link"><i class="fab fa-youtube"></i></a>
+            <a href="#" class="footer-social-link"><i class="fab fa-whatsapp"></i></a>
+          </div>
+        </div>
+
+        <div class="footer-column">
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="index.html" class="footer-link">Home</a></li>
+            <li><a href="#inventory" class="footer-link">Motorcycles</a></li>
+            <li><a href="sell-bike.html" class="footer-link">Sell Your Bike</a></li>
+            <li><a href="sold-bikes.html" class="footer-link">Sold Inventory</a></li>
+            <li><a href="about.html" class="footer-link">About SMR Motors</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Customer Care</h4>
+          <ul class="footer-links">
+            <li><a href="contact.html" class="footer-link">Contact Showroom</a></li>
+            <li><a href="user/dashboard.html" class="footer-link">User Dashboard</a></li>
+            <li><a href="login.html" class="footer-link">Google Sign In</a></li>
+            <li><a href="admin/login.html" class="footer-link">Admin Portal</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Showroom & Hours</h4>
+          <div class="footer-contact-item">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>SMR Motors Showroom, Auto Hub, Main Bypass Road</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-phone-alt"></i>
+            <span>+91 98765 43210 / +91 91234 56789</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-envelope"></i>
+            <span>contact@smrmotors.com</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-clock"></i>
+            <span>Mon - Sat: 9:30 AM - 8:30 PM (Sunday Open)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All rights reserved. Precision Automotive Marketplace.</div>
+        <div>Engineered with TiDB Cloud & Google Identity Services.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="assets/js/config.js"></script>
+  <script src="assets/js/api.js"></script>
+  <script src="assets/js/auth.js"></script>
+  <script src="assets/js/marketplace.js"></script>
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

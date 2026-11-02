@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management | SMR Motors Admin</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+  <div class="admin-layout">
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="brand-badge"><i class="fas fa-shield-alt"></i> ADMIN</span>
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem;">SMR CONSOLE</span>
+      </div>
+
+      <nav class="admin-nav">
+        <a href="dashboard.html" class="admin-nav-item">
+          <i class="fas fa-chart-pie"></i> Overview & Metrics
+        </a>
+        <a href="dashboard.html" class="admin-nav-item">
+          <i class="fas fa-motorcycle"></i> Inventory & Approvals
+        </a>
+        <a href="users.html" class="admin-nav-item active">
+          <i class="fas fa-users"></i> User Management
+        </a>
+        <a href="dashboard.html" class="admin-nav-item">
+          <i class="fas fa-envelope-open-text"></i> Customer Enquiries
+        </a>
+        <a href="dashboard.html" class="admin-nav-item">
+          <i class="fas fa-inbox"></i> Contact Messages
+        </a>
+        <a href="dashboard.html" class="admin-nav-item">
+          <i class="fas fa-history"></i> Security Audit Trail
+        </a>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <button onclick="adminLogout()" class="btn btn-outline" style="width: 100%;">
+          <i class="fas fa-sign-out-alt"></i> Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <main class="admin-main">
+      <header class="admin-topbar">
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+          <span>User Directory</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <a href="../index.html" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> View Marketplace</a>
+          <a href="dashboard.html" class="btn btn-sm btn-primary"><i class="fas fa-arrow-left"></i> Console Home</a>
+        </div>
+      </header>
+
+      <div class="admin-page-content">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <span class="section-tag"><i class="fas fa-users-cog"></i> Account Governance</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Registered Users & Sellers</h1>
+          </div>
+          <div>
+            <input type="text" id="user-search-input" class="form-control" placeholder="Search by name or email..." style="width: 280px;" oninput="filterUsersList()">
+          </div>
+        </div>
+
+        <div class="table-card">
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User Profile</th>
+                  <th>Google Account Email</th>
+                  <th>Phone Number</th>
+                  <th>Role</th>
+                  <th>Registration Date</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body">
+                <tr><td colspan="6" style="text-align: center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="js/admin.js"></script>
+  <script>
+    let allUsers = [];
+
+    async function loadAdminUsers() {
+      const tbody = document.getElementById('admin-users-table-body');
+      try {
+        const res = await apiRequest('/api/admin/users');
+        allUsers = res.data || [];
+        renderUsersTable(allUsers);
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem; color:var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    function renderUsersTable(users) {
+      const tbody = document.getElementById('admin-users-table-body');
+      if (users.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 3rem; color:var(--text-muted);">No users found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = users.map(u => `
+        <tr>
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+              <img src="${u.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80'}" style="width: 36px; height: 36px; border-radius: 50%; object-fit: cover;" />
+              <div>
+                <div style="font-weight: 700;">${u.name}</div>
+                <div style="font-size: 0.75rem; color: var(--text-muted);">UID: #${u.id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${u.email}</td>
+          <td>${u.phone || '<span style="color:var(--text-muted);">-</span>'}</td>
+          <td><span class="badge badge-featured">${u.role || 'user'}</span></td>
+          <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(u.created_at).toLocaleDateString()}</td>
+          <td>
+            <button onclick="toggleUserStatusAction(${u.id}, ${u.is_active !== 0})" class="btn btn-sm ${u.is_active !== 0 ? 'btn-outline' : 'btn-success'}">
+              ${u.is_active !== 0 ? '<i class="fas fa-ban"></i> Deactivate' : '<i class="fas fa-check"></i> Activate'}
+            </button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function filterUsersList() {
+      const term = (document.getElementById('user-search-input').value || '').toLowerCase();
+      const filtered = allUsers.filter(u => 
+        (u.name && u.name.toLowerCase().includes(term)) ||
+        (u.email && u.email.toLowerCase().includes(term))
+      );
+      renderUsersTable(filtered);
+    }
+
+    async function toggleUserStatusAction(userId, currentActive) {
+      const action = currentActive ? 'deactivate' : 'activate';
+      if (!confirm(`Are you sure you want to ${action} this user account?`)) return;
+
+      try {
+        const res = await apiRequest(`/api/admin/users/${userId}/status`, {
+          method: 'PUT',
+          body: { is_active: currentActive ? 0 : 1 }
+        });
+        showToast(res.message || `User status updated to ${action}d`, 'success');
+        loadAdminUsers();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const admin = checkAdminAuth();
+      if (admin) {
+        loadAdminUsers();
+      }
+    });
+  </script>
+</body>
+</html>

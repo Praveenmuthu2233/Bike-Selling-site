@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Enquiries | SMR Motors</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/user.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="../index.html" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <div class="nav-actions">
+        <a href="../index.html" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
+        <button onclick="AuthService.logout()" class="btn btn-sm btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="user-layout">
+    <aside class="user-sidebar">
+      <div class="user-profile-summary">
+        <div class="user-avatar-wrap">
+          <img id="sidebar-avatar" class="user-avatar-img" src="" alt="Profile" />
+        </div>
+        <h3 id="sidebar-name" class="user-name">...</h3>
+        <p id="sidebar-email" class="user-email">...</p>
+      </div>
+
+      <ul class="user-nav-list">
+        <li><a href="dashboard.html" class="user-nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard Overview</a></li>
+        <li><a href="profile.html" class="user-nav-link"><i class="fas fa-user-edit"></i> My Profile</a></li>
+        <li><a href="my-listings.html" class="user-nav-link"><i class="fas fa-motorcycle"></i> My Listed Bikes</a></li>
+        <li><a href="enquiries.html" class="user-nav-link active"><i class="fas fa-envelope-open-text"></i> My Enquiries</a></li>
+        <li><a href="favorites.html" class="user-nav-link"><i class="fas fa-heart"></i> Saved Favorites</a></li>
+      </ul>
+    </aside>
+
+    <main class="user-main-content">
+      <div style="margin-bottom: 2rem;">
+        <span class="section-tag"><i class="fas fa-inbox"></i> Lead Follow-up</span>
+        <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">My Submitted Enquiries</h1>
+        <p style="color: var(--text-secondary);">Track test ride requests and price inquiries made to our showroom team.</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Vehicle Enquired</th>
+                <th>Price</th>
+                <th>My Message</th>
+                <th>Status</th>
+                <th>Date Sent</th>
+              </tr>
+            </thead>
+            <tbody id="my-enquiries-table-body">
+              <tr><td colspan="5" style="text-align: center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading enquiries...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await AuthService.verifySession();
+      if (!user) {
+        window.location.href = '../login.html';
+        return;
+      }
+      document.getElementById('sidebar-avatar').src = user.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+      document.getElementById('sidebar-name').innerText = user.name;
+      document.getElementById('sidebar-email').innerText = user.email;
+
+      loadUserEnquiries();
+    });
+
+    async function loadUserEnquiries() {
+      const tbody = document.getElementById('my-enquiries-table-body');
+      try {
+        const res = await apiRequest('/api/users/enquiries');
+        const enquiries = res.data || [];
+
+        if (enquiries.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="5">
+                <div class="empty-state">
+                  <i class="fas fa-comment-dots empty-state-icon"></i>
+                  <h3>No enquiries submitted yet</h3>
+                  <p>Interested in a bike? Browse our collection and send a message.</p>
+                  <a href="../index.html#inventory" class="btn btn-primary" style="margin-top: 1rem;">Browse Motorcycles</a>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tbody.innerHTML = enquiries.map(e => `
+          <tr>
+            <td>
+              <div style="font-weight: 700; color: var(--text-primary); font-size: 0.98rem;">${e.bike_title || 'General Motorcycle Inquiry'}</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">${e.bike_brand || ''}</div>
+            </td>
+            <td style="color: var(--accent-primary); font-weight: 700;">${e.bike_price ? '₹' + Number(e.bike_price).toLocaleString('en-IN') : '-'}</td>
+            <td style="max-width: 280px; font-size: 0.88rem; color: var(--text-secondary);">${e.message}</td>
+            <td>
+              <span class="badge badge-${e.status === 'completed' ? 'approved' : (e.status === 'contacted' ? 'featured' : 'pending')}">
+                ${e.status}
+              </span>
+            </td>
+            <td style="color: var(--text-muted); font-size: 0.85rem;">${new Date(e.created_at).toLocaleDateString()}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2rem; color: var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+  </script>
+</body>
+</html>

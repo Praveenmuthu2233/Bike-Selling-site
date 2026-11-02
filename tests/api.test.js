@@ -106,7 +106,32 @@ async function runTests() {
     await test('HTML Route /bikeSelling.html returns 200 with Multi-Image Form', async () => {
       const res = await request('GET', '/bikeSelling.html');
       assert.strictEqual(res.status, 200);
-      assert.ok(res.data.includes('Add listing') || res.data.includes('Listing Title'));
+      assert.ok(res.data.includes('Add listing') || res.data.includes('Listing Title') || res.data.includes('Sell Your Motorcycle'));
+    });
+
+    await test('New Clean Structure: /about.html, /contact.html, /login.html return 200', async () => {
+      const resAbout = await request('GET', '/about.html');
+      assert.strictEqual(resAbout.status, 200);
+      const resContact = await request('GET', '/contact.html');
+      assert.strictEqual(resContact.status, 200);
+      const resLogin = await request('GET', '/login.html');
+      assert.strictEqual(resLogin.status, 200);
+    });
+
+    await test('New Clean Structure: /user/dashboard.html & /admin/dashboard.html return 200', async () => {
+      const resUser = await request('GET', '/user/dashboard.html');
+      assert.strictEqual(resUser.status, 200);
+      const resAdmin = await request('GET', '/admin/dashboard.html');
+      assert.strictEqual(resAdmin.status, 200);
+    });
+
+    await test('Mandatory CSS Stylesheets load with 200 OK', async () => {
+      const resStyle = await request('GET', '/assets/css/style.css');
+      assert.strictEqual(resStyle.status, 200);
+      const resComp = await request('GET', '/assets/css/components.css');
+      assert.strictEqual(resComp.status, 200);
+      const resResp = await request('GET', '/assets/css/responsive.css');
+      assert.strictEqual(resResp.status, 200);
     });
 
     /* 2. Public API Endpoints */

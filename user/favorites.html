@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Saved Favorites | SMR Motors</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/user.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="../index.html" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <div class="nav-actions">
+        <a href="../index.html" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
+        <button onclick="AuthService.logout()" class="btn btn-sm btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="user-layout">
+    <aside class="user-sidebar">
+      <div class="user-profile-summary">
+        <div class="user-avatar-wrap">
+          <img id="sidebar-avatar" class="user-avatar-img" src="" alt="Profile" />
+        </div>
+        <h3 id="sidebar-name" class="user-name">...</h3>
+        <p id="sidebar-email" class="user-email">...</p>
+      </div>
+
+      <ul class="user-nav-list">
+        <li><a href="dashboard.html" class="user-nav-link"><i class="fas fa-tachometer-alt"></i> Dashboard Overview</a></li>
+        <li><a href="profile.html" class="user-nav-link"><i class="fas fa-user-edit"></i> My Profile</a></li>
+        <li><a href="my-listings.html" class="user-nav-link"><i class="fas fa-motorcycle"></i> My Listed Bikes</a></li>
+        <li><a href="enquiries.html" class="user-nav-link"><i class="fas fa-envelope-open-text"></i> My Enquiries</a></li>
+        <li><a href="favorites.html" class="user-nav-link active"><i class="fas fa-heart"></i> Saved Favorites</a></li>
+      </ul>
+    </aside>
+
+    <main class="user-main-content">
+      <div style="margin-bottom: 2rem;">
+        <span class="section-tag"><i class="fas fa-bookmark"></i> Wishlist</span>
+        <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Saved Motorcycles</h1>
+        <p style="color: var(--text-secondary);">Quickly revisit bikes you have bookmarked during your search.</p>
+      </div>
+
+      <div id="favorites-grid" class="bike-grid">
+        <div style="grid-column: 1/-1; text-align: center; padding: 3rem;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await AuthService.verifySession();
+      if (!user) {
+        window.location.href = '../login.html';
+        return;
+      }
+      document.getElementById('sidebar-avatar').src = user.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+      document.getElementById('sidebar-name').innerText = user.name;
+      document.getElementById('sidebar-email').innerText = user.email;
+
+      loadFavorites();
+    });
+
+    async function loadFavorites() {
+      const grid = document.getElementById('favorites-grid');
+      try {
+        const res = await apiRequest('/api/users/favorites');
+        const favs = res.data || [];
+
+        if (favs.length === 0) {
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column: 1/-1;">
+              <i class="far fa-heart empty-state-icon"></i>
+              <h3>No saved favorites yet</h3>
+              <p>Click the heart icon on any bike to save it here for later comparison.</p>
+              <a href="../index.html#inventory" class="btn btn-primary" style="margin-top: 1rem;">Explore Marketplace</a>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = favs.map(bike => {
+          let imgs = [];
+          try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
+          const cover = imgs[0] || 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=600&q=80';
+
+          return `
+            <div class="bike-card">
+              <div class="bike-card-img-wrapper">
+                <img src="${cover}" class="bike-card-img" />
+                <button class="bike-fav-btn active" onclick="removeFavorite(${bike.id})" title="Remove">
+                  <i class="fas fa-heart"></i>
+                </button>
+              </div>
+              <div class="bike-card-body">
+                <div class="bike-card-brand">${bike.brand}</div>
+                <h3 class="bike-card-title">${bike.title}</h3>
+                <div class="bike-specs-row">
+                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
+                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> ${(bike.kilometers_driven||0).toLocaleString()} km</div>
+                </div>
+                <div class="bike-card-footer">
+                  <span class="bike-price-value">₹${Number(bike.price).toLocaleString('en-IN')}</span>
+                  <a href="../bike-details.html?id=${bike.id}" class="btn btn-sm btn-primary">View</a>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        grid.innerHTML = `<div class="empty-state" style="grid-column: 1/-1;"><p style="color:var(--color-danger);">${err.message}</p></div>`;
+      }
+    }
+
+    async function removeFavorite(bikeId) {
+      try {
+        await apiRequest(`/api/users/favorites/${bikeId}`, { method: 'DELETE' });
+        showToast('Removed from favorites', 'info');
+        loadFavorites();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

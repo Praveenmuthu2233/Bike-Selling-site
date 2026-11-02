@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | SMR Motors Management Console</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+
+  <div class="admin-layout">
+    <!-- Admin Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="brand-badge"><i class="fas fa-shield-alt"></i> ADMIN</span>
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem;">SMR CONSOLE</span>
+      </div>
+
+      <nav class="admin-nav">
+        <a class="admin-nav-item active" onclick="switchAdminTab('tab-overview', this)">
+          <i class="fas fa-chart-pie"></i> Overview & Metrics
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-bikes', this)">
+          <i class="fas fa-motorcycle"></i> Inventory & Approvals
+        </a>
+        <a href="users.html" class="admin-nav-item">
+          <i class="fas fa-users"></i> User Management
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-enquiries', this)">
+          <i class="fas fa-envelope-open-text"></i> Customer Enquiries
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-messages', this)">
+          <i class="fas fa-inbox"></i> Contact Messages
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-audit', this)">
+          <i class="fas fa-history"></i> Security Audit Trail
+        </a>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          TiDB Cloud MySQL • Active
+        </div>
+        <button onclick="adminLogout()" class="btn btn-outline" style="width: 100%;">
+          <i class="fas fa-sign-out-alt"></i> Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="admin-main">
+      <!-- Topbar -->
+      <header class="admin-topbar">
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+          <span id="admin-breadcrumb-title">Overview</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <a href="../index.html" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> View Marketplace</a>
+          <div class="admin-profile-badge">
+            <div class="admin-avatar"><i class="fas fa-user"></i></div>
+            <span id="topbar-admin-name" style="font-weight: 600; font-size: 0.92rem;">Administrator</span>
+          </div>
+        </div>
+      </header>
+
+      <div class="admin-page-content">
+        <!-- 1. TAB: OVERVIEW & STATS -->
+        <section id="tab-overview" class="admin-tab-pane active">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-bolt"></i> Real-Time Telemetry</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Platform Intelligence</h1>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-bikes" class="stat-val">-</span>
+                <span class="stat-label">Total Inventory</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-pending" class="stat-val">-</span>
+                <span class="stat-label">Pending Approval</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon green"><i class="fas fa-users"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-users" class="stat-val">-</span>
+                <span class="stat-label">Registered Users</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon blue"><i class="fas fa-envelope-open-text"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-enquiries" class="stat-val">-</span>
+                <span class="stat-label">Customer Leads</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending Approvals Banner Callout -->
+          <div id="pending-approvals-alert" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-lg); padding: 1.25rem 1.75rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; display: none;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; color: var(--color-warning);"></i>
+              <div>
+                <strong style="color: #FFF;">Pending Vehicle Submissions</strong>
+                <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary);" id="pending-alert-text">You have listings awaiting mechanical review.</p>
+              </div>
+            </div>
+            <button onclick="switchAdminTab('tab-bikes', document.querySelectorAll('.admin-nav-item')[1])" class="btn btn-sm btn-primary">Review Now</button>
+          </div>
+
+          <!-- Quick Recent Table -->
+          <div class="table-card">
+            <div class="table-header">
+              <h3 style="font-size: 1.15rem; margin: 0;">Recent User Registrations</h3>
+              <a href="users.html" class="btn btn-sm btn-outline">Full User List</a>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Auth Provider</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-users-tbody">
+                  <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading platform intelligence...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. TAB: INVENTORY & APPROVALS -->
+        <section id="tab-bikes" class="admin-tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-check-double"></i> Quality Control</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Inventory Approvals & Control</h1>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <select id="adm-bikes-filter-status" class="form-control" style="width: 170px;" onchange="loadAdminBikes()">
+                <option value="">All Statuses</option>
+                <option value="pending" selected>Pending Review</option>
+                <option value="approved">Approved & Active</option>
+                <option value="rejected">Rejected</option>
+                <option value="soldout">Sold Out</option>
+              </select>
+              <button onclick="loadAdminBikes()" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Motorcycle</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Kilometers</th>
+                    <th>Seller</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-bikes-table-body">
+                  <tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading inventory...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. TAB: ENQUIRIES -->
+        <section id="tab-enquiries" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-phone-volume"></i> Buyer Leads</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Customer Enquiries & Test Rides</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Lead Customer</th>
+                    <th>Contact Info</th>
+                    <th>Motorcycle</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-enquiries-table-body">
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading customer enquiries...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. TAB: CONTACT MESSAGES -->
+        <section id="tab-messages" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-comments"></i> Inquiries</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Sender</th>
+                    <th>Email / Phone</th>
+                    <th>Message</th>
+                    <th>Received At</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-messages-table-body">
+                  <tr><td colspan="5" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. TAB: SECURITY AUDIT TRAIL -->
+        <section id="tab-audit" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-fingerprint"></i> Immutable Trail</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Administrative Audit Logs</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Administrator</th>
+                    <th>Action Taken</th>
+                    <th>Target Type</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-audit-table-body">
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading audit trail...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Rejection Reason Modal -->
+  <div id="reject-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Reject Motorcycle Listing</h3>
+        <button class="modal-close-btn" onclick="closeModal('reject-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+          Please state the reason for rejecting this listing (e.g. invalid registration photo, missing engine specs, price mismatch):
+        </p>
+        <textarea id="reject-reason-input" class="form-control" rows="3" placeholder="Enter reason for seller..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('reject-modal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmRejectBike()">Reject Listing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price Update Modal -->
+  <div id="price-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Adjust Motorcycle Price</h3>
+        <button class="modal-close-btn" onclick="closeModal('price-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Updated Price (₹) *</label>
+        <input type="number" id="update-price-input" class="form-control" min="5000" step="500">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('price-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmPriceUpdate()">Update Price</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

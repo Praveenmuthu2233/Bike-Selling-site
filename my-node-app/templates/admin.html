@@ -1,588 +1,319 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Portal - SMR Motors</title>
-    <link rel="icon" type="image/png" href="/0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/my-node-app/static/adminStyle.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | SMR Motors Management Console</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <link rel="stylesheet" href="css/admin.css">
 </head>
-<body class="admin-body">
+<body>
 
-    <!-- 1. ADMIN LOGIN VIEW (Displayed when unauthenticated) -->
-    <div id="adminLoginSection" class="min-vh-100 d-flex align-items-center justify-content-center py-5">
-        <div class="admin-login-card shadow-lg p-4 p-md-5 rounded-4 bg-white border">
-            <div class="text-center mb-4">
-                <img src="/0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png" alt="SMR Motors" class="admin-logo mb-2">
-                <h3 class="fw-bold mb-1">SMR Motors <span class="text-success">Admin</span></h3>
-                <p class="text-muted small">Authorized Personnel Management Console</p>
-            </div>
+  <div class="admin-layout">
+    <!-- Admin Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="admin-brand">
+        <span class="brand-badge"><i class="fas fa-shield-alt"></i> ADMIN</span>
+        <span style="font-family: var(--font-display); font-weight: 800; font-size: 1.25rem;">SMR CONSOLE</span>
+      </div>
 
-            <form id="adminLoginForm" onsubmit="handleAdminLoginSubmit(event)">
-                <div class="mb-3">
-                    <label class="form-label fw-semibold small">Username or Admin Email</label>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-user-shield text-muted"></i></span>
-                        <input type="text" id="adminUsername" class="form-control" placeholder="admin or admin@smrmotors.com" required>
-                    </div>
-                </div>
+      <nav class="admin-nav">
+        <a class="admin-nav-item active" onclick="switchAdminTab('tab-overview', this)">
+          <i class="fas fa-chart-pie"></i> Overview & Metrics
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-bikes', this)">
+          <i class="fas fa-motorcycle"></i> Inventory & Approvals
+        </a>
+        <a href="users.html" class="admin-nav-item">
+          <i class="fas fa-users"></i> User Management
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-enquiries', this)">
+          <i class="fas fa-envelope-open-text"></i> Customer Enquiries
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-messages', this)">
+          <i class="fas fa-inbox"></i> Contact Messages
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-audit', this)">
+          <i class="fas fa-history"></i> Security Audit Trail
+        </a>
+      </nav>
 
-                <div class="mb-4">
-                    <div class="d-flex justify-content-between align-items-center mb-1">
-                        <label class="form-label fw-semibold small mb-0">Password</label>
-                    </div>
-                    <div class="input-group">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-lock text-muted"></i></span>
-                        <input type="password" id="adminPassword" class="form-control" placeholder="Enter secure password" required>
-                        <button class="btn btn-outline-secondary" type="button" onclick="toggleAdminPasswordVisibility()">
-                            <i class="fa-regular fa-eye" id="togglePasswordIcon"></i>
-                        </button>
-                    </div>
-                </div>
-
-                <button type="submit" class="btn btn-dark w-100 py-2 fw-semibold mb-3" id="adminLoginBtn">
-                    <i class="fa-solid fa-right-to-bracket me-1"></i> Sign In to Admin Console
-                </button>
-
-                <div class="text-center">
-                    <a href="/" class="small text-muted text-decoration-none">
-                        <i class="fa-solid fa-arrow-left me-1"></i> Return to SMR Motors Marketplace
-                    </a>
-                </div>
-            </form>
+      <div class="admin-sidebar-footer">
+        <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.75rem;">
+          TiDB Cloud MySQL • Active
         </div>
-    </div>
+        <button onclick="adminLogout()" class="btn btn-outline" style="width: 100%;">
+          <i class="fas fa-sign-out-alt"></i> Sign Out
+        </button>
+      </div>
+    </aside>
 
-    <!-- 2. AUTHENTICATED ADMIN CONSOLE (Displayed when authenticated) -->
-    <div id="adminAppSection" class="d-none">
-        <!-- Top Navbar -->
-        <nav class="navbar navbar-expand-lg admin-navbar border-bottom sticky-top">
-            <div class="container-fluid px-4">
-                <a class="navbar-brand d-flex align-items-center" href="/admin.html">
-                    <img src="/0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png" alt="SMR" class="admin-nav-logo me-2">
-                    <span class="fw-bold">SMR <span class="text-success">ADMIN CONSOLE</span></span>
-                </a>
-
-                <div class="d-flex align-items-center ms-auto gap-3">
-                    <span class="badge bg-danger-subtle text-danger px-3 py-2 rounded-pill small" id="pendingAlertBadge">0 Pending Approvals</span>
-                    <div class="dropdown">
-                        <button class="btn btn-light btn-sm dropdown-toggle fw-semibold d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
-                            <i class="fa-solid fa-user-gear text-success"></i>
-                            <span id="currentAdminName">Administrator</span>
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-                            <li><a class="dropdown-item" href="#settings" onclick="switchAdminTab('settings')"><i class="fa-solid fa-lock me-2"></i>Change Password</a></li>
-                            <li><a class="dropdown-item" href="#audit" onclick="switchAdminTab('audit')"><i class="fa-solid fa-clock-rotate-left me-2"></i>Audit Logs</a></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="handleAdminLogout()"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Logout</a></li>
-                        </ul>
-                    </div>
-                </div>
-            </div>
-        </nav>
-
-        <div class="container-fluid px-0">
-            <div class="row g-0">
-                <!-- Sidebar -->
-                <div class="col-lg-2 admin-sidebar border-end">
-                    <div class="p-3 sticky-top" style="top: 60px;">
-                        <ul class="nav flex-column gap-1 admin-nav-pills">
-                            <li class="nav-item">
-                                <a class="nav-link active" id="adm-overview-btn" href="#overview" onclick="switchAdminTab('overview')">
-                                    <i class="fa-solid fa-gauge-high me-2"></i> Dashboard Overview
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-bikes-btn" href="#bikes" onclick="switchAdminTab('bikes')">
-                                    <i class="fa-solid fa-motorcycle me-2"></i> Bike Management
-                                    <span class="badge bg-warning text-dark float-end" id="sidePendingCount">0</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-users-btn" href="#users" onclick="switchAdminTab('users')">
-                                    <i class="fa-solid fa-users me-2"></i> Registered Users
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-enquiries-btn" href="#enquiries" onclick="switchAdminTab('enquiries')">
-                                    <i class="fa-solid fa-comments me-2"></i> Enquiries
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-messages-btn" href="#messages" onclick="switchAdminTab('messages')">
-                                    <i class="fa-solid fa-envelope me-2"></i> Contact Messages
-                                    <span class="badge bg-info text-white float-end" id="sideMsgCount">0</span>
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-categories-btn" href="#categories" onclick="switchAdminTab('categories')">
-                                    <i class="fa-solid fa-layer-group me-2"></i> Categories
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-audit-btn" href="#audit" onclick="switchAdminTab('audit')">
-                                    <i class="fa-solid fa-shield-virus me-2"></i> Audit Logs
-                                </a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" id="adm-settings-btn" href="#settings" onclick="switchAdminTab('settings')">
-                                    <i class="fa-solid fa-sliders me-2"></i> Admin Settings
-                                </a>
-                            </li>
-                            <li class="nav-item mt-4 pt-3 border-top">
-                                <a class="nav-link text-danger" href="javascript:void(0)" onclick="handleAdminLogout()">
-                                    <i class="fa-solid fa-arrow-right-from-bracket me-2"></i> Logout
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
-
-                <!-- Main Work Area -->
-                <main class="col-lg-10 p-4 p-md-5 admin-main">
-
-                    <!-- TAB 1: OVERVIEW -->
-                    <div class="admin-tab active" id="adm-overview">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Executive Dashboard</h3>
-                                <p class="text-muted small mb-0">Live real-time statistics across users, bikes, approvals, and enquiries.</p>
-                            </div>
-                            <button class="btn btn-outline-secondary btn-sm" onclick="loadAdminDashboardData()">
-                                <i class="fa-solid fa-rotate me-1"></i> Refresh
-                            </button>
-                        </div>
-
-                        <!-- Metric Cards Grid -->
-                        <div class="row g-3 mb-4">
-                            <div class="col-6 col-md-3">
-                                <div class="admin-metric-card p-3 rounded-4 bg-white border shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small fw-semibold">Total Users</span>
-                                        <i class="fa-solid fa-users text-primary"></i>
-                                    </div>
-                                    <h3 class="fw-bold mb-0 text-primary" id="mTotalUsers">0</h3>
-                                    <small class="text-muted">Registered buyers & sellers</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="admin-metric-card p-3 rounded-4 bg-white border shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small fw-semibold">Active Listings</span>
-                                        <i class="fa-solid fa-circle-check text-success"></i>
-                                    </div>
-                                    <h3 class="fw-bold mb-0 text-success" id="mActiveListings">0</h3>
-                                    <small class="text-muted">Live on marketplace</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="admin-metric-card p-3 rounded-4 bg-white border shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small fw-semibold">Pending Approvals</span>
-                                        <i class="fa-solid fa-hourglass-half text-warning"></i>
-                                    </div>
-                                    <h3 class="fw-bold mb-0 text-warning" id="mPendingApprovals">0</h3>
-                                    <small class="text-muted">Awaiting review</small>
-                                </div>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <div class="admin-metric-card p-3 rounded-4 bg-white border shadow-sm">
-                                    <div class="d-flex justify-content-between align-items-center mb-1">
-                                        <span class="text-muted small fw-semibold">Total Enquiries</span>
-                                        <i class="fa-solid fa-comments text-info"></i>
-                                    </div>
-                                    <h3 class="fw-bold mb-0 text-info" id="mTotalEnquiries">0</h3>
-                                    <small class="text-muted">Buyer inquiries</small>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Secondary Row -->
-                        <div class="row g-4">
-                            <!-- Pending Approvals Quick Table -->
-                            <div class="col-lg-7">
-                                <div class="card border-0 shadow-sm rounded-4 h-100">
-                                    <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
-                                        <h5 class="fw-bold mb-0">Pending Approval Queue</h5>
-                                        <a href="#bikes" onclick="switchAdminTab('bikes'); filterAdminBikesByStatus('pending');" class="btn btn-sm btn-link text-decoration-none">View All</a>
-                                    </div>
-                                    <div class="card-body p-4">
-                                        <div class="table-responsive" id="overviewPendingContainer">
-                                            <p class="text-muted text-center py-3">Loading pending queue...</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Recent Activities & Registrations -->
-                            <div class="col-lg-5">
-                                <div class="card border-0 shadow-sm rounded-4 h-100">
-                                    <div class="card-header bg-white border-0 pt-4 px-4">
-                                        <h5 class="fw-bold mb-0">Recent User Registrations</h5>
-                                    </div>
-                                    <div class="card-body p-4">
-                                        <div id="overviewRegistrationsContainer">
-                                            <p class="text-muted text-center py-3">Loading recent users...</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 2: BIKE MANAGEMENT -->
-                    <div class="admin-tab" id="adm-bikes">
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Bike Management</h3>
-                                <p class="text-muted small mb-0">Approve, reject, edit pricing, manage sold out state, and add inventory.</p>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-success fw-semibold" onclick="openAdminAddBikeModal()">
-                                    <i class="fa-solid fa-plus me-1"></i> Add Bike to Inventory
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- Filters Bar -->
-                        <div class="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-                            <div class="row g-2 align-items-center">
-                                <div class="col-md-4">
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
-                                        <input type="text" id="adminBikeSearch" class="form-control" placeholder="Search by title, brand, reg number..." onkeyup="filterAdminBikes()">
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <select id="adminBikeStatusFilter" class="form-select" onchange="filterAdminBikes()">
-                                        <option value="all">All Statuses</option>
-                                        <option value="pending" selected>Pending Approval</option>
-                                        <option value="approved">Approved & Active</option>
-                                        <option value="rejected">Rejected</option>
-                                        <option value="soldout">Sold Out</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-3">
-                                    <select id="adminBikeBrandFilter" class="form-select" onchange="filterAdminBikes()">
-                                        <option value="all">All Brands</option>
-                                        <option value="Yamaha">Yamaha</option>
-                                        <option value="Royal Enfield">Royal Enfield</option>
-                                        <option value="KTM">KTM</option>
-                                        <option value="Honda">Honda</option>
-                                        <option value="Hero">Hero</option>
-                                        <option value="Bajaj">Bajaj</option>
-                                        <option value="TVS">TVS</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-2 text-end">
-                                    <button class="btn btn-outline-secondary w-100" onclick="loadAdminBikes()"><i class="fa-solid fa-rotate"></i> Reset</button>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bikes Table -->
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0" id="adminBikesTable">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Bike</th>
-                                            <th>Seller</th>
-                                            <th>Price (Buying/Fixing)</th>
-                                            <th>Status</th>
-                                            <th>Date</th>
-                                            <th class="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminBikesTableBody">
-                                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading bikes...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 3: USER MANAGEMENT -->
-                    <div class="admin-tab" id="adm-users">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Registered Users</h3>
-                                <p class="text-muted small mb-0">View all users registered via Google authentication.</p>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 p-3 mb-4 bg-white">
-                            <div class="row g-2">
-                                <div class="col-md-6">
-                                    <input type="text" id="adminUserSearch" class="form-control" placeholder="Search by name, email, phone..." onkeyup="filterAdminUsers()">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>User</th>
-                                            <th>Email</th>
-                                            <th>Phone</th>
-                                            <th>Role</th>
-                                            <th>Registered At</th>
-                                            <th class="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminUsersTableBody">
-                                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading users...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 4: ENQUIRY MANAGEMENT -->
-                    <div class="admin-tab" id="adm-enquiries">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Enquiries</h3>
-                                <p class="text-muted small mb-0">Manage and follow up on customer purchase enquiries.</p>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <select id="adminEnquiryStatusFilter" class="form-select form-select-sm" onchange="loadAdminEnquiries()">
-                                    <option value="all">All Enquiries</option>
-                                    <option value="pending">Pending</option>
-                                    <option value="in_progress">In Progress</option>
-                                    <option value="completed">Completed</option>
-                                    <option value="cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Customer</th>
-                                            <th>Bike Requested</th>
-                                            <th>Message</th>
-                                            <th>Status</th>
-                                            <th>Time</th>
-                                            <th class="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminEnquiriesTableBody">
-                                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading enquiries...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 5: CONTACT MESSAGES -->
-                    <div class="admin-tab" id="adm-messages">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Contact Form Messages</h3>
-                                <p class="text-muted small mb-0">Inquiries sent via the website contact form.</p>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Sender</th>
-                                            <th>Phone / Email</th>
-                                            <th>Message</th>
-                                            <th>Status</th>
-                                            <th>Received</th>
-                                            <th class="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminMessagesTableBody">
-                                        <tr><td colspan="6" class="text-center py-4 text-muted">Loading messages...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 6: CATEGORY MANAGEMENT -->
-                    <div class="admin-tab" id="adm-categories">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Category Management</h3>
-                                <p class="text-muted small mb-0">Create and organize motorcycle categories.</p>
-                            </div>
-                            <button class="btn btn-primary fw-semibold btn-sm" onclick="openAddCategoryModal()">
-                                <i class="fa-solid fa-plus me-1"></i> Add Category
-                            </button>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Category</th>
-                                            <th>Description</th>
-                                            <th>Status</th>
-                                            <th class="text-end">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminCategoriesTableBody">
-                                        <tr><td colspan="4" class="text-center py-4 text-muted">Loading categories...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 7: AUDIT LOGS -->
-                    <div class="admin-tab" id="adm-audit">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h3 class="fw-bold mb-1">Security Audit Logs</h3>
-                                <p class="text-muted small mb-0">Immutable records of administrative actions and security events.</p>
-                            </div>
-                        </div>
-
-                        <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Time</th>
-                                            <th>Admin</th>
-                                            <th>Action</th>
-                                            <th>Details</th>
-                                            <th>IP Address</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="adminAuditTableBody">
-                                        <tr><td colspan="5" class="text-center py-4 text-muted">Loading logs...</td></tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- TAB 8: ADMIN SETTINGS -->
-                    <div class="admin-tab" id="adm-settings">
-                        <div class="card border-0 shadow-sm rounded-4 max-w-700">
-                            <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
-                                <h4 class="fw-bold mb-1">Admin Security Settings</h4>
-                                <p class="text-muted small mb-0">Update administrative password and manage credentials.</p>
-                            </div>
-                            <div class="card-body p-4">
-                                <form id="adminPasswordForm" onsubmit="handleAdminChangePassword(event)">
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">Current Password</label>
-                                        <input type="password" id="adminCurrentPass" class="form-control" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label class="form-label fw-semibold">New Secure Password</label>
-                                        <input type="password" id="adminNewPass" class="form-control" minlength="6" required>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label fw-semibold">Confirm New Password</label>
-                                        <input type="password" id="adminConfirmPass" class="form-control" minlength="6" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-dark px-4 py-2 fw-semibold">
-                                        <i class="fa-solid fa-key me-1"></i> Update Admin Password
-                                    </button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
-                </main>
-            </div>
+    <!-- Main Content -->
+    <main class="admin-main">
+      <!-- Topbar -->
+      <header class="admin-topbar">
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+          <span id="admin-breadcrumb-title">Overview</span>
         </div>
-    </div>
-
-    <!-- Reject Modal -->
-    <div class="modal fade" id="rejectBikeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold text-danger"><i class="fa-solid fa-circle-xmark me-1"></i> Reject Listing</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="rejectBikeId" value="">
-                    <label class="form-label fw-semibold">Reason for Rejection <span class="text-danger">*</span></label>
-                    <textarea id="rejectionReasonInput" class="form-control" rows="3" placeholder="Explain what needs to be corrected (e.g. invalid vehicle documents, blurred photos, unrealistic price)..." required></textarea>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger fw-bold" onclick="confirmRejectBike()">Reject Listing</button>
-                </div>
-            </div>
+        <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <a href="../index.html" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> View Marketplace</a>
+          <div class="admin-profile-badge">
+            <div class="admin-avatar"><i class="fas fa-user"></i></div>
+            <span id="topbar-admin-name" style="font-weight: 600; font-size: 0.92rem;">Administrator</span>
+          </div>
         </div>
-    </div>
+      </header>
 
-    <!-- Price Update Modal -->
-    <div class="modal fade" id="priceBikeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Update Bike Selling Price</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="priceBikeId" value="">
-                    <label class="form-label fw-semibold">New Selling / Fixing Price (₹) <span class="text-danger">*</span></label>
-                    <input type="number" id="newSellingPriceInput" class="form-control" required>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-success fw-bold" onclick="confirmUpdatePrice()">Save Price</button>
-                </div>
+      <div class="admin-page-content">
+        <!-- 1. TAB: OVERVIEW & STATS -->
+        <section id="tab-overview" class="admin-tab-pane active">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-bolt"></i> Real-Time Telemetry</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Platform Intelligence</h1>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-bikes" class="stat-val">-</span>
+                <span class="stat-label">Total Inventory</span>
+              </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Reply to Enquiry Modal -->
-    <div class="modal fade" id="replyEnquiryModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content rounded-4 border-0">
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Reply to Customer Enquiry</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <input type="hidden" id="replyEnquiryId" value="">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Status</label>
-                        <select id="replyStatusSelect" class="form-select">
-                            <option value="pending">Pending</option>
-                            <option value="in_progress">In Progress</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Administrator Note / Response</label>
-                        <textarea id="replyMessageText" class="form-control" rows="3" placeholder="Enter message notes for customer..."></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer border-0">
-                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary fw-bold" onclick="confirmSaveEnquiryReply()">Save & Update</button>
-                </div>
+            <div class="stat-card">
+              <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-pending" class="stat-val">-</span>
+                <span class="stat-label">Pending Approval</span>
+              </div>
             </div>
-        </div>
-    </div>
+            <div class="stat-card">
+              <div class="stat-icon green"><i class="fas fa-users"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-users" class="stat-val">-</span>
+                <span class="stat-label">Registered Users</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon blue"><i class="fas fa-envelope-open-text"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-enquiries" class="stat-val">-</span>
+                <span class="stat-label">Customer Leads</span>
+              </div>
+            </div>
+          </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script src="/my-node-app/public/config.js"></script>
-    <script src="/my-node-app/static/adminScript.js"></script>
+          <!-- Pending Approvals Banner Callout -->
+          <div id="pending-approvals-alert" style="background: rgba(245, 158, 11, 0.12); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-lg); padding: 1.25rem 1.75rem; margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center; display: none;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <i class="fas fa-exclamation-circle" style="font-size: 1.5rem; color: var(--color-warning);"></i>
+              <div>
+                <strong style="color: #FFF;">Pending Vehicle Submissions</strong>
+                <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary);" id="pending-alert-text">You have listings awaiting mechanical review.</p>
+              </div>
+            </div>
+            <button onclick="switchAdminTab('tab-bikes', document.querySelectorAll('.admin-nav-item')[1])" class="btn btn-sm btn-primary">Review Now</button>
+          </div>
+
+          <!-- Quick Recent Table -->
+          <div class="table-card">
+            <div class="table-header">
+              <h3 style="font-size: 1.15rem; margin: 0;">Recent User Registrations</h3>
+              <a href="users.html" class="btn btn-sm btn-outline">Full User List</a>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>Auth Provider</th>
+                    <th>Joined</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-users-tbody">
+                  <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading platform intelligence...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. TAB: INVENTORY & APPROVALS -->
+        <section id="tab-bikes" class="admin-tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-check-double"></i> Quality Control</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Inventory Approvals & Control</h1>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <select id="adm-bikes-filter-status" class="form-control" style="width: 170px;" onchange="loadAdminBikes()">
+                <option value="">All Statuses</option>
+                <option value="pending" selected>Pending Review</option>
+                <option value="approved">Approved & Active</option>
+                <option value="rejected">Rejected</option>
+                <option value="soldout">Sold Out</option>
+              </select>
+              <button onclick="loadAdminBikes()" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Motorcycle</th>
+                    <th>Brand</th>
+                    <th>Price</th>
+                    <th>Kilometers</th>
+                    <th>Seller</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-bikes-table-body">
+                  <tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading inventory...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 3. TAB: ENQUIRIES -->
+        <section id="tab-enquiries" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-phone-volume"></i> Buyer Leads</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Customer Enquiries & Test Rides</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Lead Customer</th>
+                    <th>Contact Info</th>
+                    <th>Motorcycle</th>
+                    <th>Message</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-enquiries-table-body">
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading customer enquiries...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 4. TAB: CONTACT MESSAGES -->
+        <section id="tab-messages" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-comments"></i> Inquiries</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Sender</th>
+                    <th>Email / Phone</th>
+                    <th>Message</th>
+                    <th>Received At</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-messages-table-body">
+                  <tr><td colspan="5" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 5. TAB: SECURITY AUDIT TRAIL -->
+        <section id="tab-audit" class="admin-tab-pane">
+          <div style="margin-bottom: 2rem;">
+            <span class="section-tag"><i class="fas fa-fingerprint"></i> Immutable Trail</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Administrative Audit Logs</h1>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Administrator</th>
+                    <th>Action Taken</th>
+                    <th>Target Type</th>
+                    <th>Target ID</th>
+                    <th>Details</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-audit-table-body">
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading audit trail...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Rejection Reason Modal -->
+  <div id="reject-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Reject Motorcycle Listing</h3>
+        <button class="modal-close-btn" onclick="closeModal('reject-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+          Please state the reason for rejecting this listing (e.g. invalid registration photo, missing engine specs, price mismatch):
+        </p>
+        <textarea id="reject-reason-input" class="form-control" rows="3" placeholder="Enter reason for seller..."></textarea>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('reject-modal')">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmRejectBike()">Reject Listing</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Price Update Modal -->
+  <div id="price-modal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 class="modal-title">Adjust Motorcycle Price</h3>
+        <button class="modal-close-btn" onclick="closeModal('price-modal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Updated Price (₹) *</label>
+        <input type="number" id="update-price-input" class="form-control" min="5000" step="500">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('price-modal')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmPriceUpdate()">Update Price</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="js/admin.js"></script>
 </body>
 </html>

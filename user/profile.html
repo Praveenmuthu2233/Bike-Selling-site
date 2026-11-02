@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Profile | SMR Motors</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/user.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+</head>
+<body>
+
+  <!-- Top Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="../index.html" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <div class="nav-actions">
+        <a href="../index.html" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
+        <button onclick="AuthService.logout()" class="btn btn-sm btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="user-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="user-sidebar">
+      <div class="user-profile-summary">
+        <div class="user-avatar-wrap">
+          <img id="sidebar-avatar" class="user-avatar-img" src="" alt="Profile" />
+        </div>
+        <h3 id="sidebar-name" class="user-name">...</h3>
+        <p id="sidebar-email" class="user-email">...</p>
+      </div>
+
+      <ul class="user-nav-list">
+        <li>
+          <a href="dashboard.html" class="user-nav-link">
+            <i class="fas fa-tachometer-alt"></i> Dashboard Overview
+          </a>
+        </li>
+        <li>
+          <a href="profile.html" class="user-nav-link active">
+            <i class="fas fa-user-edit"></i> My Profile
+          </a>
+        </li>
+        <li>
+          <a href="my-listings.html" class="user-nav-link">
+            <i class="fas fa-motorcycle"></i> My Listed Bikes
+          </a>
+        </li>
+        <li>
+          <a href="enquiries.html" class="user-nav-link">
+            <i class="fas fa-envelope-open-text"></i> My Enquiries
+          </a>
+        </li>
+        <li>
+          <a href="favorites.html" class="user-nav-link">
+            <i class="fas fa-heart"></i> Saved Favorites
+          </a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Main Profile Content -->
+    <main class="user-main-content">
+      <div style="margin-bottom: 2.5rem;">
+        <span class="section-tag"><i class="fas fa-id-badge"></i> Account Management</span>
+        <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Rider Profile Settings</h1>
+        <p style="color: var(--text-secondary);">Manage your contact information and linked Google Identity account.</p>
+      </div>
+
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-medium); border-radius: var(--radius-xl); padding: 2.5rem; max-width: 680px; box-shadow: var(--shadow-sm);">
+        <form id="profile-edit-form" onsubmit="handleProfileUpdate(event)">
+          <div style="display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border-subtle);">
+            <img id="profile-avatar-large" style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; border: 2px solid var(--accent-primary);" src="" />
+            <div>
+              <div style="font-weight: 700; font-size: 1.15rem; margin-bottom: 0.2rem;" id="header-profile-name"></div>
+              <span class="badge badge-featured"><i class="fab fa-google"></i> Google OAuth Linked</span>
+            </div>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Full Name *</label>
+              <input type="text" id="input-name" name="name" class="form-control" required>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Google Account Email (Locked)</label>
+              <input type="email" id="input-email" class="form-control" readonly disabled style="opacity: 0.7; cursor: not-allowed; background: rgba(0,0,0,0.2);">
+              <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; display: block;">Email is cryptographically verified by Google and cannot be modified.</small>
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Phone Number (For Buyers & Showroom)</label>
+              <input type="tel" id="input-phone" name="phone" class="form-control" placeholder="e.g. +91 9876543210">
+            </div>
+
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Account Role</label>
+              <input type="text" value="Standard Rider / User" class="form-control" readonly disabled style="opacity: 0.7; cursor: not-allowed; background: rgba(0,0,0,0.2);">
+              <small style="color: var(--text-muted); font-size: 0.78rem; margin-top: 0.25rem; display: block;">Privilege escalation is strictly forbidden by server security validation.</small>
+            </div>
+
+            <div style="margin-top: 1rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end;">
+              <button type="submit" id="save-profile-btn" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save Profile Changes
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script src="../assets/js/auth.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const user = await AuthService.verifySession();
+      if (!user) {
+        window.location.href = '../login.html';
+        return;
+      }
+
+      const defaultAvatar = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+      const avatarUrl = user.profile_image || defaultAvatar;
+
+      document.getElementById('sidebar-avatar').src = avatarUrl;
+      document.getElementById('sidebar-name').innerText = user.name;
+      document.getElementById('sidebar-email').innerText = user.email;
+
+      document.getElementById('profile-avatar-large').src = avatarUrl;
+      document.getElementById('header-profile-name').innerText = user.name;
+      document.getElementById('input-name').value = user.name;
+      document.getElementById('input-email').value = user.email;
+      if (user.phone) document.getElementById('input-phone').value = user.phone;
+    });
+
+    async function handleProfileUpdate(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('save-profile-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+
+      const payload = {
+        name: document.getElementById('input-name').value.trim(),
+        phone: document.getElementById('input-phone').value.trim()
+      };
+
+      try {
+        const res = await apiRequest('/api/users/profile', {
+          method: 'PUT',
+          body: payload
+        });
+        showToast(res.message || 'Profile saved successfully!', 'success');
+        await AuthService.verifySession();
+      } catch (err) {
+        showToast(err.message || 'Failed to update profile', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-save"></i> Save Profile Changes';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -34,73 +34,112 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static Directories
+// 1. Static Assets & Uploads
 const uploadDir = path.join(__dirname, 'public/uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 app.use('/uploads', express.static(uploadDir));
 app.use('/public/uploads', express.static(uploadDir));
 app.use('/my-node-app/public/uploads', express.static(uploadDir));
 
-// Serve static assets from both my-node-app/static and /static
+// Clean Structured Assets (/assets)
+app.use('/assets', express.static(path.join(__dirname, 'assets')));
+
+// Admin & User directories static resources (css, js)
+app.use('/admin', express.static(path.join(__dirname, 'admin')));
+app.use('/user', express.static(path.join(__dirname, 'user')));
+
+// Legacy static and public directories fallback
 const staticDir = path.join(__dirname, 'my-node-app/static');
 app.use('/my-node-app/static', express.static(staticDir));
 app.use('/static', express.static(staticDir));
 
-// Serve public files from both my-node-app/public and /public
 const publicDir = path.join(__dirname, 'my-node-app/public');
 app.use('/my-node-app/public', express.static(publicDir));
 app.use('/public', express.static(publicDir));
 
-// Serve root directory for static images like logo, banner photos
+// Serve root directory
 app.use(express.static(__dirname));
 
-// HTML Templates Directory
-const templatesDir = path.join(__dirname, 'my-node-app/templates');
+// 2. HTML Page Routes (Clean URLs & Modern File Mapping)
 
-// HTML Page Routes - Handles both clean URLs and .html paths
+// Homepage
 app.get(['/', '/index.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'index.html'));
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.get(['/login', '/userLogin.html', '/my-node-app/templates/userLogin.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'userLogin.html'));
+// About & Contact
+app.get(['/about', '/about.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'about.html'));
 });
 
-app.get(['/profile', '/profile.html', '/my-node-app/templates/profile.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'profile.html'));
+app.get(['/contact', '/contact.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'contact.html'));
 });
 
-app.get(['/admin', '/admin.html', '/my-node-app/templates/admin.html', '/my-node-app/public/admin.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'admin.html'));
+// Auth: Login & Register
+app.get(['/login', '/login.html', '/userLogin.html', '/my-node-app/templates/userLogin.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'login.html'));
 });
 
-app.get(['/sell', '/bikeSelling.html', '/my-node-app/templates/bikeSelling.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'bikeSelling.html'));
+app.get(['/register', '/register.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'register.html'));
 });
 
-app.get(['/enquiryBike.html', '/admin-enquiries', '/my-node-app/templates/enquiryBike.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'enquiryBike.html'));
+// Vehicle Details
+app.get(['/bike-details', '/bike-details.html', '/enquiry-bike-details.html', '/my-node-app/templates/enquiry-bike-details.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'bike-details.html'));
 });
 
-app.get(['/listingUserBike.html', '/admin-listings', '/my-node-app/templates/listingUserBike.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'listingUserBike.html'));
+// Sell Bike
+app.get(['/sell', '/sell-bike.html', '/bikeSelling.html', '/my-node-app/templates/bikeSelling.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'sell-bike.html'));
 });
 
-app.get(['/adminAddListing.html', '/admin-add', '/my-node-app/templates/adminAddListing.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'adminAddListing.html'));
-});
-
-app.get(['/SoldOutPage.html', '/soldout', '/my-node-app/templates/SoldOutPage.html'], (req, res, next) => {
-  // If API request with authorization header or JSON accept, return JSON data
+// Sold Inventory Gallery
+app.get(['/sold', '/sold-bikes.html', '/SoldOutPage.html', '/soldout', '/my-node-app/templates/SoldOutPage.html'], (req, res, next) => {
   if (req.headers.authorization || req.xhr || req.headers.accept?.includes('application/json')) {
     req.query.status = 'soldout';
     return adminController.getAdminBikes(req, res).then ? adminController.getAdminBikes(req, res) : null;
   }
-  res.sendFile(path.join(templatesDir, 'SoldOutPage.html'));
+  res.sendFile(path.join(__dirname, 'sold-bikes.html'));
 });
 
-app.get(['/enquiry-bike-details.html', '/bike-details', '/my-node-app/templates/enquiry-bike-details.html'], (req, res) => {
-  res.sendFile(path.join(templatesDir, 'enquiry-bike-details.html'));
+// User Dashboard & Sub-pages
+app.get(['/user/dashboard', '/user/dashboard.html', '/profile', '/profile.html', '/my-node-app/templates/profile.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'user/dashboard.html'));
+});
+
+app.get(['/user/profile', '/user/profile.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'user/profile.html'));
+});
+
+app.get(['/user/my-listings', '/user/my-listings.html', '/listingUserBike.html', '/admin-listings', '/my-node-app/templates/listingUserBike.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'user/my-listings.html'));
+});
+
+app.get(['/user/enquiries', '/user/enquiries.html', '/enquiryBike.html', '/admin-enquiries', '/my-node-app/templates/enquiryBike.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'user/enquiries.html'));
+});
+
+app.get(['/user/favorites', '/user/favorites.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'user/favorites.html'));
+});
+
+// Admin Console & Sub-pages
+app.get(['/admin/login', '/admin/login.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin/login.html'));
+});
+
+app.get(['/admin', '/admin/', '/admin/dashboard', '/admin/dashboard.html', '/admin.html', '/my-node-app/templates/admin.html', '/my-node-app/public/admin.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin/dashboard.html'));
+});
+
+app.get(['/admin/users', '/admin/users.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'admin/users.html'));
+});
+
+app.get(['/adminAddListing.html', '/admin-add', '/my-node-app/templates/adminAddListing.html'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'sell-bike.html'));
 });
 
 // Mount Modern REST APIs
@@ -108,7 +147,6 @@ app.use('/api', apiRouter);
 
 /* ===================================================
    LEGACY ENDPOINT COMPATIBILITY
-   Ensures old frontend scripts continue working seamlessly
    =================================================== */
 app.get('/bikes', bikeController.getBikes);
 app.get('/bikes/:id', bikeController.getBikeById);
@@ -131,7 +169,7 @@ app.get('/adminProfile', adminAuth, (req, res) => {
   res.json({ success: true, admin: req.admin });
 });
 
-app.get('/profile', userAuth, userController.getProfile);
+app.get('/profile-data', userAuth, userController.getProfile);
 app.post(['/upload/gallery', '/upload/attachments'], upload.array('attachments', 6), (req, res) => {
   if (!req.files || req.files.length === 0) {
     return res.status(400).json({ message: 'No files uploaded' });
@@ -165,10 +203,10 @@ async function startServer() {
   app.listen(PORT, () => {
     console.log(`===================================================`);
     console.log(`  SMR MOTORS SERVER RUNNING ON PORT ${PORT}`);
-    console.log(`  Local URL: http://localhost:${PORT}`);
-    console.log(`  User Dashboard: http://localhost:${PORT}/profile.html`);
-    console.log(`  Admin Dashboard: http://localhost:${PORT}/admin.html`);
-    console.log(`  Google Sign-In: http://localhost:${PORT}/userLogin.html`);
+    console.log(`  Marketplace: http://localhost:${PORT}/`);
+    console.log(`  User Dashboard: http://localhost:${PORT}/user/dashboard.html`);
+    console.log(`  Admin Portal: http://localhost:${PORT}/admin/dashboard.html`);
+    console.log(`  Google Sign-In: http://localhost:${PORT}/login.html`);
     console.log(`===================================================`);
   });
 }

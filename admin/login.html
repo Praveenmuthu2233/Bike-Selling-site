@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Portal Sign In | SMR Motors</title>
+  
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="../assets/css/style.css">
+  <link rel="stylesheet" href="../assets/css/components.css">
+  <link rel="stylesheet" href="../assets/css/auth.css">
+  <link rel="stylesheet" href="../assets/css/responsive.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body style="background: #070A10;">
+
+  <div class="auth-page-wrapper">
+    <div class="auth-card" style="border-color: rgba(255, 107, 0, 0.3);">
+      <div class="auth-header">
+        <div class="brand-icon" style="background: rgba(255, 107, 0, 0.15);">
+          <i class="fas fa-user-shield"></i>
+        </div>
+        <h1 class="auth-title">Admin Management Portal</h1>
+        <p class="auth-subtitle">Restricted access for SMR Motors authorized personnel only.</p>
+      </div>
+
+      <form id="admin-login-form" onsubmit="handleAdminLogin(event)">
+        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+          <div>
+            <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Admin Username *</label>
+            <div class="input-group">
+              <i class="fas fa-user input-icon"></i>
+              <input type="text" id="admin-username" name="username" class="form-control" required placeholder="admin or smr_admin" value="admin">
+            </div>
+          </div>
+
+          <div>
+            <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Secure Password *</label>
+            <div class="input-group">
+              <i class="fas fa-key input-icon"></i>
+              <input type="password" id="admin-password" name="password" class="form-control" required placeholder="••••••••••••" value="admin123">
+            </div>
+          </div>
+
+          <button type="submit" id="admin-submit-btn" class="btn btn-lg btn-primary" style="margin-top: 0.5rem; width: 100%;">
+            <i class="fas fa-sign-in-alt"></i> Authenticate & Enter Console
+          </button>
+        </div>
+      </form>
+
+      <div class="auth-security-notes" style="margin-top: 2rem;">
+        <div class="security-item">
+          <i class="fas fa-fingerprint"></i>
+          <span>Bcrypt salted password verification & JWT claims</span>
+        </div>
+        <div class="security-item">
+          <i class="fas fa-history"></i>
+          <span>All administrative actions are permanently audit-logged</span>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; text-align: center; font-size: 0.85rem;">
+        <a href="../index.html" style="color: var(--text-muted);">&larr; Return to Customer Marketplace</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="../assets/js/config.js"></script>
+  <script src="../assets/js/api.js"></script>
+  <script>
+    async function handleAdminLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('admin-submit-btn');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Authenticating...';
+
+      const payload = {
+        username: document.getElementById('admin-username').value.trim(),
+        password: document.getElementById('admin-password').value
+      };
+
+      try {
+        const res = await apiRequest('/api/admin/login', {
+          method: 'POST',
+          body: payload
+        });
+
+        if (res.token) {
+          localStorage.setItem('adminToken', res.token);
+          localStorage.setItem('adminUser', JSON.stringify(res.admin));
+          showToast('Admin authentication confirmed!', 'success');
+          setTimeout(() => {
+            window.location.href = 'dashboard.html';
+          }, 800);
+        } else {
+          throw new Error(res.message || 'Login failed');
+        }
+      } catch (err) {
+        showToast(err.message || 'Invalid administrator credentials', 'error');
+        btn.disabled = false;
+        btn.innerHTML = origText;
+      }
+    }
+  </script>
+</body>
+</html>
