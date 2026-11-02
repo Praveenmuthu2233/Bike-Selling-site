@@ -97,6 +97,9 @@
   </main>
 
   <!-- Scripts -->
+  <script>
+    window.ENV_GOOGLE_CLIENT_ID = "{{ google_client_id or '' }}";
+  </script>
   <script src="{{ url_for('static', filename='config.js') }}"></script>
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script src="{{ url_for('static', filename='auth.js') }}"></script>

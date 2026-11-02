@@ -91,29 +91,61 @@ const AuthService = {
 };
 
 // Initialize Google GIS if container present
-function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
-  const cfg = window.APP_CONFIG || {};
-  const clientId = cfg.GOOGLE_CLIENT_ID;
+async function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
+  let clientId = window.ENV_GOOGLE_CLIENT_ID || window.APP_CONFIG?.GOOGLE_CLIENT_ID;
 
-  if (window.google && window.google.accounts && clientId) {
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (response) => {
-        if (response && response.credential) {
-          AuthService.handleGoogleCredential(response.credential);
+  // If client ID is not preloaded in window, fetch from backend /api/config
+  if (!clientId || clientId.startsWith('your_')) {
+    try {
+      const res = await fetch('/api/config');
+      if (res.ok) {
+        const conf = await res.json();
+        if (conf.googleClientId && !conf.googleClientId.startsWith('your_')) {
+          clientId = conf.googleClientId;
+          if (window.APP_CONFIG) {
+            window.APP_CONFIG.GOOGLE_CLIENT_ID = clientId;
+          }
+          window.ENV_GOOGLE_CLIENT_ID = clientId;
         }
       }
-    });
+    } catch (e) {
+      console.warn('[Google Auth] Could not query /api/config for Client ID');
+    }
+  }
 
-    const btnContainer = document.getElementById(buttonContainerId);
+  const btnContainer = document.getElementById(buttonContainerId);
+
+  if (!clientId || clientId.startsWith('your_')) {
+    console.info('[Google Auth] GOOGLE_CLIENT_ID not configured in .env. Interactive Google button hidden.');
     if (btnContainer) {
-      window.google.accounts.id.renderButton(btnContainer, {
-        theme: 'filled_blue',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'rectangular',
-        width: 320
+      btnContainer.innerHTML = '<div style="font-size: 0.85rem; padding: 10px 14px; background: rgba(255, 165, 0, 0.12); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 8px; color: #ffb74d; text-align: center;"><i class="fas fa-info-circle"></i> Google OAuth requires Client ID setup in .env. Click <strong>Sign In as Demo Rider</strong> below for instant access.</div>';
+    }
+    return;
+  }
+
+  if (window.google && window.google.accounts) {
+    try {
+      window.google.accounts.id.initialize({
+        client_id: clientId,
+        callback: (response) => {
+          if (response && response.credential) {
+            AuthService.handleGoogleCredential(response.credential);
+          }
+        }
       });
+
+      if (btnContainer) {
+        btnContainer.innerHTML = '';
+        window.google.accounts.id.renderButton(btnContainer, {
+          theme: 'filled_blue',
+          size: 'large',
+          text: 'continue_with',
+          shape: 'rectangular',
+          width: 320
+        });
+      }
+    } catch (err) {
+      console.error('[Google Auth Initialization Error]:', err);
     }
   }
 }

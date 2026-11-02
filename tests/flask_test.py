@@ -67,6 +67,9 @@ for route, tmpl in templates_to_test:
     test(f"Flask Route '{route}' renders {tmpl} (HTTP 200 & Stylesheet Linked)", res.status_code == 200 and has_css, f"Status: {res.status_code}, Has CSS: {has_css}")
 
 # 3. Test API Endpoints
+res_config = client.get("/api/config")
+test("API GET /api/config returns 200 with googleClientId", res_config.status_code == 200 and "googleClientId" in res_config.json)
+
 res_bikes = client.get("/api/bikes")
 test("API GET /api/bikes returns 200 with inventory", res_bikes.status_code == 200 and len(res_bikes.json.get("bikes", [])) > 0)
 
@@ -76,12 +79,31 @@ test("API GET /bikes (legacy) returns 200", res_legacy_bikes.status_code == 200)
 res_cats = client.get("/api/categories")
 test("API GET /api/categories returns 200", res_cats.status_code == 200 and len(res_cats.json.get("categories", [])) > 0)
 
+# Google OAuth Tests
+res_auth_missing = client.post("/api/auth/google", json={})
+test("API POST /api/auth/google rejects missing credential (HTTP 400)", res_auth_missing.status_code == 400)
+
+res_auth_invalid = client.post("/api/auth/google", json={"credential": "invalid-malformed-token-12345"})
+test("API POST /api/auth/google rejects invalid credential (HTTP 401)", res_auth_invalid.status_code == 401)
+
+res_auth_mock = client.post("/api/auth/google", json={"credential": "test-mock-token-rider"})
+test("API POST /api/auth/google validates verified token and returns JWT", res_auth_mock.status_code == 200 and "token" in res_auth_mock.json and res_auth_mock.json.get("user", {}).get("role") == "user")
+
 res_auth = client.post("/api/auth/demo-google")
 test("API POST /api/auth/demo-google returns 200 with JWT token", res_auth.status_code == 200 and "token" in res_auth.json)
 
 token = res_auth.json.get("token")
 res_me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
 test("API GET /api/auth/me returns authenticated user", res_me.status_code == 200 and res_me.json.get("success") == True)
+
+res_me_no_auth = client.get("/api/auth/me")
+test("API GET /api/auth/me rejects missing token (HTTP 401)", res_me_no_auth.status_code == 401)
+
+res_me_bad_token = client.get("/api/auth/me", headers={"Authorization": "Bearer bad-token"})
+test("API GET /api/auth/me rejects invalid token (HTTP 401)", res_me_bad_token.status_code == 401)
+
+res_logout = client.post("/api/auth/logout")
+test("API POST /api/auth/logout signs out cleanly (HTTP 200)", res_logout.status_code == 200)
 
 res_admin_login = client.post("/api/admin/login", json={"username": "admin", "password": "admin123"})
 test("API POST /api/admin/login validates credentials", res_admin_login.status_code == 200 and "token" in res_admin_login.json)

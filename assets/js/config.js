@@ -3,8 +3,9 @@
  */
 window.APP_CONFIG = {
   API_BASE: window.location.origin,
-  GOOGLE_CLIENT_ID: window.ENV_GOOGLE_CLIENT_ID || '1047530861184-q4r2n27m9391030e4g412qla2m90e54v.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: window.ENV_GOOGLE_CLIENT_ID || '',
   ENDPOINTS: {
+    CONFIG: '/api/config',
     AUTH_GOOGLE: '/api/auth/google',
     AUTH_DEMO: '/api/auth/demo-google',
     AUTH_ME: '/api/auth/me',
