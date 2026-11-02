@@ -1,165 +1,151 @@
+/**
+ * Sell Bike Page Script - SMR Motors
+ * Handles multi-image selection, preview, and multipart submission to /api/bikes.
+ */
+
+let selectedImages = [];
 
 document.addEventListener("DOMContentLoaded", function () {
     const makeSelect = document.getElementById("makedFrom");
-    makeSelect.innerHTML = `<option value="">Select</option>`;
-    window.bike_makes.forEach(make => {
-        const option = document.createElement("option");
-        option.value = make;
-        option.textContent = make;
-        makeSelect.appendChild(option);
-    });
-});
-document.getElementById("bikeForm").addEventListener("submit", async function (e) {
-    e.preventDefault();
+    if (makeSelect && window.bike_makes) {
+        makeSelect.innerHTML = `<option value="">Select Make</option>`;
+        window.bike_makes.forEach(make => {
+            const option = document.createElement("option");
+            option.value = make;
+            option.textContent = make;
+            makeSelect.appendChild(option);
+        });
+    }
+
+    // Pre-fill seller info if logged in
+    const token = sessionStorage.getItem("token");
+    if (token) {
+        fetch(`${window.API.BASE_URL}/api/users/profile`, {
+            headers: { Authorization: "Bearer " + token }
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.user) {
+                const sellerNameInput = document.getElementById("sellerName");
+                const mobileNumInput = document.getElementById("mobileNum");
+                if (sellerNameInput && !sellerNameInput.value) sellerNameInput.value = data.user.name || "";
+                if (mobileNumInput && !mobileNumInput.value) mobileNumInput.value = data.user.phone || "";
+            }
+        })
+        .catch(() => {});
+    }
+
+    // Gallery upload input handler
+    const galleryInput = document.getElementById("galleryUpload");
+    if (galleryInput) {
+        galleryInput.addEventListener("change", function (e) {
+            const files = Array.from(e.target.files);
+            selectedImages = files.slice(0, 6);
+            renderPreviews();
+        });
+    }
 
     const form = document.getElementById("bikeForm");
-    form.action = `${window.API.BASE_URL}/addBike`;
-    form.method = "POST";
+    if (form) {
+        form.addEventListener("submit", handleSellBikeSubmit);
+    }
+});
 
-    const formData = new FormData(form);
-    formData.delete("galleryImages[]");
-    formData.delete("attachments[]");
-    const data = Object.fromEntries(formData.entries());
-    data.isAccepted = false;
-    data.isSoldout = false;
+function renderPreviews() {
+    const previewContainer = document.getElementById("galleryPreview");
+    if (!previewContainer) return;
+    previewContainer.innerHTML = "";
 
-    console.log(data);
+    selectedImages.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const div = document.createElement("div");
+            div.style.cssText = "display:inline-block; position:relative; margin:6px; width:80px; height:80px; border-radius:8px; overflow:hidden; border:1px solid #ccc;";
+            div.innerHTML = `
+                <img src="${e.target.result}" style="width:100%; height:100%; object-fit:cover;">
+                <button type="button" onclick="removeImage(${index})" style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.7); color:#fff; border:none; border-radius:50%; width:20px; height:20px; font-size:12px; cursor:pointer;">&times;</button>
+            `;
+            previewContainer.appendChild(div);
+        };
+        reader.readAsDataURL(file);
+    });
+}
+
+function removeImage(index) {
+    selectedImages.splice(index, 1);
+    renderPreviews();
+}
+
+async function handleSellBikeSubmit(e) {
+    e.preventDefault();
+    const token = sessionStorage.getItem("token");
+    const submitBtn = document.getElementById("submitSellingBikeDeatils");
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submitting Listing...";
+    }
+
+    const formData = new FormData();
+    formData.append("title", document.getElementById("listingTitle").value);
+    formData.append("vehicle_number", document.getElementById("vehicleNumber").value);
+    formData.append("seller_name", document.getElementById("sellerName").value);
+    formData.append("mobileNum", document.getElementById("mobileNum").value);
+    formData.append("bike_condition", document.getElementById("bikeCondition").value);
+    formData.append("brand", document.getElementById("makedFrom").value || document.getElementById("bikeType").value || "Standard");
+    formData.append("model", document.getElementById("bikeModel").value);
+    formData.append("kilometers_driven", document.getElementById("bikeKms").value);
+    formData.append("price", document.getElementById("bikePrice").value);
+    formData.append("selling_price", document.getElementById("bikePrice").value);
+    formData.append("year", document.getElementById("bikeBuyingYear") ? document.getElementById("bikeBuyingYear").value : "2022");
+    formData.append("bike_color", document.getElementById("bikeColor") ? document.getElementById("bikeColor").value : "Black");
+    formData.append("engine_cc", document.getElementById("bikeEngineCC") ? document.getElementById("bikeEngineCC").value : "150cc");
+    formData.append("insurance", document.getElementById("insurance") ? document.getElementById("insurance").value : "No");
+    formData.append("horsepower", document.getElementById("horsepower") ? document.getElementById("horsepower").value : "No");
+    formData.append("location", document.getElementById("bikeLocation") ? document.getElementById("bikeLocation").value : "Chennai");
+    formData.append("description", document.getElementById("description") ? document.getElementById("description").value : "");
+
+    // Attach selected images
+    selectedImages.forEach(file => {
+        formData.append("images", file);
+    });
 
     try {
-        const response = await fetch(`${window.API.BASE_URL}/addBike`, {
-            method: form.method,
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data)
+        const response = await fetch(`${window.API.BASE_URL}/api/bikes`, {
+            method: "POST",
+            headers: {
+                ...(token ? { Authorization: "Bearer " + token } : {})
+            },
+            body: formData
         });
 
         const result = await response.json();
 
-        Swal.fire({
-            icon: "success",
-            title: "Bike added!",
-            text: "Bike added successfully.",
-            confirmButtonColor: "#28a745"
-        });
-
-        form.reset();
+        if (result.success) {
+            Swal.fire({
+                icon: "success",
+                title: "Listing Submitted!",
+                text: "Your bike listing has been submitted for administrator review. You can track its status in your User Dashboard.",
+                confirmButtonColor: "#28a745"
+            }).then(() => {
+                if (token) {
+                    window.location.href = "/profile.html#listings";
+                } else {
+                    window.location.href = "/";
+                }
+            });
+        } else {
+            throw new Error(result.message || "Unable to submit bike.");
+        }
     } catch (err) {
         Swal.fire({
             icon: "error",
-            title: "Server Error",
-            text: "Unable to add bike."
+            title: "Submission Error",
+            text: err.message
         });
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Add Listing";
+        }
     }
-});
-
-
-
-// window.addEventListener("DOMContentLoaded", function () {
-//     const form = document.getElementById("bikeForm");
-//     form.action = `${window.API.BASE_URL}/addBike`;
-//     form.method = "POST";
-// });
-
-// document.getElementById("bikeForm").addEventListener("submit", async function (e) {
-//     e.preventDefault();
-
-    // const data = {
-    //     listingTitle: listingTitle.value,
-    //     vehicleNumber: vehicleNumber.value,
-    //     sellerName: sellerName.value,
-    //     mobileNum: mobileNum.value,
-    //     bikeCondition: bikeCondition.value,
-    //     bikeType: bikeType.value,
-    //     makedFrom: makedFrom.value,
-    //     bikeModel: bikeModel.value,
-    //     bikeKms: bikeKms.value,
-    //     bikePrice: bikePrice.value,
-    //     bikeOwner: bikeOwner.value,
-    //     bikeBuyingYear: bikeBuyingYear.value,
-    //     bikeColor: bikeColor.value,
-    //     bikeEngineCC: bikeEngineCC.value,
-    //     driveType: driveType.value,
-    //     insurance: insurance.value,
-    //     horsepower: horsepower.value,
-    //     bikeLocation: bikeLocation.value,
-    //     description: description.value,
-    //     isAccepted: false,
-    //     isSoldout: false
-    // };
-
-//     try {
-//         const response = await fetch(`${window.API.BASE_URL}/addBike`, {
-//             method: "POST",
-//             headers: { "Content-Type": "application/json" },
-//             body: JSON.stringify(data)
-//         });
-
-//         const result = await response.json();
-
-//         Swal.fire({
-//             icon: "success",
-//             title: "Bike added!",
-//             text: "Bike added successfully.",
-//             confirmButtonColor: "#28a745"
-//         });
-
-//         document.getElementById("bikeForm").reset();
-
-//     } catch (err) {
-//         Swal.fire({
-//             icon: "error",
-//             title: "Server Error",
-//             text: "Unable to add bike."
-//         });
-//     }
-// });
-// document.getElementById("bikeForm").addEventListener("submit", function (event) {
-//   event.preventDefault(); 
-//   const bikeAddingData = {
-//     listingTitle: document.getElementById("listingTitle").value,
-//     vehicleNumber: document.getElementById("vehicleNumber").value,
-//     sellerName: document.getElementById("sellerName").value,
-//     mobileNum: document.getElementById("mobileNum").value,
-//     bikeCondition: document.getElementById("bikeCondition").value,
-//     bikeType: document.getElementById("bikeType").value,
-//     makedFrom: document.getElementById("makedFrom").value,
-//     bikeModel: document.getElementById("bikeModel").value,
-//     bikeKms: document.getElementById("bikeKms").value,
-//     bikePrice: document.getElementById("bikePrice").value,
-//     sellingPrice: document.getElementById("bikePrice").value,
-//     bikeOwner: document.getElementById("bikeOwner").value,
-//     bikeBuyingYear: document.getElementById("bikeBuyingYear").value,
-//     bikeColor: document.getElementById("bikeColor").value,
-//     bikeEngineCC: document.getElementById("bikeEngineCC").value,
-//     driveType: document.getElementById("driveType").value,
-//     insurance: document.getElementById("insurance").value,
-//     horsepower: document.getElementById("horsepower").value,
-//     bikeLocation: document.getElementById("bikeLocation").value,
-//     description: document.getElementById("description").value,
-//     isAccepted: false,
-//     isSoldout: false
-//   };
-
-//   fetch(window.API.userAddBike, {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify(bikeAddingData)
-//   })
-//   .then(response => response.json())
-//   .then(() => {
-//     Swal.fire({
-//         icon: 'success',
-//         title: 'Bike added!',
-//         text: 'Bike added successfully.',
-//         confirmButtonColor: '#28a745'
-//      });
-//     document.getElementById("bikeForm").reset();
-//   })
-//   .catch(() => {
-//     Swal.fire({
-//         icon: 'error',
-//         title: "Can't add!",
-//         text: 'Bike Adding error.',
-//         confirmButtonColor: '#28a745'
-//     });
-//   });
-// });
+}

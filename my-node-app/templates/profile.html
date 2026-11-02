@@ -3,37 +3,470 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SMR Motors</title>
-    <link rel="icon" type="image/x-icon" href="0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png">
+    <title>User Dashboard - SMR Motors</title>
+    <link rel="icon" type="image/png" href="/0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/my-node-app/static/profileStyle.css">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
 </head>
-<body>
-    <div class="profile-container">
-    <div class="profile-card">
-      <img src="https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg?w=360" alt="User Photo" class="profile-img" />
-      <h2 id="userProfileName"></h2>
-      <p id="userProfileRole"></p>
+<body class="dashboard-body">
 
-      <div class="profile-info">
-        <p><strong>UserName :</strong> <span id="userName"></span></p>
-        <p><strong>Email :</strong> <span id="userEmail"></span></p>
-        <p><strong>Role :</strong> <span id="userRole"></span></p>
-        <p><strong>Phone:</strong> <span id="userPhone"></span></p>
-      </div>
+    <!-- Top Navigation Bar -->
+    <nav class="navbar navbar-expand-lg top-nav border-bottom sticky-top">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="/0ebaa9ba-d581-4517-975a-b07ecc2d3c65.png" alt="SMR Motors" class="brand-img me-2">
+                <span class="brand-name">SMR <span class="highlight">MOTORS</span></span>
+            </a>
+            
+            <button class="navbar-toggler d-lg-none" type="button" data-bs-toggle="offcanvas" data-bs-target="#sidebarMenu">
+                <i class="fa-solid fa-bars"></i>
+            </button>
 
-      <button onclick="MyEnquirys()">My Enquiry</button>
-      <button onclick="logOutProfile()">logOut</button>
+            <div class="d-none d-lg-flex align-items-center ms-auto gap-3">
+                <a href="/" class="btn btn-sm btn-outline-secondary"><i class="fa-solid fa-store me-1"></i> View Marketplace</a>
+                <div class="dropdown">
+                    <button class="btn user-profile-btn dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
+                        <img id="navAvatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar-sm rounded-circle" alt="User">
+                        <span id="navUserName" class="fw-semibold">User</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                        <li><a class="dropdown-item" href="#profile" onclick="switchTab('profile')"><i class="fa-regular fa-user me-2"></i>My Profile</a></li>
+                        <li><a class="dropdown-item" href="#listings" onclick="switchTab('listings')"><i class="fa-solid fa-motorcycle me-2"></i>My Listings</a></li>
+                        <li><a class="dropdown-item" href="#favorites" onclick="switchTab('favorites')"><i class="fa-regular fa-heart me-2"></i>Favorites</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item text-danger" href="javascript:void(0)" onclick="handleLogout()"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-0">
+        <div class="row g-0">
+            <!-- Sidebar -->
+            <div class="col-lg-2 sidebar-wrapper">
+                <div class="offcanvas-lg offcanvas-start sidebar-offcanvas" id="sidebarMenu">
+                    <div class="offcanvas-header border-bottom d-lg-none">
+                        <h5 class="offcanvas-title">Menu</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" data-bs-target="#sidebarMenu"></button>
+                    </div>
+                    <div class="sidebar-content py-4 px-3">
+                        <!-- User Card Mini -->
+                        <div class="user-mini-card p-3 mb-4 text-center rounded-3">
+                            <img id="sideAvatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100" class="avatar-lg rounded-circle mb-2" alt="Avatar">
+                            <h6 id="sideName" class="mb-0 fw-bold">User Name</h6>
+                            <small id="sideEmail" class="text-muted d-block text-truncate">user@gmail.com</small>
+                            <span class="badge bg-success-subtle text-success mt-2"><i class="fa-brands fa-google me-1"></i> Google Verified</span>
+                        </div>
+
+                        <!-- Navigation Links -->
+                        <ul class="nav nav-pills flex-column gap-1 sidebar-nav">
+                            <li class="nav-item">
+                                <a class="nav-link active" id="tab-overview-btn" href="#overview" onclick="switchTab('overview')">
+                                    <i class="fa-solid fa-chart-pie me-2"></i> Dashboard Overview
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-profile-btn" href="#profile" onclick="switchTab('profile')">
+                                    <i class="fa-regular fa-id-badge me-2"></i> My Profile
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-listings-btn" href="#listings" onclick="switchTab('listings')">
+                                    <i class="fa-solid fa-motorcycle me-2"></i> My Bike Listings
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-enquiries-btn" href="#enquiries" onclick="switchTab('enquiries')">
+                                    <i class="fa-regular fa-comments me-2"></i> My Enquiries
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-favorites-btn" href="#favorites" onclick="switchTab('favorites')">
+                                    <i class="fa-regular fa-heart me-2"></i> Saved Favorites
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" id="tab-settings-btn" href="#settings" onclick="switchTab('settings')">
+                                    <i class="fa-solid fa-gear me-2"></i> Account Settings
+                                </a>
+                            </li>
+                            <li class="nav-item mt-4 pt-3 border-top">
+                                <a class="nav-link text-danger" href="javascript:void(0)" onclick="handleLogout()">
+                                    <i class="fa-solid fa-right-from-bracket me-2"></i> Sign Out
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Area -->
+            <main class="col-lg-10 main-content-wrapper p-4 p-md-5">
+
+                <!-- TAB 1: OVERVIEW -->
+                <div class="dashboard-tab active" id="tab-overview">
+                    <!-- Welcome Banner -->
+                    <div class="welcome-banner p-4 p-md-5 rounded-4 text-white mb-4 d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                        <div class="d-flex align-items-center gap-3">
+                            <img id="welcomeAvatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120" class="avatar-xl rounded-circle border border-3 border-white shadow-sm" alt="Google Profile">
+                            <div>
+                                <span class="badge bg-white text-dark mb-1"><i class="fa-brands fa-google text-primary me-1"></i> Connected with Google</span>
+                                <h2 class="fw-bold mb-1">Welcome back, <span id="welcomeName">User</span>!</h2>
+                                <p class="mb-0 text-white-50">Manage your bike sales, check buyer enquiries, and save dream rides.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-light fw-bold" onclick="openAddBikeModal()"><i class="fa-solid fa-plus me-1 text-success"></i> Sell a Bike</button>
+                            <a href="/#Products" class="btn btn-outline-light"><i class="fa-solid fa-magnifying-glass me-1"></i> Browse Bikes</a>
+                        </div>
+                    </div>
+
+                    <!-- Metric Cards -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-6 col-md-3">
+                            <div class="stat-card p-3 rounded-4 shadow-sm border bg-white">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted small fw-semibold">My Listed Bikes</span>
+                                    <span class="stat-icon bg-primary-subtle text-primary"><i class="fa-solid fa-motorcycle"></i></span>
+                                </div>
+                                <h3 class="fw-bold mb-0" id="statTotalListings">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-card p-3 rounded-4 shadow-sm border bg-white">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted small fw-semibold">Approved Bikes</span>
+                                    <span class="stat-icon bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i></span>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-success" id="statApprovedListings">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-card p-3 rounded-4 shadow-sm border bg-white">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted small fw-semibold">Pending Listings</span>
+                                    <span class="stat-icon bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i></span>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-warning" id="statPendingListings">0</h3>
+                            </div>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="stat-card p-3 rounded-4 shadow-sm border bg-white">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted small fw-semibold">Total Enquiries</span>
+                                    <span class="stat-icon bg-info-subtle text-info"><i class="fa-solid fa-comments"></i></span>
+                                </div>
+                                <h3 class="fw-bold mb-0 text-info" id="statTotalEnquiries">0</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Section Grid -->
+                    <div class="row g-4">
+                        <div class="col-lg-7">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                                    <h5 class="fw-bold mb-0">My Recent Listings</h5>
+                                    <a href="#listings" onclick="switchTab('listings')" class="btn btn-sm btn-link text-decoration-none">View All</a>
+                                </div>
+                                <div class="card-body px-4 pb-4">
+                                    <div id="overviewListingsContainer">
+                                        <div class="text-center py-4 text-muted">
+                                            <i class="fa-solid fa-motorcycle fa-2x mb-2 text-muted-subtle"></i>
+                                            <p>No listings added yet.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-lg-5">
+                            <div class="card border-0 shadow-sm rounded-4 h-100">
+                                <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                                    <h5 class="fw-bold mb-0">Marketplace Additions</h5>
+                                    <a href="/#Products" class="btn btn-sm btn-link text-decoration-none">Explore</a>
+                                </div>
+                                <div class="card-body px-4 pb-4">
+                                    <div id="overviewRecentBikesContainer">
+                                        <div class="text-center py-4 text-muted">Loading available bikes...</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: MY PROFILE -->
+                <div class="dashboard-tab" id="tab-profile">
+                    <div class="card border-0 shadow-sm rounded-4 max-w-700">
+                        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                            <h4 class="fw-bold mb-1">My Profile</h4>
+                            <p class="text-muted small mb-0">Your profile details are secured through your authenticated Google account.</p>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-center gap-4 mb-4 pb-3 border-bottom">
+                                <img id="profileAvatarBig" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120" class="avatar-xl rounded-circle border shadow-sm" alt="Profile Picture">
+                                <div>
+                                    <h5 id="profileFullName" class="fw-bold mb-1">User Full Name</h5>
+                                    <p id="profileEmailAddress" class="text-muted mb-1 small">user@gmail.com</p>
+                                    <span class="badge bg-primary-subtle text-primary"><i class="fa-solid fa-shield-cat me-1"></i> Role: Buyer / Seller</span>
+                                </div>
+                            </div>
+
+                            <form id="profileForm" onsubmit="handleSaveProfile(event)">
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Full Name</label>
+                                    <input type="text" id="inputProfileName" class="form-control" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Email Address (Google Account)</label>
+                                    <input type="email" id="inputProfileEmail" class="form-control" disabled readonly>
+                                    <small class="text-muted">Linked to your Google identity and cannot be altered.</small>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Contact Phone Number <span class="text-danger">*</span></label>
+                                    <input type="tel" id="inputProfilePhone" class="form-control" placeholder="Enter 10-digit mobile number" pattern="[0-9]{10}" required>
+                                    <small class="text-muted">Buyers & SMR Motors representatives will contact you on this number for enquiries.</small>
+                                </div>
+                                <div class="mb-4">
+                                    <label class="form-label fw-semibold">Account Role</label>
+                                    <input type="text" class="form-control bg-light" value="Standard User (Customer / Seller)" disabled>
+                                    <small class="text-muted">Admin privileges cannot be modified from user settings.</small>
+                                </div>
+                                <button type="submit" class="btn btn-success px-4 py-2 fw-semibold">
+                                    <i class="fa-regular fa-floppy-disk me-1"></i> Save Profile Changes
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: MY BIKE LISTINGS -->
+                <div class="dashboard-tab" id="tab-listings">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h4 class="fw-bold mb-1">My Bike Listings</h4>
+                            <p class="text-muted small mb-0">Manage bikes you are offering for sale on SMR Motors marketplace.</p>
+                        </div>
+                        <button class="btn btn-success fw-semibold" onclick="openAddBikeModal()">
+                            <i class="fa-solid fa-plus me-1"></i> Add New Bike
+                        </button>
+                    </div>
+
+                    <!-- Listings Container -->
+                    <div id="userListingsContainer" class="row g-3">
+                        <div class="text-center py-5 text-muted col-12">
+                            <i class="fa-solid fa-motorcycle fa-3x mb-3 text-muted-subtle"></i>
+                            <h5>No bikes listed yet</h5>
+                            <p class="text-muted">Put your bike up for sale in front of thousands of buyers today!</p>
+                            <button class="btn btn-outline-success" onclick="openAddBikeModal()">Create First Listing</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 4: MY ENQUIRIES -->
+                <div class="dashboard-tab" id="tab-enquiries">
+                    <div class="mb-4">
+                        <h4 class="fw-bold mb-1">My Enquiries</h4>
+                        <p class="text-muted small mb-0">Track all enquiries you have submitted regarding bikes you're interested in buying.</p>
+                    </div>
+
+                    <div id="userEnquiriesContainer" class="row g-3">
+                        <div class="text-center py-5 text-muted col-12">
+                            <i class="fa-regular fa-comments fa-3x mb-3 text-muted-subtle"></i>
+                            <h5>No enquiries submitted</h5>
+                            <p class="text-muted">Browse bikes on the homepage and submit an enquiry to get started!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 5: MY FAVORITES -->
+                <div class="dashboard-tab" id="tab-favorites">
+                    <div class="mb-4">
+                        <h4 class="fw-bold mb-1">Saved Favorites</h4>
+                        <p class="text-muted small mb-0">Bikes you've bookmarked for later consideration.</p>
+                    </div>
+
+                    <div id="userFavoritesContainer" class="row g-3">
+                        <div class="text-center py-5 text-muted col-12">
+                            <i class="fa-regular fa-heart fa-3x mb-3 text-muted-subtle"></i>
+                            <h5>Your wishlist is empty</h5>
+                            <p class="text-muted">Explore bikes and tap the heart icon to save listings.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 6: SETTINGS -->
+                <div class="dashboard-tab" id="tab-settings">
+                    <div class="card border-0 shadow-sm rounded-4 max-w-700">
+                        <div class="card-header bg-white border-0 pt-4 px-4 pb-0">
+                            <h4 class="fw-bold mb-1">Account & Session Settings</h4>
+                            <p class="text-muted small mb-0">Manage security and active sessions.</p>
+                        </div>
+                        <div class="card-body p-4">
+                            <div class="mb-4 pb-3 border-bottom">
+                                <h6 class="fw-bold">Google Authentication Link</h6>
+                                <p class="text-muted small">Your account is secured with Google OAuth 2.0. No separate password is required.</p>
+                                <span class="badge bg-success p-2"><i class="fa-brands fa-google me-1"></i> Google ID Verified</span>
+                            </div>
+
+                            <div class="mb-4 pb-3 border-bottom">
+                                <h6 class="fw-bold">Session Management</h6>
+                                <p class="text-muted small">Your current session is stored in your secure browser token storage.</p>
+                                <button class="btn btn-outline-danger" onclick="handleLogout()">
+                                    <i class="fa-solid fa-arrow-right-from-bracket me-1"></i> Sign Out from This Device
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
     </div>
-  </div>
-  <section>
-    <div id="MyEnquirys">
 
+    <!-- Modal: Add / Edit Bike -->
+    <div class="modal fade" id="addBikeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold" id="addBikeModalTitle">List a Bike for Sale</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addBikeForm" onsubmit="handleBikeSubmit(event)">
+                        <input type="hidden" id="editBikeId" value="">
+                        
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Listing Title <span class="text-danger">*</span></label>
+                                <input type="text" id="bikeTitle" class="form-control" placeholder="e.g. Yamaha R15 V3 2021 Mint Condition" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Brand / Make <span class="text-danger">*</span></label>
+                                <select id="bikeBrand" class="form-select" required>
+                                    <option value="">Select Brand</option>
+                                    <option value="Yamaha">Yamaha</option>
+                                    <option value="Royal Enfield">Royal Enfield</option>
+                                    <option value="KTM">KTM</option>
+                                    <option value="Honda">Honda</option>
+                                    <option value="Hero">Hero</option>
+                                    <option value="Bajaj">Bajaj</option>
+                                    <option value="TVS">TVS</option>
+                                    <option value="Java">Java</option>
+                                    <option value="Ather">Ather</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold">Model Name <span class="text-danger">*</span></label>
+                                <input type="text" id="bikeModel" class="form-control" placeholder="e.g. Classic 350 / R15 / Duke 200" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Buying Year <span class="text-danger">*</span></label>
+                                <input type="number" id="bikeYear" class="form-control" min="2000" max="2026" value="2022" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Expected Price (₹) <span class="text-danger">*</span></label>
+                                <input type="number" id="bikePrice" class="form-control" placeholder="e.g. 75000" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Kilometers Driven <span class="text-danger">*</span></label>
+                                <input type="text" id="bikeKms" class="form-control" placeholder="e.g. 18500" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Vehicle Number <span class="text-danger">*</span></label>
+                                <input type="text" id="bikeVehicleNum" class="form-control" placeholder="TN 07 AB 1234" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Condition</label>
+                                <select id="bikeCondition" class="form-select">
+                                    <option value="Good">Good</option>
+                                    <option value="Used">Used</option>
+                                    <option value="Verified">Verified</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Color</label>
+                                <input type="text" id="bikeColor" class="form-control" placeholder="e.g. Matte Black">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Engine CC</label>
+                                <input type="text" id="bikeEngineCC" class="form-control" placeholder="e.g. 150cc">
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Insurance</label>
+                                <select id="bikeInsurance" class="form-select">
+                                    <option value="Yes">Yes</option>
+                                    <option value="No">No</option>
+                                    <option value="Subject to Availability">Subject to Availability</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold">Location</label>
+                                <input type="text" id="bikeLocation" class="form-control" placeholder="e.g. Kelambakkam, Chennai">
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Description</label>
+                                <textarea id="bikeDescription" class="form-control" rows="3" placeholder="Describe the condition, service history, and additional features of the bike..."></textarea>
+                            </div>
+
+                            <!-- Multiple Image Upload with Preview -->
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">Upload Bike Images (Max 6)</label>
+                                <div class="upload-dropzone p-3 text-center rounded-3 border-2 border-dashed">
+                                    <i class="fa-solid fa-cloud-arrow-up fa-2x text-muted mb-2"></i>
+                                    <p class="small text-muted mb-2">Drag and drop photos or click to select (JPEG, PNG, WebP up to 5MB each)</p>
+                                    <input type="file" id="bikeImageInput" class="form-control d-none" multiple accept="image/*" onchange="handleImageSelection(event)">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('bikeImageInput').click()">Select Images</button>
+                                </div>
+                                <!-- Image Preview Container -->
+                                <div id="imagePreviewRow" class="row g-2 mt-2"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end gap-2 mt-4 pt-3 border-top">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-success fw-bold" id="submitBikeBtn">Submit Listing</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
     </div>
-  </section>
-   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Modal: View Enquiry Details -->
+    <div class="modal fade" id="enquiryDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-4 border-0">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Enquiry Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="enquiryDetailBody">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="/my-node-app/public/config.js"></script>
+    <script src="/my-node-app/static/profileStyle.js"></script>
 </body>
-<script src="/my-node-app/public/config.js"></script>
-<script src="/my-node-app/static/profileStyle.js"></script>
 </html>

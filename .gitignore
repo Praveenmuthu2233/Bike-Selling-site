@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables
+.env
+my-node-app/.env
+
+# Temporary / OS files
+.DS_Store
+Thumbs.db
+*.log
+/tmp/
+
+# Uploads directory contents (preserve folder structure)
+public/uploads/*
+!public/uploads/.gitkeep
+my-node-app/public/uploads/*
+!my-node-app/public/uploads/.gitkeep
+
+# Local runner wrappers
+powershell.bat
+powershell.cmd

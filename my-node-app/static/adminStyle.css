@@ -1,50 +1,85 @@
-
-.container-admin{
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
+/* Modern Admin Styles - SMR Motors */
+:root {
+  --admin-primary: #0f172a;
+  --admin-accent: #10b981;
+  --admin-bg: #f8fafc;
+  --admin-border: #e2e8f0;
 }
 
-.adminLoginCart {
-    display: flex;
-    flex-direction: column; 
-    align-items: center;
-    width: 50%;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    background-color: #f9f9f9; 
+body.admin-body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--admin-bg);
+  color: #1e293b;
+  min-height: 100vh;
 }
 
-.adminLoginCart button{
-    border: none;
-    padding: 12px 25px;
-    font-size: 1.1rem;
-    margin: 10px 0;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-    background-color: #55d6aa;
-    color: white;
+/* Admin Login Card */
+.admin-login-card {
+  width: 100%;
+  max-width: 440px;
+  background: #ffffff;
+  border-radius: 20px;
 }
-.adminLoginCart button:hover {
-    transform: scale(1.0); 
-    background-color: #4cae8a;
-}
-.adminLabel {
-    font-size: 1rem;
-    color: #333;
-    margin-bottom: 5px;
-    font-weight: bold;
+.admin-logo {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
 }
 
-.adminInput {
-    padding: 10px;
-    font-size: 1rem;
-    border: 1px solid #ccc;
-    border-radius: 5px;
-    width: 100%;
-    box-sizing: border-box;
-    transition: border-color 0.3s ease;
+/* Admin Nav */
+.admin-navbar {
+  background: #ffffff;
+  z-index: 1020;
+}
+.admin-nav-logo {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+/* Sidebar */
+.admin-sidebar {
+  background: #ffffff;
+  min-height: calc(100vh - 60px);
+}
+.admin-nav-pills .nav-link {
+  color: #475569;
+  font-weight: 600;
+  font-size: 13.5px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+.admin-nav-pills .nav-link:hover {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+.admin-nav-pills .nav-link.active {
+  background-color: #0f172a;
+  color: #ffffff;
+}
+
+/* Metric Cards */
+.admin-metric-card {
+  transition: transform 0.2s ease;
+}
+.admin-metric-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Tabs */
+.admin-tab {
+  display: none;
+}
+.admin-tab.active {
+  display: block;
+  animation: fadeIn 0.2s ease-in-out;
+}
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.max-w-700 {
+  max-width: 700px;
 }

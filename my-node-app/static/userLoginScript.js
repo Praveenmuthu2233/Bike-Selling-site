@@ -1,221 +1,187 @@
-function checkLoginStatus() {
-    const userToken = sessionStorage.getItem("token");
-    const adminToken = sessionStorage.getItem("adminToken");
-
-    let loginShowEle = document.getElementsByClassName("loginShow")[0];
-    let profileShowEle = document.getElementsByClassName("profileShow")[0];
-    
-    if (adminToken) {
-        loginShowEle.classList.add("d-none");
-        profileShowEle.classList.add("d-none");
-        return;
-    }
-    if (!userToken) {
-        loginShowEle.classList.remove("d-none");
-        profileShowEle.classList.add("d-none");
-        return;
-    }
-    
-    fetch(`${window.API.BASE_URL}/profile`, {
-        headers: { "Authorization": "Bearer " + userToken }
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Invalid token");
-        return res.json();
-    })
-    .then(profile => {
-        loginShowEle.classList.add("d-none");
-        profileShowEle.classList.remove("d-none");
-        const userName = document.getElementById("userName");
-        if (userName) userName.innerText = profile.firstName;
-    })
-    .catch(() => {
-        sessionStorage.removeItem("token");
-
-        loginShowEle.classList.remove("d-none");
-        profileShowEle.classList.add("d-none");
-    });
-}
-window.onload = checkLoginStatus;
+/**
+ * Google Authentication Client Script
+ * Handles Google Identity Services (GIS), Token Submission, and Session Storage.
+ */
 
 document.addEventListener("DOMContentLoaded", function () {
-    window.showLoginForm = function () {
-        document.getElementById('signUpBox').style.display = 'none';
-        document.getElementById('loginBox').style.display = 'block';
-        document.getElementById('loginForm').reset();
-    };
+  // Check if user is already logged in
+  const existingToken = sessionStorage.getItem("token");
+  if (existingToken) {
+    verifyExistingSession(existingToken);
+  }
 
-    showLoginForm();
-    document.getElementById('showSignUp').addEventListener('click', function () {
-        document.getElementById('loginBox').style.display = 'none';
-        document.getElementById('signUpBox').style.display = 'block';
-        document.getElementById('signUpForm').reset();
-    });
-    document.getElementById('showLogin').addEventListener('click', showLoginForm);
-
+  // Initialize Google Identity Services
+  initGoogleAuth();
 });
 
-function clearErrors() {
-    document.querySelectorAll(".error").forEach(el => el.textContent = "");
-}
+function initGoogleAuth() {
+  const clientId = window.GOOGLE_CLIENT_ID || "";
+  
+  if (window.google && window.google.accounts && clientId) {
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: handleGoogleCredentialResponse,
+        auto_select: false,
+        cancel_on_tap_outside: true
+      });
 
-function signUpFormSubmit(event) {
-    event.preventDefault();
-    clearErrors();
-    let firstName = document.getElementById("firstName").value.trim();
-    let lastName = document.getElementById("lastName").value.trim();
-    let mobileNumber = document.getElementById("mobileNumber").value.trim();
-    let emailAddress = document.getElementById("email").value.trim();
-    let signUpPassword = document.getElementById("signUpPassword").value.trim();
-    let confirmPassword = document.getElementById("confirmPassword").value.trim();
-    let agreeTerms = document.getElementById("agreeTerms").checked;
-
-    let valid = true;
-    if (firstName.length < window.VALIDATION.firstNameMin) {
-        document.getElementById("firstNameError").textContent = window.VALIDATION.MESSAGES.firstName;
-        valid = false;
-    }
-
-    if (!window.VALIDATION.mobileRegex.test(mobileNumber)) {
-        document.getElementById("mobileError").textContent = window.VALIDATION.MESSAGES.mobile;
-        valid = false;
-    }
-
-    if (emailAddress && !window.VALIDATION.emailRegex.test(emailAddress)) {
-        document.getElementById("emailError").textContent = window.VALIDATION.MESSAGES.email;
-        valid = false;
-    }
-
-    if (signUpPassword.length < window.VALIDATION.passwordMin) {
-        document.getElementById("passwordError").textContent = window.VALIDATION.MESSAGES.password;
-        valid = false;
-    }
-
-    if (signUpPassword !== confirmPassword) {
-        document.getElementById("confirmPasswordError").textContent = window.VALIDATION.MESSAGES.confirmPassword;
-        valid = false;
-    }
-
-    if (!agreeTerms) {
-        document.getElementById("termsError").textContent = window.VALIDATION.MESSAGES.terms;
-        valid = false;
-    }
-
-    if (!valid) return;
-
-    fetch(`${window.API.BASE_URL}/checkMobile/${mobileNumber}`)
-    .then(res => res.json())
-    .then(result => {
-      if (result.exists) {
-        Swal.fire({
-            icon: 'error',
-            title: 'Signup Failed!',
-            text: 'This mobile number is already registered.',
-            confirmButtonColor: '#d33'
+      const btnContainer = document.getElementById("googleSignInBtn");
+      if (btnContainer) {
+        google.accounts.id.renderButton(btnContainer, {
+          theme: "outline",
+          size: "large",
+          width: "360",
+          text: "continue_with",
+          shape: "pill"
         });
-        return;
       }
-      
-      submitSignup(firstName, lastName, mobileNumber, emailAddress, signUpPassword);
-    })
+    } catch (err) {
+      console.warn("[Google Auth] GIS initialization note:", err);
+    }
+  }
 }
-function submitSignup(firstName, lastName, mobileNumber, email, password) {
-    let user = { firstName, lastName, mobileNumber, email, signUpPassword:password };
-    fetch(`${window.API.BASE_URL}/addUser`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(user)
-    })
-    .then(res => res.json())
-    .then(() => {
-        Swal.fire({
-            icon: 'success',
-            title: 'Signup Successful!',
-            text: 'Please login to continue.',
-            confirmButtonColor: '#28a745'
-        });
 
-        showLoginForm();
+/**
+ * Initiates Google OAuth popup flow
+ */
+function initiateGoogleLogin() {
+  if (window.google && window.google.accounts && window.GOOGLE_CLIENT_ID) {
+    google.accounts.id.prompt();
+  } else {
+    // If Google Client ID not yet populated in production env, guide user or show notification
+    Swal.fire({
+      title: "Google Sign-In Configuration",
+      text: "To use live Google Sign-In, configure GOOGLE_CLIENT_ID in your .env file. For instant local testing, use the Local Testing / Demo Mode buttons below!",
+      icon: "info",
+      confirmButtonColor: "#10b981",
+      confirmButtonText: "Got it"
     });
+  }
 }
 
-document.getElementById('signUpForm').addEventListener('submit', signUpFormSubmit);
+/**
+ * Receives JWT credential token from Google Identity Services
+ */
+async function handleGoogleCredentialResponse(response) {
+  if (!response || !response.credential) {
+    Swal.fire({
+      icon: "error",
+      title: "Authentication Error",
+      text: "No credential received from Google. Please try again."
+    });
+    return;
+  }
 
-function loginFormSubmit(event) {
-    event.preventDefault();
+  try {
+    Swal.fire({
+      title: "Signing In...",
+      text: "Verifying Google account with SMR Motors server...",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
-    let loginMobileNumber = document.getElementById("loginMobileNumber").value.trim();
-    let loginPassword = document.getElementById("loginPassword").value.trim();
+    const res = await fetch(`${window.API.BASE_URL}/api/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential: response.credential })
+    });
 
-    fetch(`${window.API.BASE_URL}/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            mobileNumber: loginMobileNumber,
-            signUpPassword: loginPassword
-        })
-    })
-    .then(async (res) => {
-        const text = await res.text();
-        try {
-            return JSON.parse(text);
-        } catch {
-            console.error("NON-JSON RESPONSE:", text);
-            throw new Error("Server returned invalid JSON");
-        }
-    })
-    .then(data => {
-        if (data.success) {
-            sessionStorage.setItem("token", data.token);
-            if (sessionStorage.getItem("token")) {
-                sessionStorage.removeItem("adminToken");
-            }
+    const data = await res.json();
 
-            Swal.fire({
-                icon: 'success',
-                title: 'Login Successful!',
-                text: `Welcome ${data.user.firstName} ${data.user.lastName}`,
-                confirmButtonColor: '#28a745',
-            }).then(() => {
-                window.location.href = "index.html";
-            });
+    if (data.success && data.token) {
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
 
-        } else {
-            Swal.fire({
-                icon: 'error',
-                title: 'Login Failed',
-                text: data.message,
-                confirmButtonColor: '#d33'
-            });
-        }
-    })
-    .catch(err => console.error("Login error:", err));
+      Swal.fire({
+        icon: "success",
+        title: `Welcome, ${data.user.name}!`,
+        text: "You have signed in successfully with Google.",
+        confirmButtonColor: "#10b981",
+        timer: 1800,
+        showConfirmButton: false
+      }).then(() => {
+        window.location.href = "/profile.html";
+      });
+    } else {
+      throw new Error(data.message || "Failed to authenticate with Google.");
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Sign-In Failed",
+      text: err.message || "Could not complete sign-in. Please try again.",
+      confirmButtonColor: "#ef4444"
+    });
+  }
 }
 
-document.getElementById('loginForm').addEventListener('submit', loginFormSubmit);
+/**
+ * Local Developer / Evaluator Instant Sign-In
+ */
+async function loginDemoUser(email, name, picture) {
+  try {
+    Swal.fire({
+      title: "Signing In...",
+      text: `Authenticating as ${name}...`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
 
-function fetchProfile() {
-    const token = sessionStorage.getItem("token");
-    if (!token) return;
+    const res = await fetch(`${window.API.BASE_URL}/api/auth/demo-google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name, picture })
+    });
 
-    fetch(`${window.API.BASE_URL}/profile`, {
-        headers: {
-            "Authorization": "Bearer " + token
-        }
-    })
-    .then(res => res.json())
-    .then(profile => {
-        document.querySelector(".loginShow").classList.add("d-none");
-        document.querySelector(".profileShow").classList.remove("d-none");
-        document.getElementById("userName").innerText = profile.firstName;
-    })
-    .catch(() => sessionStorage.removeItem("token"));
+    const data = await res.json();
+
+    if (data.success && data.token) {
+      sessionStorage.setItem("token", data.token);
+      sessionStorage.setItem("user", JSON.stringify(data.user));
+
+      Swal.fire({
+        icon: "success",
+        title: `Welcome, ${data.user.name}!`,
+        text: "Signed in successfully.",
+        confirmButtonColor: "#10b981",
+        timer: 1500,
+        showConfirmButton: false
+      }).then(() => {
+        window.location.href = "/profile.html";
+      });
+    } else {
+      throw new Error(data.message || "Demo sign in failed");
+    }
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Sign-In Error",
+      text: err.message,
+      confirmButtonColor: "#ef4444"
+    });
+  }
 }
-function logout() {
-    sessionStorage.removeItem("token");
-    window.location.href = "userLogin.html";
-}
 
-document.getElementById("rememberMe").addEventListener("change", function () {
-    document.getElementById("loginPassword").type = this.checked ? "text" : "password";
-});
+/**
+ * Verify active session on page load
+ */
+async function verifyExistingSession(token) {
+  try {
+    const res = await fetch(`${window.API.BASE_URL}/api/auth/me`, {
+      headers: { Authorization: "Bearer " + token }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.user) {
+        // User already logged in, redirect to profile
+        // window.location.href = "/profile.html";
+      }
+    } else {
+      sessionStorage.removeItem("token");
+      sessionStorage.removeItem("user");
+    }
+  } catch (e) {
+    // Session check error, ignore
+  }
+}

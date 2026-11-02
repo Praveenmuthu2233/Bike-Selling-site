@@ -15,7 +15,7 @@ function soldOutPrint() {
       title: "Admin Login Required",
       text: "Please login as admin."
     }).then(() => {
-      window.location.href = "/my-node-app/public/admin.html";
+      window.location.href = "/admin.html";
     });
     return;
   }
