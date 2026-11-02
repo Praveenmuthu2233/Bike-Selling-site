@@ -171,15 +171,33 @@ CREATE TABLE IF NOT EXISTS `favorites` (
   FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Contact Messages Table (General Inquiries)
+-- 7. Contact Messages Table (Customer Enquiries with Subject & Delivery Status)
 CREATE TABLE IF NOT EXISTS `contact_messages` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
   `email` VARCHAR(191) NOT NULL,
   `phone` VARCHAR(30) NULL,
+  `subject` VARCHAR(255) NOT NULL DEFAULT 'General Inquiry',
   `message` TEXT NOT NULL,
-  `status` VARCHAR(20) NOT NULL DEFAULT 'unread',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  `status` VARCHAR(30) NOT NULL DEFAULT 'unread',
+  `email_delivery_status` VARCHAR(50) NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_contact_email` (`email`),
+  INDEX `idx_contact_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7b. Contact Replies Table (Admin Responses & Delivery Tracking)
+CREATE TABLE IF NOT EXISTS `contact_replies` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `contact_message_id` INT NOT NULL,
+  `admin_id` INT NULL,
+  `admin_username` VARCHAR(60) NULL,
+  `reply_message` TEXT NOT NULL,
+  `sent_status` VARCHAR(50) NOT NULL DEFAULT 'sent',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_cr_msg` (`contact_message_id`),
+  INDEX `idx_cr_admin` (`admin_id`),
+  FOREIGN KEY (`contact_message_id`) REFERENCES `contact_messages`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 8. Admin Audit Logs Table (Accountability & Security)

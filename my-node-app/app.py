@@ -68,6 +68,61 @@ UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 # -----------------------------------------------------------------------------
+# SMTP EMAIL DISPATCH & NOTIFICATION CONFIGURATION
+# -----------------------------------------------------------------------------
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "praveenmuthu9500@gmail.com")
+CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "praveenmuthu9500@gmail.com")
+
+def send_email_notification(to_email, subject, body_text, body_html=None):
+    """
+    Sends email via SMTP if configured, or logs safely to server console.
+    Returns (success_bool, status_message).
+    Never logs or exposes passwords.
+    """
+    if not to_email:
+        return False, "missing_recipient"
+
+    if SMTP_HOST and SMTP_USER and SMTP_PASSWORD:
+        try:
+            import smtplib
+            from email.mime.multipart import MIMEMultipart
+            from email.mime.text import MIMEText
+
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = SMTP_FROM_EMAIL
+            msg["To"] = to_email
+
+            part1 = MIMEText(body_text, "plain", "utf-8")
+            msg.attach(part1)
+            if body_html:
+                part2 = MIMEText(body_html, "html", "utf-8")
+                msg.attach(part2)
+
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+                if SMTP_PORT == 587:
+                    server.starttls()
+                server.login(SMTP_USER, SMTP_PASSWORD)
+                server.sendmail(SMTP_FROM_EMAIL, [to_email], msg.as_string())
+            print(f"[Email Notification] Successfully dispatched to {to_email} | Subject: {subject}")
+            return True, "delivered"
+        except Exception as e:
+            err_msg = str(e)
+            if SMTP_PASSWORD and SMTP_PASSWORD in err_msg:
+                err_msg = err_msg.replace(SMTP_PASSWORD, "[PROTECTED]")
+            print(f"[Email Notification Notice] SMTP dispatch to {to_email} failed: {err_msg}")
+            return False, f"failed: {err_msg[:60]}"
+    else:
+        # Development / local resilient fallback: safe log without exposing secrets
+        print(f"[Email Notification (Local/Mock)] Recipient: {to_email} | Subject: {subject}")
+        return True, "logged_locally (SMTP unconfigured)"
+
+
+# -----------------------------------------------------------------------------
 # TIDB CLOUD DATABASE CONNECTION & RESILIENCE STORE
 # -----------------------------------------------------------------------------
 DB_HOST = os.getenv("DB_HOST") or os.getenv("TIDB_HOST") or "127.0.0.1"
@@ -271,6 +326,7 @@ IN_MEMORY_STORE = {
     ],
     "favorites": [],
     "contact_messages": [],
+    "contact_replies": [],
     "audit_logs": [],
     "price_negotiations": [
         {
@@ -630,9 +686,39 @@ def initialize_database():
           `name` VARCHAR(100) NOT NULL,
           `email` VARCHAR(191) NOT NULL,
           `phone` VARCHAR(30) NULL,
+          `subject` VARCHAR(255) NOT NULL DEFAULT 'General Inquiry',
           `message` TEXT NOT NULL,
-          `status` VARCHAR(20) NOT NULL DEFAULT 'unread',
-          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          `status` VARCHAR(30) NOT NULL DEFAULT 'unread',
+          `email_delivery_status` VARCHAR(50) NOT NULL DEFAULT 'pending',
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_contact_email` (`email`),
+          INDEX `idx_contact_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # Add any missing columns to contact_messages
+        for col_name, col_def in [
+            ("subject", "VARCHAR(255) NOT NULL DEFAULT 'General Inquiry'"),
+            ("email_delivery_status", "VARCHAR(50) NOT NULL DEFAULT 'pending'")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `contact_messages` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # 7b. contact_replies table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `contact_replies` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `contact_message_id` INT NOT NULL,
+          `admin_id` INT NULL,
+          `admin_username` VARCHAR(60) NULL,
+          `reply_message` TEXT NOT NULL,
+          `sent_status` VARCHAR(50) NOT NULL DEFAULT 'sent',
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_cr_msg` (`contact_message_id`),
+          INDEX `idx_cr_admin` (`admin_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
@@ -718,28 +804,62 @@ def initialize_database():
         print("[Database] Table initialization notice:", err_str)
 
 # -----------------------------------------------------------------------------
-# AUTHENTICATION HELPERS
+# AUTHENTICATION & ROLE-BASED ACCESS CONTROL HELPERS (RBAC: SUPERADMIN, ADMIN, USER)
 # -----------------------------------------------------------------------------
 adminAccounts = {
-    "admin":   {"password": "admin123",  "name": "Administrator", "role": "main"},
-    "mani":    {"password": "mani@22",    "name": "Mani",          "role": "limited"},
-    "murugan": {"password": "murugan@22", "name": "Murugan",       "role": "main"},
-    "raja":    {"password": "raja@22",    "name": "Raja",          "role": "main"},
+    "admin":   {"password": "admin123",  "name": "Administrator", "role": "superadmin"},
+    "mani":    {"password": "mani@22",    "name": "Mani (Staff)",   "role": "admin"},
+    "murugan": {"password": "murugan@22", "name": "Murugan (Owner)", "role": "superadmin"},
+    "raja":    {"password": "raja@22",    "name": "Raja (Owner)",    "role": "superadmin"},
 }
 
+def normalize_admin_role(raw_role):
+    r = str(raw_role or "").lower().strip()
+    if r in ("superadmin", "main", "owner"):
+        return "superadmin"
+    return "admin"
+
 def admin_required(f):
+    """Allows both SUPERADMIN (Owner) and ADMIN (Staff) access."""
     @wraps(f)
     def wrapper(*args, **kwargs):
         header = request.headers.get("Authorization")
         if not header:
-            return jsonify({"success": False, "message": "Missing admin authorization"}), 401
+            return jsonify({"success": False, "message": "Missing admin authorization header"}), 401
         parts = header.split()
-        if len(parts) != 2:
-            return jsonify({"success": False, "message": "Invalid token header"}), 401
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
         try:
             import jwt
             decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+            decoded["role"] = normalize_admin_role(decoded.get("role"))
             g.admin = decoded
+        except Exception:
+            return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+def superadmin_required(f):
+    """Restricts access strictly to SUPERADMIN (Owner). Returns HTTP 403 Forbidden for Staff (ADMIN)."""
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        header = request.headers.get("Authorization")
+        if not header:
+            return jsonify({"success": False, "message": "Missing admin authorization header"}), 401
+        parts = header.split()
+        if len(parts) != 2 or parts[0].lower() != "bearer":
+            return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
+        try:
+            import jwt
+            decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+            role = normalize_admin_role(decoded.get("role"))
+            decoded["role"] = role
+            g.admin = decoded
+            if role != "superadmin":
+                return jsonify({
+                    "success": False,
+                    "message": "Access Forbidden: Superadmin owner permission required for confidential financial records and operations."
+                }), 403
         except Exception:
             return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
         return f(*args, **kwargs)
@@ -1383,39 +1503,181 @@ def update_enquiry_status(enquiry_id):
 @app.route("/contact", methods=["POST"])
 def contact_submit_api():
     data = request.get_json() or request.form.to_dict() or {}
+    
+    # 1. Validation
+    name = str(data.get("name", "")).strip()
+    email = str(data.get("email", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    subject = str(data.get("subject", "General Inquiry")).strip() or "General Inquiry"
+    message = str(data.get("message", "")).strip()
+
+    if len(name) < 2:
+        return jsonify({"success": False, "message": "Validation Error: Full name must be at least 2 characters."}), 400
+    
+    import re
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"success": False, "message": "Validation Error: Please provide a valid email address."}), 400
+    
+    digits_only = re.sub(r"\D", "", phone)
+    if len(digits_only) < 10:
+        return jsonify({"success": False, "message": "Validation Error: Mobile number must contain at least 10 valid digits."}), 400
+
+    if len(message) < 5:
+        return jsonify({"success": False, "message": "Validation Error: Message content must be at least 5 characters."}), 400
+
+    # 2. Duplicate Prevention / Rate Limiting (Check 60 second window)
+    now_utc = datetime.datetime.utcnow()
+    for existing_msg in IN_MEMORY_STORE.get("contact_messages", []):
+        if existing_msg.get("email", "").lower() == email.lower() and existing_msg.get("message", "").strip() == message:
+            created_str = existing_msg.get("created_at", "")
+            try:
+                msg_time = datetime.datetime.fromisoformat(created_str.replace("Z", "+00:00").split("+")[0])
+                if (now_utc - msg_time).total_seconds() < 60:
+                    return jsonify({
+                        "success": False,
+                        "message": "Duplicate submission detected: Please wait 60 seconds before sending an identical inquiry."
+                    }), 429
+            except Exception:
+                pass
+
+    # 3. Compute IST timestamp for record & email notification
+    ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
+    ist_now = datetime.datetime.now(ist_tz)
+    ist_timestamp_str = ist_now.strftime("%d %b %Y, %I:%M %p IST")
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "Unknown").split(",")[0].strip()
+
+    # 4. Save to TiDB Cloud Database
     new_id = len(IN_MEMORY_STORE["contact_messages"]) + 1
-    name = data.get("name", "Website Visitor")
-    email = data.get("email", "")
-    phone = data.get("phone", "")
-    message = data.get("message", "")
+    delivery_status = "pending"
 
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO contact_messages (name, email, phone, message) VALUES (%s, %s, %s, %s)",
-                (name, email, phone, message)
+                """INSERT INTO contact_messages (name, email, phone, subject, message, status, email_delivery_status)
+                   VALUES (%s, %s, %s, %s, %s, 'unread', 'pending')""",
+                (name, email, phone, subject, message)
             )
             conn.commit()
             new_id = cursor.lastrowid
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
+            print("[Database] Contact save notice:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
 
-    msg = {
+    # 5. Dispatch Email to SMR Motors Admin / Owner
+    admin_subject = "SMR Motors – New Contact Enquiry"
+    admin_body = f"""SMR MOTORS – NEW CONTACT ENQUIRY
+===========================================
+A new visitor inquiry has been submitted through the showroom contact portal:
+
+Full Name:              {name}
+Email Address:          {email}
+Mobile Number:          {phone}
+Subject:                {subject}
+
+Message Content:
+-------------------------------------------
+{message}
+-------------------------------------------
+
+Submission Timestamp:   {ist_timestamp_str}
+Client IP Address:      {client_ip}
+Message Reference ID:   #{new_id}
+
+You can manage and reply to this inquiry in the Admin Portal:
+/admin.html?tab=messages
+"""
+    owner_success, owner_status = send_email_notification(
+        to_email=CONTACT_RECEIVER_EMAIL,
+        subject=admin_subject,
+        body_text=admin_body
+    )
+
+    # 6. Dispatch Confirmation Email to Customer
+    customer_subject = "SMR Motors – We Have Received Your Message"
+    customer_body = f"""Dear {name},
+
+Thank you for contacting SMR Motors. We have safely received your inquiry regarding "{subject}".
+
+Our showroom support and valuation team is currently reviewing your message. We strive to provide personal and prompt service, and one of our specialists will respond within 2 to 4 business hours.
+
+Your Submission Details:
+-------------------------------------------
+Subject:     {subject}
+Message:     "{message}"
+Received:    {ist_timestamp_str}
+Reference:   #{new_id}
+-------------------------------------------
+
+Showroom Information & Operating Hours:
+SMR Motors – Precision Automotive Marketplace
+Location: Auto Hub, Main Bypass Road, Chennai, Tamil Nadu
+Working Hours: Monday – Sunday: 9:30 AM – 8:30 PM (Asia/Kolkata)
+Support Hotline: +91 98765 43210 / +91 91234 56789
+Official Email: praveenmuthu9500@gmail.com
+
+Warm regards,
+Customer Support Team
+SMR Motors
+"""
+    send_email_notification(
+        to_email=email,
+        subject=customer_subject,
+        body_text=customer_body
+    )
+
+    delivery_status = owner_status
+
+    # Update delivery status in database
+    conn2 = get_db()
+    if conn2:
+        try:
+            cursor2 = conn2.cursor()
+            cursor2.execute(
+                "UPDATE contact_messages SET email_delivery_status = %s WHERE id = %s",
+                (delivery_status, new_id)
+            )
+            conn2.commit()
+            cursor2.close()
+            conn2.close()
+        except Exception:
+            if conn2:
+                try: conn2.close()
+                except Exception: pass
+
+    # In-memory storage & live admin alert
+    msg_record = {
         "id": new_id,
         "name": name,
         "email": email,
         "phone": phone,
+        "subject": subject,
         "message": message,
-        "created_at": datetime.datetime.utcnow().isoformat()
+        "status": "unread",
+        "email_delivery_status": delivery_status,
+        "created_at": now_utc.isoformat() + "Z"
     }
-    IN_MEMORY_STORE["contact_messages"].append(msg)
-    return jsonify({"success": True, "message": "Your message was sent successfully!", "id": new_id})
+    IN_MEMORY_STORE["contact_messages"].insert(0, msg_record)
+
+    create_notification(
+        title=f"New Contact Message: {name}",
+        message=f"{subject} — {email}",
+        target_role="admin",
+        notif_type="contact",
+        link="/admin.html?tab=messages"
+    )
+
+    return jsonify({
+        "success": True,
+        "message": "Your message was sent successfully! A confirmation email has been dispatched.",
+        "id": new_id,
+        "email_delivery_status": delivery_status
+    }), 201
 
 # -----------------------------------------------------------------------------
 # RUNTIME PUBLIC CONFIGURATION (Safe client-facing endpoint)
@@ -1783,30 +2045,86 @@ def auth_me_api():
 @app.route("/adminLogin", methods=["POST"])
 def admin_login_api():
     data = request.get_json() or request.form.to_dict() or {}
-    username = data.get("username", "").lower()
-    password = data.get("password", "")
+    username = data.get("username", "").lower().strip()
+    password = data.get("password", "").strip()
 
-    admin = adminAccounts.get(username)
-    if not admin or admin["password"] != password:
+    admin_data = None
+
+    # 1. Check TiDB Cloud admins table first
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM admins WHERE LOWER(username) = %s LIMIT 1", (username,))
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            if row:
+                from werkzeug.security import check_password_hash
+                pwd_hash = row.get("password_hash", "")
+                if pwd_hash and (check_password_hash(pwd_hash, password) or pwd_hash == password):
+                    norm_role = normalize_admin_role(row.get("role"))
+                    admin_data = {
+                        "username": row["username"],
+                        "name": row.get("username", "").capitalize(),
+                        "role": norm_role
+                    }
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # 2. Fall back to configured adminAccounts
+    if not admin_data:
+        acc = adminAccounts.get(username)
+        if acc and acc["password"] == password:
+            norm_role = normalize_admin_role(acc.get("role"))
+            admin_data = {
+                "username": username,
+                "name": acc["name"],
+                "role": norm_role
+            }
+
+    if not admin_data:
         return jsonify({"success": False, "message": "Invalid Administrator Credentials"}), 401
 
     import jwt
     payload = {
-        "username": username,
-        "name": admin["name"],
-        "role": admin["role"],
+        "username": admin_data["username"],
+        "name": admin_data["name"],
+        "role": admin_data["role"],
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
     return jsonify({
         "success": True,
         "token": token,
-        "admin": {"username": username, "name": admin["name"], "role": admin["role"]}
+        "admin": {
+            "username": admin_data["username"],
+            "name": admin_data["name"],
+            "role": admin_data["role"],
+            "is_superadmin": (admin_data["role"] == "superadmin")
+        }
     })
 
 @app.route("/api/admin/dashboard", methods=["GET"])
 @app.route("/adminProfile", methods=["GET"])
 def admin_dashboard_api():
+    # Detect caller role from token if present
+    is_superadmin = True
+    user_role = "superadmin"
+    auth_header = request.headers.get("Authorization")
+    if auth_header:
+        try:
+            parts = auth_header.split()
+            if len(parts) == 2 and parts[0].lower() == "bearer":
+                import jwt
+                dec = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+                user_role = normalize_admin_role(dec.get("role"))
+                is_superadmin = (user_role == "superadmin")
+        except Exception:
+            pass
+
     bikes = IN_MEMORY_STORE["bikes"]
     users = IN_MEMORY_STORE["users"]
     enquiries = IN_MEMORY_STORE["enquiries"]
@@ -1840,7 +2158,7 @@ def admin_dashboard_api():
     tot_expenses = sum(float(t.get("total_expenses") or 0) for t in txs)
     tot_profit = sum(float(t.get("realized_profit") or 0) for t in txs)
 
-    # Monthly Trends
+    # Monthly Trends (Superadmin only)
     import collections
     monthly_data = collections.defaultdict(lambda: {"revenue": 0.0, "payout": 0.0, "expenses": 0.0, "profit": 0.0, "count": 0})
     for t in txs:
@@ -1872,14 +2190,40 @@ def admin_dashboard_api():
         "total_users": len(users),
         "total_enquiries": len(enquiries),
         "total_sold_count": tot_sold,
-        "total_revenue": tot_revenue,
-        "total_seller_payout": tot_payouts,
-        "total_expenses": tot_expenses,
-        "total_realized_profit": tot_profit
+        "total_revenue": tot_revenue if is_superadmin else None,
+        "total_seller_payout": tot_payouts if is_superadmin else None,
+        "total_expenses": tot_expenses if is_superadmin else None,
+        "total_realized_profit": tot_profit if is_superadmin else None
     }
+
+    # Redact confidential financial details if Staff Admin
+    if not is_superadmin:
+        sanitized_txs = [
+            {
+                "id": t.get("id"),
+                "bike_id": t.get("bike_id"),
+                "bike_title": t.get("bike_title"),
+                "seller_name": t.get("seller_name"),
+                "sold_at": t.get("sold_at")
+            } for t in txs[:10]
+        ]
+        return jsonify({
+            "success": True,
+            "role": "admin",
+            "is_superadmin": False,
+            "data": {
+                "counts": counts,
+                "financials": None,
+                "recentUsers": users[:10],
+                "pendingApprovals": [b for b in bikes if b.get("listing_status") == "pending" or (b.get("status") == "pending" and not b.get("listing_status"))],
+                "recentTransactions": sanitized_txs
+            }
+        })
 
     return jsonify({
         "success": True,
+        "role": "superadmin",
+        "is_superadmin": True,
         "data": {
             "counts": counts,
             "financials": {
@@ -1982,6 +2326,7 @@ def admin_bikes_api():
     return jsonify({"success": True, "data": bikes, "bikes": bikes})
 
 @app.route("/api/admin/bikes/<int:bike_id>/propose-price", methods=["POST"])
+@superadmin_required
 def admin_propose_price(bike_id):
     """
     Step 2: Admin inputs proposed seller payout counteroffer.
@@ -2137,6 +2482,7 @@ def user_respond_negotiation(bike_id):
     return jsonify({"success": True, "message": f"Proposal {action}ed"})
 
 @app.route("/api/admin/bikes/<int:bike_id>/publish", methods=["POST"])
+@superadmin_required
 def admin_publish_bike(bike_id):
     """
     Step 4: Admin sets public selling price, computes margin, and publishes listing to marketplace.
@@ -2216,6 +2562,7 @@ def admin_publish_bike(bike_id):
     return jsonify({"success": True, "message": "Bike published", "public_selling_price": public_price})
 
 @app.route("/api/admin/bikes/<int:bike_id>/mark-sold", methods=["POST"])
+@superadmin_required
 def admin_mark_sold(bike_id):
     """
     Step 5: Admin marks bike as sold out, inputs actual sale price & expense breakdown.
@@ -2421,6 +2768,7 @@ def admin_export_bikes():
     )
 
 @app.route("/api/admin/export/sold", methods=["GET"])
+@superadmin_required
 def admin_export_sold():
     export_format = request.args.get("format", "csv").lower()
     start_date = request.args.get("start_date")
@@ -2701,9 +3049,330 @@ def admin_delete_bike(bike_id):
 def admin_users_api():
     return jsonify({"success": True, "data": IN_MEMORY_STORE["users"]})
 
+# -----------------------------------------------------------------------------
+# ADMIN SHOWROOM CONTACT MESSAGES & CUSTOMER EMAIL REPLIES
+# -----------------------------------------------------------------------------
 @app.route("/api/admin/messages", methods=["GET"])
+@admin_required
 def admin_messages_api():
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["contact_messages"]})
+    """
+    Returns contact messages with search, status filter, and pagination.
+    Accessible by both SUPERADMIN and ADMIN.
+    """
+    search = (request.args.get("search") or "").lower().strip()
+    status_filter = (request.args.get("status") or "all").lower().strip()
+    
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    messages = IN_MEMORY_STORE.get("contact_messages", [])
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM contact_messages ORDER BY id DESC")
+            db_msgs = cursor.fetchall()
+            if db_msgs:
+                messages = db_msgs
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # Apply search and filters
+    filtered = []
+    for m in messages:
+        if status_filter != "all" and m.get("status", "").lower() != status_filter:
+            continue
+        if search:
+            combined = f"{m.get('name','')} {m.get('email','')} {m.get('phone','')} {m.get('subject','')} {m.get('message','')}".lower()
+            if search not in combined:
+                continue
+        filtered.append(m)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    paged_items = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": paged_items,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1
+        }
+    })
+
+@app.route("/api/admin/messages/<int:msg_id>", methods=["GET"])
+@admin_required
+def admin_get_message_details(msg_id):
+    """Returns single message details and all associated customer replies."""
+    msg = None
+    replies = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
+            msg = cursor.fetchone()
+            if msg:
+                cursor.execute("SELECT * FROM contact_replies WHERE contact_message_id = %s ORDER BY id ASC", (msg_id,))
+                replies = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not msg:
+        for m in IN_MEMORY_STORE.get("contact_messages", []):
+            if m.get("id") == msg_id:
+                msg = m
+                break
+        replies = [r for r in IN_MEMORY_STORE.get("contact_replies", []) if r.get("contact_message_id") == msg_id]
+
+    if not msg:
+        return jsonify({"success": False, "message": "Message not found"}), 404
+
+    return jsonify({"success": True, "message_data": msg, "replies": replies})
+
+@app.route("/api/admin/messages/<int:msg_id>/reply", methods=["POST"])
+@admin_required
+def admin_reply_to_message(msg_id):
+    """
+    Sends email reply to customer and records entry in contact_replies table.
+    Accessible by both SUPERADMIN and ADMIN.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    reply_text = str(data.get("reply_message") or data.get("message") or "").strip()
+
+    if len(reply_text) < 5:
+        return jsonify({"success": False, "message": "Reply message must be at least 5 characters."}), 400
+
+    admin_username = g.admin.get("username", "Showroom Manager")
+    admin_id = g.admin.get("id", 1)
+
+    target_msg = None
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
+            target_msg = cursor.fetchone()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not target_msg:
+        for m in IN_MEMORY_STORE.get("contact_messages", []):
+            if m.get("id") == msg_id:
+                target_msg = m
+                break
+
+    if not target_msg:
+        return jsonify({"success": False, "message": f"Contact message #{msg_id} not found"}), 404
+
+    cust_name = target_msg.get("name", "Valued Customer")
+    cust_email = target_msg.get("email", "")
+    orig_subject = target_msg.get("subject", "General Inquiry")
+
+    # Construct and dispatch reply email
+    reply_email_subject = f"SMR Motors – Reply to your inquiry: {orig_subject}"
+    reply_email_body = f"""Dear {cust_name},
+
+Thank you for reaching out to SMR Motors. This is an official response regarding your inquiry: "{orig_subject}".
+
+--------------------------------------------------
+{reply_text}
+--------------------------------------------------
+
+If you have any further questions, please feel free to reply directly to this email or call our showroom.
+
+Best regards,
+{admin_username.capitalize()}
+Customer Relations & Sales Team
+SMR Motors – Used Motorcycle Marketplace
+Auto Hub, Main Bypass Road, Chennai
+Phone: +91 98765 43210
+Email: praveenmuthu9500@gmail.com
+Showroom Hours: Mon – Sun: 9:30 AM – 8:30 PM (Asia/Kolkata)
+"""
+    dispatch_success, dispatch_status = send_email_notification(
+        to_email=cust_email,
+        subject=reply_email_subject,
+        body_text=reply_email_body
+    )
+
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    new_reply_id = len(IN_MEMORY_STORE.get("contact_replies", [])) + 1
+
+    # Persist reply to database
+    conn2 = get_db()
+    if conn2:
+        try:
+            cursor2 = conn2.cursor()
+            cursor2.execute(
+                """INSERT INTO contact_replies (contact_message_id, admin_id, admin_username, reply_message, sent_status)
+                   VALUES (%s, %s, %s, %s, %s)""",
+                (msg_id, admin_id, admin_username, reply_text, dispatch_status)
+            )
+            new_reply_id = cursor2.lastrowid
+            cursor2.execute("UPDATE contact_messages SET status = 'replied' WHERE id = %s", (msg_id,))
+            conn2.commit()
+            cursor2.close()
+            conn2.close()
+        except Exception as e:
+            print("[Database] Contact reply save notice:", e)
+            if conn2:
+                try: conn2.close()
+                except Exception: pass
+
+    # Update in-memory store
+    reply_record = {
+        "id": new_reply_id,
+        "contact_message_id": msg_id,
+        "admin_id": admin_id,
+        "admin_username": admin_username,
+        "reply_message": reply_text,
+        "sent_status": dispatch_status,
+        "created_at": now_iso
+    }
+    IN_MEMORY_STORE.setdefault("contact_replies", []).append(reply_record)
+    for m in IN_MEMORY_STORE.get("contact_messages", []):
+        if m.get("id") == msg_id:
+            m["status"] = "replied"
+
+    return jsonify({
+        "success": True,
+        "message": f"Reply successfully dispatched to {cust_email}.",
+        "reply_id": new_reply_id,
+        "delivery_status": dispatch_status
+    })
+
+@app.route("/api/admin/messages/<int:msg_id>", methods=["DELETE"])
+@admin_required
+def admin_delete_message(msg_id):
+    """Deletes a contact message and its replies."""
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM contact_replies WHERE contact_message_id = %s", (msg_id,))
+            cursor.execute("DELETE FROM contact_messages WHERE id = %s", (msg_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    IN_MEMORY_STORE["contact_messages"] = [m for m in IN_MEMORY_STORE.get("contact_messages", []) if m.get("id") != msg_id]
+    IN_MEMORY_STORE["contact_replies"] = [r for r in IN_MEMORY_STORE.get("contact_replies", []) if r.get("contact_message_id") != msg_id]
+
+    return jsonify({"success": True, "message": f"Message #{msg_id} deleted successfully."})
+
+# -----------------------------------------------------------------------------
+# STAFF ADMIN MANAGEMENT (SUPERADMIN OWNER ONLY)
+# -----------------------------------------------------------------------------
+@app.route("/api/admin/staff", methods=["GET"])
+@superadmin_required
+def admin_get_staff_list():
+    """Returns list of staff and administrator accounts. Superadmin owner only."""
+    staff_list = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT id, username, email, role, last_login, created_at FROM admins ORDER BY id ASC")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                staff_list = rows
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not staff_list:
+        for u, acc in adminAccounts.items():
+            staff_list.append({
+                "id": len(staff_list) + 1,
+                "username": u,
+                "email": f"{u}@smrmotors.com",
+                "role": normalize_admin_role(acc.get("role")),
+                "name": acc.get("name", u.capitalize())
+            })
+
+    return jsonify({"success": True, "staff": staff_list})
+
+@app.route("/api/admin/staff", methods=["POST"])
+@superadmin_required
+def admin_create_staff():
+    """Creates a new Staff Admin or Superadmin. Superadmin owner only."""
+    data = request.get_json() or request.form.to_dict() or {}
+    username = str(data.get("username", "")).lower().strip()
+    email = str(data.get("email", "")).lower().strip()
+    password = str(data.get("password", "")).strip()
+    role = normalize_admin_role(data.get("role", "admin"))
+
+    if len(username) < 3:
+        return jsonify({"success": False, "message": "Username must be at least 3 characters."}), 400
+    if len(password) < 6:
+        return jsonify({"success": False, "message": "Password must be at least 6 characters."}), 400
+
+    from werkzeug.security import generate_password_hash
+    pwd_hash = generate_password_hash(password)
+
+    conn = get_db()
+    new_staff_id = None
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "INSERT INTO admins (username, email, password_hash, role) VALUES (%s, %s, %s, %s)",
+                (username, email or f"{username}@smrmotors.com", pwd_hash, role)
+            )
+            conn.commit()
+            new_staff_id = cursor.lastrowid
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": f"Failed to create staff account: {str(e)}"}), 400
+
+    adminAccounts[username] = {
+        "password": password,
+        "name": username.capitalize(),
+        "role": role
+    }
+
+    return jsonify({
+        "success": True,
+        "message": f"Staff account '{username}' created with role '{role}'.",
+        "id": new_staff_id
+    }), 201
 
 @app.route("/api/admin/audit-logs", methods=["GET"])
 def admin_audit_logs_api():

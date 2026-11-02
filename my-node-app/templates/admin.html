@@ -51,8 +51,11 @@
         <a class="admin-nav-item" onclick="switchAdminTab('tab-messages', this)">
           <i class="fas fa-comments"></i> Showroom Messages
         </a>
-        <a class="admin-nav-item" onclick="switchAdminTab('tab-export', this)">
+        <a class="admin-nav-item" id="nav-item-export" data-role-required="superadmin" onclick="switchAdminTab('tab-export', this)">
           <i class="fas fa-file-export"></i> Data Export & Reports
+        </a>
+        <a class="admin-nav-item" id="nav-item-staff" data-role-required="superadmin" onclick="switchAdminTab('tab-staff', this)">
+          <i class="fas fa-user-shield"></i> Staff & Admin Roles
         </a>
       </nav>
 
@@ -66,10 +69,11 @@
     <!-- Main Content -->
     <main class="admin-main">
       <header class="admin-topbar">
-        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); display:flex; align-items:center; gap: 1rem;">
           <span id="admin-breadcrumb-title">Overview & Analytics</span>
         </div>
         <div style="display: flex; align-items: center; gap: 1.25rem;">
+          <div class="live-business-hours-badge" id="admin-topbar-hours"></div>
           <!-- Notification Bell -->
           <div class="notif-bell-wrap">
             <button class="notif-bell-btn" onclick="toggleNotifDropdown()" title="System Notifications">
@@ -91,6 +95,7 @@
           <div class="admin-profile-badge">
             <div class="admin-avatar"><i class="fas fa-user-shield"></i></div>
             <span id="topbar-admin-name" style="font-weight: 600; font-size: 0.92rem;">Admin</span>
+            <span id="topbar-role-badge" class="badge badge-featured" style="font-size: 0.72rem; padding: 2px 8px;">Superadmin</span>
           </div>
         </div>
       </header>
@@ -403,29 +408,40 @@
           </div>
         </section>
 
-        <!-- 8. TAB: CONTACT MESSAGES -->
+        <!-- 8. TAB: CONTACT MESSAGES & REPLIES -->
         <section id="tab-messages" class="admin-tab-pane">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
             <div>
               <span class="section-tag"><i class="fas fa-comments"></i> Inquiries</span>
-              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages</h1>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages & Customer Replies</h1>
+              <p style="color: var(--text-secondary);">Direct customer inquiries delivered from the Contact Us showroom page with email reply integration.</p>
             </div>
-            <button onclick="loadAdminMessages(1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <div style="display: flex; gap: 0.75rem; align-items: center;">
+              <input type="text" id="messages-search-input" class="form-control" placeholder="Search by name, email, subject..." style="width: 260px;" oninput="debounceMessageSearch()">
+              <select id="messages-status-filter" class="form-control" style="width: 140px;" onchange="loadAdminMessages(1)">
+                <option value="all">All Statuses</option>
+                <option value="unread">Unread Only</option>
+                <option value="replied">Replied Only</option>
+              </select>
+              <button onclick="loadAdminMessages(1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i></button>
+            </div>
           </div>
           <div class="table-card">
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>Sender</th>
-                    <th>Email / Phone</th>
-                    <th>Message</th>
+                    <th>Customer Name</th>
+                    <th>Email & Mobile</th>
+                    <th>Subject & Message</th>
+                    <th>Status</th>
+                    <th>Delivery Status</th>
                     <th>Received At</th>
-                    <th>Action</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody id="admin-messages-table-body">
-                  <tr><td colspan="5" style="text-align:center; padding: 3rem;">Loading messages...</td></tr>
+                  <tr><td colspan="7" style="text-align:center; padding: 3rem;">Loading messages...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -512,6 +528,37 @@
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. TAB: STAFF & ADMIN ROLE MANAGEMENT (SUPERADMIN ONLY) -->
+        <section id="tab-staff" class="admin-tab-pane" data-role-required="superadmin">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-user-shield"></i> Access Control</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Staff & Administrator Role Management</h1>
+              <p style="color: var(--text-secondary);">Manage showroom staff, delegate customer inquiry replies, and safeguard confidential financial margins.</p>
+            </div>
+            <button onclick="openModal('modal-add-staff')" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add New Staff Member</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Username</th>
+                    <th>Email Address</th>
+                    <th>Assigned Role</th>
+                    <th>Permissions Scope</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-staff-table-body">
+                  <tr><td colspan="5" style="text-align:center; padding: 3rem;">Loading staff accounts...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
@@ -690,6 +737,88 @@
     </div>
   </div>
 
+  <!-- MODAL 5: Reply to Customer Contact Message -->
+  <div id="modal-reply-message" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 650px;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title"><i class="fas fa-reply" style="color:var(--accent-primary);"></i> Reply to Customer Inquiry</h3>
+          <p id="reply-modal-recipient" style="font-size: 0.85rem; color: var(--accent-primary); margin: 0;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modal-reply-message')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <!-- Original Message Context Box -->
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); padding: 1rem; border-radius: var(--radius-md);">
+            <div style="display:flex; justify-content:space-between; margin-bottom: 0.4rem;">
+              <span id="reply-modal-subject" style="font-weight: 700; color: #FFF; font-size: 0.92rem;">Subject</span>
+              <span id="reply-modal-date" style="font-size: 0.78rem; color: var(--text-muted);">Date</span>
+            </div>
+            <div id="reply-modal-body" style="font-size: 0.88rem; color: var(--text-secondary); white-space: pre-wrap; max-height: 120px; overflow-y: auto;">Original inquiry content...</div>
+          </div>
+
+          <!-- Existing Replies Thread -->
+          <div id="reply-modal-history" style="display:none; max-height: 140px; overflow-y: auto; background: rgba(16,185,129,0.05); border: 1px solid rgba(16,185,129,0.2); border-radius: var(--radius-md); padding: 0.75rem;">
+            <div style="font-size: 0.78rem; font-weight: 700; color: #10B981; margin-bottom: 0.35rem;"><i class="fas fa-history"></i> Previous Replies Sent:</div>
+            <div id="reply-modal-history-content"></div>
+          </div>
+
+          <!-- Compose Email Reply -->
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Official Email Response to Customer *</label>
+            <textarea id="reply-modal-input" class="form-control" rows="5" placeholder="Type your formal response here... It will be emailed directly to the customer's inbox."></textarea>
+            <small style="color: var(--text-muted); font-size: 0.78rem;">Sent with SMR Motors showroom contact details and operating hours (9:30 AM – 8:30 PM IST).</small>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-reply-message')">Cancel</button>
+        <button class="btn btn-primary" id="btn-send-message-reply" onclick="confirmSendReply()"><i class="fas fa-paper-plane"></i> Send Reply via Email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 6: Add Staff Admin Account -->
+  <div id="modal-add-staff" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title"><i class="fas fa-user-plus" style="color:var(--accent-primary);"></i> Add Staff Member</h3>
+          <p style="font-size: 0.82rem; color: var(--text-muted); margin: 0;">Delegate operational portal access to showroom staff.</p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modal-add-staff')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Username *</label>
+            <input type="text" id="input-staff-username" class="form-control" placeholder="e.g. showroom_karthik">
+          </div>
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Email Address *</label>
+            <input type="email" id="input-staff-email" class="form-control" placeholder="staff@smrmotors.com">
+          </div>
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Password *</label>
+            <input type="password" id="input-staff-password" class="form-control" placeholder="Minimum 6 characters">
+          </div>
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Role & Permissions *</label>
+            <select id="input-staff-role" class="form-control">
+              <option value="admin" selected>ADMIN (Staff: Messages, Enquiries, Inventory. Financials blocked)</option>
+              <option value="superadmin">SUPERADMIN (Owner: Full Financial Access & Management)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-add-staff')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmCreateStaff()"><i class="fas fa-check"></i> Create Account</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="{{ url_for('static', filename='config.js') }}"></script>
   <script src="{{ url_for('static', filename='api.js') }}"></script>
@@ -706,6 +835,32 @@
         const admin = JSON.parse(localStorage.getItem('adminUser') || sessionStorage.getItem('adminUser') || '{}');
         const nameEl = document.getElementById('topbar-admin-name');
         if (nameEl && admin.username) nameEl.innerText = admin.username;
+
+        const roleBadge = document.getElementById('topbar-role-badge');
+        const isSuper = (admin.role === 'superadmin' || admin.role === 'main' || admin.role === 'owner');
+
+        if (roleBadge) {
+          roleBadge.innerText = isSuper ? 'Superadmin (Owner)' : 'Staff (Limited)';
+          roleBadge.className = isSuper ? 'badge badge-approved' : 'badge badge-featured';
+        }
+
+        // Apply RBAC UI permissions
+        if (!isSuper) {
+          document.querySelectorAll('[data-role-required="superadmin"]').forEach(el => {
+            el.style.display = 'none';
+          });
+          const staffNotice = document.getElementById('staff-restricted-financial-notice');
+          if (staffNotice) staffNotice.style.display = 'block';
+        } else {
+          document.querySelectorAll('[data-role-required="superadmin"]').forEach(el => {
+            if (el.tagName === 'A') el.style.display = 'flex';
+            else if (el.classList.contains('financial-grid')) el.style.display = 'grid';
+            else el.style.display = 'block';
+          });
+          const staffNotice = document.getElementById('staff-restricted-financial-notice');
+          if (staffNotice) staffNotice.style.display = 'none';
+        }
+
         return admin;
       } catch (e) {
         return {};
@@ -736,6 +891,7 @@
       if (tabId === 'tab-users') loadAdminUsers(1);
       if (tabId === 'tab-enquiries') loadAdminEnquiries(1);
       if (tabId === 'tab-messages') loadAdminMessages(1);
+      if (tabId === 'tab-staff') loadAdminStaff();
     }
 
     // 1. Overview & Financial Analytics Loader
@@ -1342,30 +1498,215 @@
       }
     }
 
+    let currentReplyTargetId = null;
+    let messageSearchTimer = null;
+
+    function debounceMessageSearch() {
+      clearTimeout(messageSearchTimer);
+      messageSearchTimer = setTimeout(() => {
+        loadAdminMessages(1);
+      }, 350);
+    }
+
     async function loadAdminMessages(page = 1) {
       const tbody = document.getElementById('admin-messages-table-body');
+      const search = document.getElementById('messages-search-input')?.value || '';
+      const statusFilter = document.getElementById('messages-status-filter')?.value || 'all';
+
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</td></tr>`;
+
       try {
-        const res = await apiRequest('/api/admin/messages');
+        const params = new URLSearchParams({ page, limit: 8 });
+        if (search) params.set('search', search);
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const res = await apiRequest(`/api/admin/messages?${params.toString()}`);
         const msgs = res.data || [];
-        tbody.innerHTML = msgs.map(m => `
-          <tr>
-            <td><strong>${m.name}</strong></td>
-            <td>${m.email}<br><small style="color:var(--text-muted);">${m.phone || ''}</small></td>
-            <td>${m.message}</td>
-            <td>${new Date(m.created_at).toLocaleString()}</td>
-            <td><button onclick="deleteContactMsg(${m.id})" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button></td>
-          </tr>
-        `).join('') || `<tr><td colspan="5" style="text-align:center;">No contact messages.</td></tr>`;
+        const p = res.pagination || { total: msgs.length, page: 1, limit: 8, totalPages: 1 };
+
+        if (msgs.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:3rem; color:var(--text-muted);">No messages found matching criteria.</td></tr>`;
+          document.getElementById('messages-pagination-container').innerHTML = '';
+          return;
+        }
+
+        tbody.innerHTML = msgs.map(m => {
+          const isReplied = m.status === 'replied';
+          const statusBadge = isReplied 
+            ? `<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Replied</span>` 
+            : `<span class="badge badge-featured"><i class="fas fa-envelope"></i> Unread</span>`;
+
+          const delivStatus = m.email_delivery_status || 'pending';
+          let delivBadge = `<span class="badge" style="background:rgba(255,255,255,0.08);color:var(--text-muted);font-size:0.75rem;">${delivStatus}</span>`;
+          if (delivStatus === 'delivered') {
+            delivBadge = `<span class="badge badge-approved" style="font-size:0.75rem;"><i class="fas fa-paper-plane"></i> Sent</span>`;
+          } else if (delivStatus.includes('logged_locally')) {
+            delivBadge = `<span class="badge" style="background:rgba(59,130,246,0.15);color:#60A5FA;font-size:0.75rem;"><i class="fas fa-server"></i> Logged (Dev)</span>`;
+          }
+
+          const safeSubj = (m.subject || 'General Inquiry').replace(/"/g, '&quot;');
+          const safeMsg = (m.message || '').replace(/"/g, '&quot;');
+          const safeName = (m.name || 'Visitor').replace(/"/g, '&quot;');
+          const safeEmail = (m.email || '').replace(/"/g, '&quot;');
+
+          return `
+            <tr>
+              <td><strong>${safeName}</strong></td>
+              <td>${safeEmail}<br><small style="color:var(--text-muted);">${m.phone || 'No phone'}</small></td>
+              <td style="max-width: 280px;">
+                <div style="font-weight: 600; color: #FFF; font-size: 0.88rem; margin-bottom: 2px;">${safeSubj}</div>
+                <div style="color: var(--text-secondary); font-size: 0.82rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${safeMsg}</div>
+              </td>
+              <td>${statusBadge}</td>
+              <td>${delivBadge}</td>
+              <td style="font-size:0.82rem; color:var(--text-muted);">${new Date(m.created_at).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+              <td>
+                <div style="display:flex; gap:0.4rem;">
+                  <button onclick="openReplyModal(${m.id})" class="btn btn-sm btn-primary" title="Reply to Customer"><i class="fas fa-reply"></i> Reply</button>
+                  <button onclick="deleteContactMsg(${m.id})" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
+
+        renderPagination('messages-pagination-container', p, 'loadAdminMessages');
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--color-danger); padding:2rem;">${err.message}</td></tr>`;
+      }
+    }
+
+    async function openReplyModal(msgId) {
+      currentReplyTargetId = msgId;
+      try {
+        const res = await apiRequest(`/api/admin/messages/${msgId}`);
+        const m = res.message_data;
+        const replies = res.replies || [];
+
+        document.getElementById('reply-modal-recipient').innerText = `To: ${m.name} <${m.email}>`;
+        document.getElementById('reply-modal-subject').innerText = m.subject || 'General Inquiry';
+        document.getElementById('reply-modal-date').innerText = new Date(m.created_at).toLocaleString();
+        document.getElementById('reply-modal-body').innerText = m.message;
+        document.getElementById('reply-modal-input').value = '';
+
+        const historyEl = document.getElementById('reply-modal-history');
+        const historyContent = document.getElementById('reply-modal-history-content');
+        if (replies.length > 0) {
+          historyEl.style.display = 'block';
+          historyContent.innerHTML = replies.map(r => `
+            <div style="margin-bottom:0.5rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.05); font-size:0.82rem;">
+              <span style="color:var(--text-muted); font-size:0.75rem;">${r.admin_username || 'Admin'} on ${new Date(r.created_at).toLocaleDateString()}:</span>
+              <div style="color:var(--text-primary); margin-top:2px;">${r.reply_message}</div>
+            </div>
+          `).join('');
+        } else {
+          historyEl.style.display = 'none';
+          historyContent.innerHTML = '';
+        }
+
+        openModal('modal-reply-message');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function confirmSendReply() {
+      if (!currentReplyTargetId) return;
+      const text = document.getElementById('reply-modal-input').value.trim();
+      if (!text || text.length < 5) {
+        showToast('Please enter a response of at least 5 characters.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btn-send-message-reply');
+      const origText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending Email...';
+
+      try {
+        const res = await apiRequest(`/api/admin/messages/${currentReplyTargetId}/reply`, {
+          method: 'POST',
+          body: { reply_message: text }
+        });
+        showToast(res.message || 'Reply dispatched to customer!', 'success');
+        closeModal('modal-reply-message');
+        loadAdminMessages(1);
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
       }
     }
 
     async function deleteContactMsg(id) {
+      if (!confirm('Are you sure you want to delete this message record?')) return;
       try {
         await apiRequest(`/api/admin/messages/${id}`, { method: 'DELETE' });
-        showToast('Message deleted', 'info');
+        showToast('Message deleted successfully', 'info');
         loadAdminMessages(1);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Staff Management Loader (Superadmin Only)
+    async function loadAdminStaff() {
+      const tbody = document.getElementById('admin-staff-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Loading staff accounts...</td></tr>`;
+
+      try {
+        const res = await apiRequest('/api/admin/staff');
+        const staff = res.staff || [];
+
+        tbody.innerHTML = staff.map(s => {
+          const isSuper = (s.role === 'superadmin');
+          const roleBadge = isSuper 
+            ? `<span class="badge badge-approved"><i class="fas fa-shield-alt"></i> SUPERADMIN (Owner)</span>` 
+            : `<span class="badge badge-featured"><i class="fas fa-user"></i> ADMIN (Staff)</span>`;
+          
+          const scope = isSuper 
+            ? `<span style="color:#10B981; font-size:0.82rem; font-weight:600;"><i class="fas fa-check-double"></i> Full Financial & Management Control</span>` 
+            : `<span style="color:var(--text-secondary); font-size:0.82rem;"><i class="fas fa-lock"></i> Operational: Messages & Enquiries (Financials Blocked)</span>`;
+
+          return `
+            <tr>
+              <td><strong>${s.username}</strong></td>
+              <td>${s.email || '-'}</td>
+              <td>${roleBadge}</td>
+              <td>${scope}</td>
+              <td style="color:var(--text-muted); font-size:0.82rem;">${s.created_at ? new Date(s.created_at).toLocaleDateString() : 'System Default'}</td>
+            </tr>
+          `;
+        }).join('') || `<tr><td colspan="5" style="text-align:center;">No staff accounts found.</td></tr>`;
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-danger); padding:2rem;">${err.message}</td></tr>`;
+      }
+    }
+
+    async function confirmCreateStaff() {
+      const username = document.getElementById('input-staff-username').value.trim();
+      const email = document.getElementById('input-staff-email').value.trim();
+      const password = document.getElementById('input-staff-password').value.trim();
+      const role = document.getElementById('input-staff-role').value;
+
+      if (!username || !email || !password) {
+        showToast('Please fill in all required fields.', 'error');
+        return;
+      }
+
+      try {
+        const res = await apiRequest('/api/admin/staff', {
+          method: 'POST',
+          body: { username, email, password, role }
+        });
+        showToast(res.message || 'Staff account created successfully', 'success');
+        closeModal('modal-add-staff');
+        document.getElementById('input-staff-username').value = '';
+        document.getElementById('input-staff-email').value = '';
+        document.getElementById('input-staff-password').value = '';
+        loadAdminStaff();
       } catch (err) {
         showToast(err.message, 'error');
       }

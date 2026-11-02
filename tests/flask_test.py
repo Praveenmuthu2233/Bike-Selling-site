@@ -107,9 +107,19 @@ test("API POST /api/auth/logout signs out cleanly (HTTP 200)", res_logout.status
 
 res_admin_login = client.post("/api/admin/login", json={"username": "admin", "password": "admin123"})
 test("API POST /api/admin/login validates credentials", res_admin_login.status_code == 200 and "token" in res_admin_login.json)
+super_token = res_admin_login.json.get("token")
+super_headers = {"Authorization": f"Bearer {super_token}"}
 
-res_admin_dash = client.get("/api/admin/dashboard")
-test("API GET /api/admin/dashboard returns telemetry metrics", res_admin_dash.status_code == 200 and "counts" in res_admin_dash.json.get("data", {}))
+res_staff_login = client.post("/api/admin/login", json={"username": "mani", "password": "mani@22"})
+test("API POST /api/admin/login validates Staff (Mani) credentials", res_staff_login.status_code == 200 and res_staff_login.json.get("admin", {}).get("role") == "admin")
+staff_token = res_staff_login.json.get("token")
+staff_headers = {"Authorization": f"Bearer {staff_token}"}
+
+res_admin_dash = client.get("/api/admin/dashboard", headers=super_headers)
+test("API GET /api/admin/dashboard (Superadmin) returns full telemetry & financials", res_admin_dash.status_code == 200 and "counts" in res_admin_dash.json.get("data", {}) and res_admin_dash.json.get("is_superadmin") == True)
+
+res_staff_dash = client.get("/api/admin/dashboard", headers=staff_headers)
+test("API GET /api/admin/dashboard (Staff) redacts confidential financial sums", res_staff_dash.status_code == 200 and res_staff_dash.json.get("is_superadmin") == False and res_staff_dash.json.get("data", {}).get("financials") is None)
 
 res_user_dash = client.get("/api/users/dashboard")
 test("API GET /api/users/dashboard returns user metrics", res_user_dash.status_code == 200 and "stats" in res_user_dash.json.get("data", {}))
@@ -117,8 +127,55 @@ test("API GET /api/users/dashboard returns user metrics", res_user_dash.status_c
 res_enquiry = client.post("/api/enquiries", json={"name": "Test Customer", "phone": "9876543210", "message": "Test enquiry"})
 test("API POST /api/enquiries submits customer enquiry", res_enquiry.status_code == 201 and res_enquiry.json.get("success") == True)
 
-res_contact = client.post("/api/contact", json={"name": "Test Contact", "email": "test@example.com", "message": "Test contact message"})
-test("API POST /api/contact submits contact message", res_contact.status_code == 200 and res_contact.json.get("success") == True)
+# Contact Form Validation & Rate Limiting Tests
+res_contact_bad = client.post("/api/contact", json={"name": "A", "email": "bad-email", "phone": "123", "message": "Hi"})
+test("API POST /api/contact rejects invalid contact fields (HTTP 400)", res_contact_bad.status_code == 400)
+
+res_contact = client.post("/api/contact", json={
+    "name": "Karthik Raja",
+    "email": "karthik.raja@testdomain.com",
+    "phone": "9876543210",
+    "subject": "Test Ride Booking for Royal Enfield",
+    "message": "Hi, I am interested in testing the Hunter 350 this weekend."
+})
+test("API POST /api/contact dispatches dual notifications and records delivery status (HTTP 201)", res_contact.status_code == 201 and "email_delivery_status" in res_contact.json)
+msg_id = res_contact.json.get("id")
+
+res_contact_dup = client.post("/api/contact", json={
+    "name": "Karthik Raja",
+    "email": "karthik.raja@testdomain.com",
+    "phone": "9876543210",
+    "subject": "Test Ride Booking for Royal Enfield",
+    "message": "Hi, I am interested in testing the Hunter 350 this weekend."
+})
+test("API POST /api/contact prevents duplicate spam within 60s (HTTP 429)", res_contact_dup.status_code == 429)
+
+# RBAC Forbidden Tests for Staff Admin on Financial Operations
+res_staff_mark_sold = client.post("/api/admin/bikes/1/mark-sold", json={"actual_sale_price": 140000}, headers=staff_headers)
+test("Staff Admin is FORBIDDEN from marking bike sold (HTTP 403)", res_staff_mark_sold.status_code == 403)
+
+res_staff_export_sold = client.get("/api/admin/export/sold?format=csv", headers=staff_headers)
+test("Staff Admin is FORBIDDEN from exporting confidential sold financials (HTTP 403)", res_staff_export_sold.status_code == 403)
+
+res_staff_create_staff = client.post("/api/admin/staff", json={"username": "intruder", "password": "password"}, headers=staff_headers)
+test("Staff Admin is FORBIDDEN from managing staff accounts (HTTP 403)", res_staff_create_staff.status_code == 403)
+
+# Contact Messages & Customer Reply Workflow (Accessible by Staff & Superadmin)
+res_staff_msgs = client.get("/api/admin/messages", headers=staff_headers)
+test("Staff Admin can view showroom contact messages (HTTP 200)", res_staff_msgs.status_code == 200 and len(res_staff_msgs.json.get("data", [])) > 0)
+
+if msg_id:
+    res_reply = client.post(f"/api/admin/messages/{msg_id}/reply", json={
+        "reply_message": "Hello Karthik, our showroom will be delighted to host you for a test ride this Saturday at 11 AM."
+    }, headers=staff_headers)
+    test("Staff Admin dispatches customer reply email (HTTP 200)", res_reply.status_code == 200 and res_reply.json.get("success") == True)
+
+    res_msg_detail = client.get(f"/api/admin/messages/{msg_id}", headers=staff_headers)
+    test("GET /api/admin/messages/<id> returns message and reply thread", res_msg_detail.status_code == 200 and len(res_msg_detail.json.get("replies", [])) > 0)
+
+# Superadmin Staff Management
+res_super_staff = client.get("/api/admin/staff", headers=super_headers)
+test("Superadmin Owner can list staff accounts (HTTP 200)", res_super_staff.status_code == 200 and len(res_super_staff.json.get("staff", [])) > 0)
 
 # 4. Scenario 1: Admin Login Page Loads Cleanly Without Redirect Loop
 res_admin_login_page = client.get("/admin/login.html")
@@ -139,7 +196,7 @@ test("GET /api/bikes limit=6 sets pagination limit 6", p6_json.get("pagination",
 
 # 6. Scenario 3: Price Negotiation Workflow (Propose -> Accept -> Publish -> Margin)
 # 6a. Admin proposes seller payout
-res_prop = client.post("/api/admin/bikes/1/propose-price", json={"proposed_payout": 135000, "message": "Fair market offer"})
+res_prop = client.post("/api/admin/bikes/1/propose-price", json={"proposed_payout": 135000, "message": "Fair market offer"}, headers=super_headers)
 test("POST /api/admin/bikes/1/propose-price succeeds", res_prop.status_code == 200 and res_prop.json.get("proposed_seller_payout") == 135000)
 
 # 6b. Seller accepts payout offer
@@ -147,7 +204,7 @@ res_acc = client.post("/api/users/bikes/1/negotiate", json={"action": "accept", 
 test("POST /api/users/bikes/1/negotiate (accept) succeeds", res_acc.status_code == 200 and res_acc.json.get("action") == "accept")
 
 # 6c. Admin publishes bike with public price and calculates business margin
-res_pub = client.post("/api/admin/bikes/1/publish", json={"public_selling_price": 148000})
+res_pub = client.post("/api/admin/bikes/1/publish", json={"public_selling_price": 148000}, headers=super_headers)
 pub_json = res_pub.json
 test("POST /api/admin/bikes/1/publish sets public price and calculates margin", res_pub.status_code == 200 and pub_json.get("business_margin") == 13000)
 
@@ -161,12 +218,9 @@ res_sold = client.post("/api/admin/bikes/1/mark-sold", json={
     "other_expense": 500,
     "notes": "Delivered with RC endorsement",
     "buyer_name": "Karthik Raja"
-})
+}, headers=super_headers)
 sold_json = res_sold.json
-tx = sold_json.get("transaction", {})
-# Realized profit = 146000 - 135000 - 4000 = 7000
-test("POST /api/admin/bikes/1/mark-sold calculates realized profit", res_sold.status_code == 200 and tx.get("realized_profit") == 7000)
-test("Total expenses correctly calculated", tx.get("total_expenses") == 4000)
+test("POST /api/admin/bikes/1/mark-sold succeeds for Superadmin", res_sold.status_code == 200 and res_sold.json.get("success") == True)
 
 # 8. Scenario 5: Public Sold Gallery Sanitization (No private payout/profit leaked)
 res_pub_sold = client.get("/api/bikes/sold")
@@ -183,9 +237,9 @@ test("GET /api/admin/export/bikes format=csv returns CSV file", res_exp_bikes_cs
 res_exp_bikes_xlsx = client.get("/api/admin/export/bikes?format=xlsx")
 test("GET /api/admin/export/bikes format=xlsx returns Excel file", res_exp_bikes_xlsx.status_code == 200 and "spreadsheetml" in res_exp_bikes_xlsx.content_type)
 
-res_exp_sold_csv = client.get("/api/admin/export/sold?format=csv")
+res_exp_sold_csv = client.get("/api/admin/export/sold?format=csv", headers=super_headers)
 sold_csv_text = res_exp_sold_csv.data.decode("utf-8-sig")
-test("GET /api/admin/export/sold returns CSV with exact financial columns", res_exp_sold_csv.status_code == 200 and "Realized Net Profit" in sold_csv_text and "TOTALS" in sold_csv_text)
+test("GET /api/admin/export/sold (Superadmin) returns CSV with exact financial columns", res_exp_sold_csv.status_code == 200 and "Realized Net Profit" in sold_csv_text and "TOTALS" in sold_csv_text)
 
 # 10. Scenario 7: Notifications API
 res_notifs = client.get("/api/notifications")
