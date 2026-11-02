@@ -61,6 +61,12 @@
           </a>
         </li>
         <li>
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-negotiations', this)">
+            <i class="fas fa-handshake"></i> Price Negotiations
+            <span id="user-badge-negotiations" class="badge badge-featured" style="margin-left: auto; display: none;">0</span>
+          </a>
+        </li>
+        <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-enquiries', this)">
             <i class="fas fa-envelope-open-text"></i> My Enquiries
           </a>
@@ -68,6 +74,12 @@
         <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-favorites', this)">
             <i class="fas fa-heart"></i> Saved Favorites
+          </a>
+        </li>
+        <li>
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-notifications', this)">
+            <i class="fas fa-bell"></i> Alerts & Notifications
+            <span id="user-badge-notifications" class="badge badge-approved" style="margin-left: auto; display: none;">0</span>
           </a>
         </li>
       </ul>
@@ -271,6 +283,36 @@
           </div>
         </div>
       </div>
+
+      <!-- 6. TAB: PRICE NEGOTIATIONS -->
+      <div id="user-tab-negotiations" class="user-tab-pane">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-handshake"></i> Transparent Valuation</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Price Negotiation Hub</h1>
+          <p style="color: var(--text-secondary);">Review SMR Motors counteroffers and approve guaranteed seller payout amounts.</p>
+        </div>
+
+        <div id="user-negotiations-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
+          <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading offers...</div>
+        </div>
+      </div>
+
+      <!-- 7. TAB: NOTIFICATIONS -->
+      <div id="user-tab-notifications" class="user-tab-pane">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+          <div>
+            <span class="section-tag"><i class="fas fa-bell"></i> Live Alerts</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Alerts & Notifications</h1>
+          </div>
+          <button onclick="markAllUserNotificationsRead()" class="btn btn-sm btn-outline"><i class="fas fa-check-double"></i> Mark All as Read</button>
+        </div>
+
+        <div class="table-card">
+          <div id="user-notifications-list" style="display: flex; flex-direction: column;">
+            <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading notifications...</div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -287,8 +329,10 @@
       if (el) el.classList.add('active');
 
       if (tabId === 'user-tab-listings') loadUserListings();
+      if (tabId === 'user-tab-negotiations') loadUserNegotiations();
       if (tabId === 'user-tab-enquiries') loadUserEnquiries();
       if (tabId === 'user-tab-favorites') loadFavorites();
+      if (tabId === 'user-tab-notifications') loadUserNotifications();
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -308,7 +352,15 @@
       document.getElementById('input-email').value = user.email;
       if (user.phone) document.getElementById('input-phone').value = user.phone;
 
-      // Load user stats
+      // Check URL query param to open specific tab (e.g. ?tab=negotiations)
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      if (tabParam) {
+        const targetLink = document.querySelector(`.user-nav-link[onclick*="user-tab-${tabParam}"]`);
+        if (targetLink) switchUserTab(`user-tab-${tabParam}`, targetLink);
+      }
+
+      // Load user stats & unread notifications count
       try {
         const statsRes = await apiRequest('/api/users/dashboard');
         if (statsRes.success && statsRes.data) {
@@ -336,6 +388,17 @@
       } catch (err) {
         console.warn('Dashboard stats fallback:', err);
       }
+
+      // Load notification count
+      try {
+        const notifRes = await apiRequest('/api/notifications');
+        const count = notifRes.unread_count || 0;
+        const b = document.getElementById('user-badge-notifications');
+        if (b) {
+          b.innerText = count;
+          b.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+      } catch (e) {}
     });
 
     async function handleProfileUpdate(e) {
@@ -364,29 +427,145 @@
       }
     }
 
-    async function loadUserListings() {
+    async function loadUserListings(page = 1) {
       const tbody = document.getElementById('my-listings-table-body');
       try {
-        const res = await apiRequest('/api/users/listings');
+        const res = await apiRequest(`/api/users/listings?page=${page}&limit=6`);
         const listings = res.data || [];
         if (listings.length === 0) {
           tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem;">No listings yet.</td></tr>`;
           return;
         }
-        tbody.innerHTML = listings.map(bike => `
-          <tr>
-            <td style="font-weight:700;">${bike.year} ${bike.title}</td>
-            <td>${bike.brand}</td>
-            <td style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
-            <td>${(bike.kilometers_driven||0).toLocaleString()} km</td>
-            <td><span class="badge badge-${bike.status==='approved'?'approved':(bike.status==='rejected'?'rejected':'pending')}">${bike.status}</span></td>
-            <td>
-              <button onclick="deleteMyBike(${bike.id})" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = listings.map(bike => {
+          const st = bike.listing_status || bike.status;
+          let badgeClass = 'badge-pending';
+          if (st === 'approved' || st === 'published') badgeClass = 'badge-approved';
+          else if (st === 'price_offered') badgeClass = 'badge-featured';
+          else if (st === 'seller_accepted') badgeClass = 'badge-approved';
+          else if (st === 'rejected' || st === 'seller_rejected') badgeClass = 'badge-rejected';
+          else if (st === 'soldout') badgeClass = 'badge-soldout';
+
+          return `
+            <tr>
+              <td style="font-weight:700;">${bike.year} ${bike.title}</td>
+              <td>${bike.brand}</td>
+              <td style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
+              <td>${(bike.kilometers_driven||0).toLocaleString()} km</td>
+              <td><span class="badge ${badgeClass}">${st}</span></td>
+              <td>
+                <button onclick="deleteMyBike(${bike.id})" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+              </td>
+            </tr>
+          `;
+        }).join('');
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadUserNegotiations() {
+      const container = document.getElementById('user-negotiations-container');
+      try {
+        const res = await apiRequest('/api/users/negotiations');
+        const negs = res.data || [];
+        const badge = document.getElementById('user-badge-negotiations');
+        const pendingCount = negs.filter(b => b.listing_status === 'price_offered').length;
+        if (badge) {
+          badge.innerText = pendingCount;
+          badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
+        }
+
+        if (negs.length === 0) {
+          container.innerHTML = `
+            <div class="empty-state">
+              <i class="fas fa-handshake empty-state-icon"></i>
+              <h3>No Active Price Negotiations</h3>
+              <p>When SMR Motors reviews your listed bikes and proposes a payout offer, you will be able to review and accept it here.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = negs.map(b => {
+          const st = b.listing_status;
+          const reqPrice = Number(b.requested_price || b.price);
+          const proposed = Number(b.proposed_seller_payout || b.price);
+          let actionContent = '';
+
+          if (st === 'price_offered') {
+            actionContent = `
+              <div style="background: rgba(255,107,0,0.08); border: 1px solid rgba(255,107,0,0.25); border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1rem;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+                  <div>
+                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--accent-primary); font-weight:700;">SMR Motors Counteroffer</span>
+                    <div style="font-size:1.6rem; font-weight:800; color:#FFF;">₹${proposed.toLocaleString('en-IN')} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">(Guaranteed Seller Payout)</span></div>
+                    <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.35rem 0 0;">
+                      <i class="fas fa-shield-alt" style="color:var(--color-success);"></i> SMR Motors handles all buyer test rides, paperwork, and RC transfer at zero additional cost to you.
+                    </p>
+                  </div>
+                  <div style="display:flex; gap:0.75rem;">
+                    <button onclick="respondNegotiation(${b.id}, 'accept')" class="btn btn-success"><i class="fas fa-check"></i> Accept Offer (₹${proposed.toLocaleString('en-IN')})</button>
+                    <button onclick="respondNegotiation(${b.id}, 'reject')" class="btn btn-outline" style="color:#EF4444;"><i class="fas fa-times"></i> Decline</button>
+                  </div>
+                </div>
+              </div>
+            `;
+          } else if (st === 'seller_accepted') {
+            actionContent = `
+              <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
+                <div style="display:flex; align-items:center; gap:0.75rem; color:#10B981; font-weight:700;">
+                  <i class="fas fa-check-circle" style="font-size:1.25rem;"></i> Payout Offer Accepted (₹${proposed.toLocaleString('en-IN')})
+                </div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.35rem 0 0;">
+                  Our operations team is finalizing the listing details and publishing your motorcycle to the live showroom.
+                </p>
+              </div>
+            `;
+          } else if (st === 'seller_rejected') {
+            actionContent = `
+              <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
+                <div style="color:#EF4444; font-weight:700;"><i class="fas fa-times-circle"></i> Offer Declined</div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;">You declined the previous counteroffer. SMR Motors admin will review alternative pricing.</p>
+              </div>
+            `;
+          }
+
+          return `
+            <div class="table-card" style="padding: 1.5rem;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
+                <div>
+                  <h3 style="font-size:1.25rem; margin:0 0 0.35rem;">${b.year} ${b.title}</h3>
+                  <div style="font-size:0.85rem; color:var(--text-muted);">${b.brand} • ${(b.kilometers_driven||0).toLocaleString()} km • Listed: ${new Date(b.created_at).toLocaleDateString()}</div>
+                </div>
+                <div style="text-align:right;">
+                  <span style="font-size:0.8rem; color:var(--text-muted);">Your Expected Price</span>
+                  <div style="font-size:1.2rem; font-weight:700; color:var(--text-primary);">₹${reqPrice.toLocaleString('en-IN')}</div>
+                </div>
+              </div>
+              ${actionContent}
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
+      }
+    }
+
+    async function respondNegotiation(bikeId, action) {
+      const confirmMsg = action === 'accept' 
+        ? 'Confirm accepting SMR Motors payout counteroffer? Your bike will proceed to live showroom publication.' 
+        : 'Decline this counteroffer?';
+      if (!confirm(confirmMsg)) return;
+
+      try {
+        const res = await apiRequest(`/api/users/bikes/${bikeId}/negotiate`, {
+          method: 'POST',
+          body: { action }
+        });
+        showToast(res.message || `Offer ${action}ed successfully`, 'success');
+        loadUserNegotiations();
+      } catch (err) {
+        showToast(err.message || 'Action failed', 'error');
       }
     }
 
@@ -436,7 +615,7 @@
         grid.innerHTML = favs.map(bike => {
           let imgs = [];
           try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
-          const cover = imgs[0] || '/static/IMG-20251204-WA0051.jpg';
+          const cover = imgs[0] || '/static/images/IMG-20251204-WA0053.jpg';
           return `
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
@@ -447,7 +626,7 @@
                 <h3 class="bike-card-title">${bike.title}</h3>
                 <div class="bike-card-footer">
                   <span class="bike-price-value">₹${Number(bike.price).toLocaleString('en-IN')}</span>
-                  <a href="/bike-details?id=${bike.id}" class="btn btn-sm btn-primary">View</a>
+                  <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-primary">View</a>
                 </div>
               </div>
             </div>
@@ -457,6 +636,45 @@
         grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;
       }
     }
+
+    async function loadUserNotifications() {
+      const container = document.getElementById('user-notifications-list');
+      try {
+        const res = await apiRequest('/api/notifications');
+        const notifs = res.notifications || [];
+        if (notifs.length === 0) {
+          container.innerHTML = `<div style="text-align:center; padding: 3rem; color:var(--text-muted);">No notifications yet.</div>`;
+          return;
+        }
+        container.innerHTML = notifs.map(n => `
+          <div style="padding:1rem 1.5rem; border-bottom:1px solid var(--border-subtle); display:flex; gap:1rem; align-items:flex-start; background:${n.is_read?'transparent':'rgba(255,107,0,0.04)'};">
+            <i class="fas fa-bell" style="color:var(--accent-primary); margin-top:0.25rem;"></i>
+            <div style="flex:1;">
+              <div style="font-weight:700; color:#FFF; font-size:0.95rem;">${n.title}</div>
+              <div style="font-size:0.88rem; color:var(--text-secondary); margin-top:0.2rem;">${n.message}</div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin-top:0.35rem;">${new Date(n.created_at).toLocaleString()}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = `<div style="padding:2rem; color:var(--color-danger);">${e.message}</div>`;
+      }
+    }
+
+    async function markAllUserNotificationsRead() {
+      try {
+        await apiRequest('/api/notifications/read-all', { method: 'PUT' });
+        showToast('All notifications marked as read', 'success');
+        loadUserNotifications();
+        const b = document.getElementById('user-badge-notifications');
+        if (b) b.style.display = 'none';
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>

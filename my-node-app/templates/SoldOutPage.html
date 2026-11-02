@@ -76,13 +76,14 @@
       </div>
 
       <div id="sold-bikes-grid" class="bike-grid"></div>
+      <div id="sold-pagination" class="pagination-wrapper" style="margin-top: 2.5rem;"></div>
     </div>
   </main>
 
   <footer class="footer">
     <div class="container">
       <div class="footer-bottom">
-        <div>&copy; 2026 SMR Motors. All rights reserved.</div>
+        <div>&copy; 2026 SMR Motors. All rights reserved. Verified Delivered Motorcycles.</div>
       </div>
     </div>
   </footer>
@@ -93,83 +94,90 @@
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script>
-    async function loadSoldBikes() {
+    let currentSoldPage = 1;
+    const soldLimit = 8;
+
+    async function loadSoldBikes(page = 1) {
+      currentSoldPage = page;
       const container = document.getElementById('sold-bikes-grid');
       container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem 0;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i></div>`;
 
       try {
-        const res = await apiRequest('/api/bikes?status=soldout');
-        const soldBikes = res.data || [];
+        const res = await apiRequest(`/api/bikes/sold?page=${page}&limit=${soldLimit}`);
+        const soldBikes = res.data || res.bikes || [];
+        const p = res.pagination || { total: soldBikes.length, page: 1, limit: soldLimit, totalPages: 1 };
 
         if (soldBikes.length === 0) {
           container.innerHTML = `
-            <div class="bike-card">
-              <div class="bike-card-img-wrapper">
-                <img src="/static/IMG-20251204-WA0051.jpg" class="bike-card-img" />
-                <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
-              </div>
-              <div class="bike-card-body">
-                <div class="bike-card-brand">Yamaha</div>
-                <h3 class="bike-card-title">Yamaha MT-15 V2 Metallic Black</h3>
-                <div class="bike-specs-row">
-                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> 2022</div>
-                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> 14,200 km</div>
-                </div>
-                <div class="bike-card-footer">
-                  <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹1,32,000</span>
-                  <span class="badge badge-approved"><i class="fas fa-check"></i> Delivered</span>
-                </div>
-              </div>
-            </div>
-            <div class="bike-card">
-              <div class="bike-card-img-wrapper">
-                <img src="/static/IMG-20251204-WA0054.jpg" class="bike-card-img" />
-                <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
-              </div>
-              <div class="bike-card-body">
-                <div class="bike-card-brand">KTM</div>
-                <h3 class="bike-card-title">KTM Duke 200 Racing Orange</h3>
-                <div class="bike-specs-row">
-                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> 2021</div>
-                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> 18,900 km</div>
-                </div>
-                <div class="bike-card-footer">
-                  <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹1,48,000</span>
-                  <span class="badge badge-approved"><i class="fas fa-check"></i> Delivered</span>
-                </div>
-              </div>
+            <div class="empty-state" style="grid-column: 1/-1;">
+              <i class="fas fa-motorcycle empty-state-icon"></i>
+              <h3>No sold inventory found</h3>
+              <p>Check back soon as newly delivered bikes are archived here.</p>
             </div>
           `;
+          document.getElementById('sold-pagination').innerHTML = '';
           return;
         }
 
         container.innerHTML = soldBikes.map(bike => {
           let imgs = [];
           try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
-          const cover = imgs[0] || '/static/IMG-20251204-WA0051.jpg';
+          const cover = imgs[0] || '/static/images/IMG-20251204-WA0053.jpg';
           return `
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
-                <img src="${cover}" class="bike-card-img" />
+                <img src="${cover}" class="bike-card-img" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
                 <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
               </div>
               <div class="bike-card-body">
                 <div class="bike-card-brand">${bike.brand}</div>
                 <h3 class="bike-card-title">${bike.title}</h3>
+                <div class="bike-specs-row">
+                  <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
+                  <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> ${(bike.kilometers_driven||0).toLocaleString()} km</div>
+                  <div class="bike-spec-item"><i class="fas fa-gas-pump"></i> ${bike.fuel_type || 'Petrol'}</div>
+                </div>
                 <div class="bike-card-footer">
                   <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹${Number(bike.price).toLocaleString('en-IN')}</span>
-                  <span class="badge badge-approved"><i class="fas fa-check"></i> Delivered</span>
+                  <span class="badge badge-approved"><i class="fas fa-check-circle"></i> Handed Over</span>
                 </div>
               </div>
             </div>
           `;
         }).join('');
+
+        renderSoldPagination(p);
       } catch (err) {
-        showToast(err.message, 'error');
+        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadSoldBikes);
+    function renderSoldPagination(p) {
+      const paginContainer = document.getElementById('sold-pagination');
+      if (!paginContainer) return;
+      if (!p || p.totalPages <= 1) {
+        paginContainer.innerHTML = p && p.total > 0 ? `<div style="text-align:center; color:var(--text-muted); font-size:0.85rem;">Showing all ${p.total} delivered motorcycles</div>` : '';
+        return;
+      }
+
+      let pagesHtml = '';
+      for (let i = 1; i <= p.totalPages; i++) {
+        pagesHtml += `<button class="pagination-btn ${i === p.page ? 'active' : ''}" onclick="loadSoldBikes(${i})">${i}</button>`;
+      }
+
+      paginContainer.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; width: 100%;">
+          <div style="color: var(--text-muted); font-size: 0.88rem;">Showing <strong>${p.start}–${p.end}</strong> of <strong>${p.total}</strong> delivered motorcycles</div>
+          <div style="display: flex; gap: 0.4rem; align-items: center;">
+            <button class="pagination-btn" ${!p.hasPrev ? 'disabled' : ''} onclick="loadSoldBikes(${p.page - 1})">Prev</button>
+            ${pagesHtml}
+            <button class="pagination-btn" ${!p.hasNext ? 'disabled' : ''} onclick="loadSoldBikes(${p.page + 1})">Next</button>
+          </div>
+        </div>
+      `;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => loadSoldBikes(1));
   </script>
 </body>
 </html>

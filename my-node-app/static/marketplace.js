@@ -1,13 +1,28 @@
 /**
- * SMR Motors - Marketplace Vehicle Inventory Loader & Filters
+ * SMR Motors - Marketplace Vehicle Inventory Loader, Server-Side Pagination & Filters
  */
 
 let allBikes = [];
 let currentBikeForEnquiry = null;
+let currentPage = 1;
+let currentLimit = window.innerWidth <= 768 ? 6 : 9;
+let currentPagination = null;
+let brandsLoaded = false;
 
-async function loadMarketplaceBikes() {
+// Adjust limit on resize
+window.addEventListener('resize', () => {
+  const newLimit = window.innerWidth <= 768 ? 6 : 9;
+  if (newLimit !== currentLimit) {
+    currentLimit = newLimit;
+    loadMarketplaceBikes(1);
+  }
+});
+
+async function loadMarketplaceBikes(page = 1) {
   const container = document.getElementById('marketplace-bikes-grid');
   if (!container) return;
+
+  currentPage = page;
 
   container.innerHTML = `
     <div style="grid-column: 1/-1; text-align: center; padding: 3rem 0;">
@@ -16,19 +31,82 @@ async function loadMarketplaceBikes() {
     </div>
   `;
 
+  // Build query string based on active filters
+  const searchTerm = (document.getElementById('search-input')?.value || '').trim();
+  const selectedBrand = document.getElementById('filter-brand')?.value || '';
+  const maxPrice = document.getElementById('filter-price')?.value;
+  const sortOrder = document.getElementById('filter-sort')?.value || 'newest';
+
+  let sortParam = 'newest';
+  if (sortOrder === 'price-low') sortParam = 'price_asc';
+  else if (sortOrder === 'price-high') sortParam = 'price_desc';
+  else if (sortOrder === 'year-new') sortParam = 'year_desc';
+
+  const params = new URLSearchParams({
+    page: currentPage,
+    limit: currentLimit,
+    sort: sortParam
+  });
+
+  if (searchTerm) params.set('search', searchTerm);
+  if (selectedBrand) params.set('brand', selectedBrand);
+  if (maxPrice && Number(maxPrice) < 600000) params.set('max_price', maxPrice);
+
   try {
-    const res = await apiRequest('/api/bikes');
-    allBikes = res.data || [];
+    const res = await apiRequest(`/api/bikes?${params.toString()}`);
+    allBikes = res.data || res.bikes || [];
+    currentPagination = res.pagination || {
+      total: allBikes.length,
+      page: currentPage,
+      limit: currentLimit,
+      totalPages: Math.ceil(allBikes.length / currentLimit) || 1,
+      hasNext: false,
+      hasPrev: false,
+      start: 1,
+      end: allBikes.length
+    };
+
     renderBikes(allBikes);
-    populateBrandFilter(allBikes);
+    renderPaginationControls(currentPagination);
+
+    if (!brandsLoaded) {
+      loadBrandFilterOptions();
+      brandsLoaded = true;
+    }
   } catch (err) {
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1/-1;">
         <i class="fas fa-exclamation-triangle empty-state-icon"></i>
         <h3>Unable to load motorcycles</h3>
         <p>${err.message}</p>
-        <button onclick="loadMarketplaceBikes()" class="btn btn-primary" style="margin-top: 1rem;">Try Again</button>
+        <button onclick="loadMarketplaceBikes(1)" class="btn btn-primary" style="margin-top: 1rem;">Try Again</button>
       </div>
+    `;
+    const paginContainer = document.getElementById('marketplace-pagination');
+    if (paginContainer) paginContainer.innerHTML = '';
+  }
+}
+
+async function loadBrandFilterOptions() {
+  const brandSelect = document.getElementById('filter-brand');
+  if (!brandSelect) return;
+  try {
+    const res = await apiRequest('/api/bikes?status=all&limit=100');
+    const bikes = res.data || res.bikes || [];
+    const brands = [...new Set(bikes.map(b => b.brand).filter(Boolean))].sort();
+    if (brands.length > 0) {
+      brandSelect.innerHTML = `<option value="">All Brands</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+    }
+  } catch (e) {
+    // Fallback standard brands
+    brandSelect.innerHTML = `
+      <option value="">All Brands</option>
+      <option value="Royal Enfield">Royal Enfield</option>
+      <option value="Yamaha">Yamaha</option>
+      <option value="KTM">KTM</option>
+      <option value="Bajaj">Bajaj</option>
+      <option value="Honda">Honda</option>
+      <option value="TVS">TVS</option>
     `;
   }
 }
@@ -43,6 +121,7 @@ function renderBikes(bikes) {
         <i class="fas fa-motorcycle empty-state-icon"></i>
         <h3>No motorcycles found</h3>
         <p>Try adjusting your search criteria or price filters.</p>
+        <button onclick="resetMarketplaceFilters()" class="btn btn-outline" style="margin-top: 1rem;">Reset Filters</button>
       </div>
     `;
     return;
@@ -57,19 +136,19 @@ function renderBikes(bikes) {
     }
     const coverImage = (images && images.length > 0) 
       ? images[0] 
-      : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=600&q=80';
+      : '/static/images/IMG-20251204-WA0053.jpg';
 
-    const formattedPrice = Number(bike.price).toLocaleString('en-IN');
-    const isSold = (bike.status === 'soldout' || bike.status === 'sold');
+    const formattedPrice = Number(bike.price || bike.sellingPrice || 100000).toLocaleString('en-IN');
+    const isSold = (bike.status === 'soldout' || bike.listing_status === 'soldout' || bike.isSoldout === 1);
 
     return `
       <div class="bike-card">
         <div class="bike-card-img-wrapper">
-          <img src="${coverImage}" alt="${bike.title}" class="bike-card-img" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&w=600&q=80';" />
+          <img src="${coverImage}" alt="${bike.title}" class="bike-card-img" loading="lazy" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
           <div class="bike-card-badge">
             ${isSold 
               ? '<span class="badge badge-soldout">Sold Out</span>'
-              : (bike.featured ? '<span class="badge badge-featured"><i class="fas fa-star"></i> Featured</span>' : '<span class="badge badge-approved">Verified</span>')
+              : (bike.featured ? '<span class="badge badge-featured"><i class="fas fa-star"></i> Featured</span>' : '<span class="badge badge-approved"><i class="fas fa-check-circle"></i> Certified</span>')
             }
           </div>
           <button class="bike-fav-btn" onclick="toggleFavorite(${bike.id}, this)" title="Save to Favorites">
@@ -91,7 +170,7 @@ function renderBikes(bikes) {
               <span class="bike-price-value">₹${formattedPrice}</span>
             </div>
             <div style="display: flex; gap: 0.5rem;">
-              <a href="/bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline">Details</a>
+              <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline">Details</a>
               ${!isSold ? `<button onclick="openEnquiryModal(${bike.id})" class="btn btn-sm btn-primary">Enquire</button>` : ''}
             </div>
           </div>
@@ -101,41 +180,73 @@ function renderBikes(bikes) {
   }).join('');
 }
 
-function populateBrandFilter(bikes) {
-  const brandSelect = document.getElementById('filter-brand');
-  if (!brandSelect) return;
-  const brands = [...new Set(bikes.map(b => b.brand).filter(Boolean))].sort();
-  brandSelect.innerHTML = `<option value="">All Brands</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+function renderPaginationControls(p) {
+  let paginContainer = document.getElementById('marketplace-pagination');
+  if (!paginContainer) {
+    const grid = document.getElementById('marketplace-bikes-grid');
+    if (!grid) return;
+    paginContainer = document.createElement('div');
+    paginContainer.id = 'marketplace-pagination';
+    paginContainer.className = 'pagination-wrapper';
+    paginContainer.style.marginTop = '2.5rem';
+    grid.parentNode.insertBefore(paginContainer, grid.nextSibling);
+  }
+
+  if (!p || p.totalPages <= 1) {
+    paginContainer.innerHTML = p && p.total > 0 
+      ? `<div style="text-align:center; color:var(--text-muted); font-size:0.88rem;">Showing all ${p.total} verified motorcycles</div>` 
+      : '';
+    return;
+  }
+
+  let pagesHtml = '';
+  const totalPages = p.totalPages;
+  const curPage = p.page;
+
+  for (let i = 1; i <= totalPages; i++) {
+    if (i === 1 || i === totalPages || (i >= curPage - 1 && i <= curPage + 1)) {
+      pagesHtml += `<button class="pagination-btn ${i === curPage ? 'active' : ''}" onclick="loadMarketplaceBikes(${i})">${i}</button>`;
+    } else if (i === curPage - 2 || i === curPage + 2) {
+      pagesHtml += `<span style="color:var(--text-muted); padding:0 0.25rem;">...</span>`;
+    }
+  }
+
+  paginContainer.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; width: 100%;">
+      <div style="color: var(--text-muted); font-size: 0.88rem;">
+        Showing <strong style="color: var(--text-primary);">${p.start}–${p.end}</strong> of <strong style="color: var(--text-primary);">${p.total}</strong> motorcycles
+      </div>
+      <div style="display: flex; gap: 0.4rem; align-items: center;">
+        <button class="pagination-btn" ${!p.hasPrev ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : `onclick="loadMarketplaceBikes(${curPage - 1})"`}>
+          <i class="fas fa-chevron-left"></i> Prev
+        </button>
+        ${pagesHtml}
+        <button class="pagination-btn" ${!p.hasNext ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : `onclick="loadMarketplaceBikes(${curPage + 1})"`}>
+          Next <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 function applyFilters() {
-  const searchTerm = (document.getElementById('search-input')?.value || '').toLowerCase();
-  const selectedBrand = document.getElementById('filter-brand')?.value || '';
-  const maxPrice = parseFloat(document.getElementById('filter-price')?.value) || Infinity;
-  const sortOrder = document.getElementById('filter-sort')?.value || 'newest';
-
-  let filtered = allBikes.filter(bike => {
-    const matchesSearch = !searchTerm || 
-      bike.title.toLowerCase().includes(searchTerm) || 
-      bike.brand.toLowerCase().includes(searchTerm) || 
-      (bike.model && bike.model.toLowerCase().includes(searchTerm));
-
-    const matchesBrand = !selectedBrand || bike.brand.toLowerCase() === selectedBrand.toLowerCase();
-    const matchesPrice = !maxPrice || Number(bike.price) <= maxPrice;
-
-    return matchesSearch && matchesBrand && matchesPrice;
-  });
-
-  if (sortOrder === 'price-low') {
-    filtered.sort((a, b) => Number(a.price) - Number(b.price));
-  } else if (sortOrder === 'price-high') {
-    filtered.sort((a, b) => Number(b.price) - Number(a.price));
-  } else if (sortOrder === 'year-new') {
-    filtered.sort((a, b) => Number(b.year) - Number(a.year));
-  }
-
-  renderBikes(filtered);
+  loadMarketplaceBikes(1);
 }
+
+function resetMarketplaceFilters() {
+  const searchInput = document.getElementById('search-input');
+  const brandSelect = document.getElementById('filter-brand');
+  const priceSlider = document.getElementById('filter-price');
+  const valDisplay = document.getElementById('price-val-display');
+
+  if (searchInput) searchInput.value = '';
+  if (brandSelect) brandSelect.value = '';
+  if (priceSlider) priceSlider.value = 600000;
+  if (valDisplay) valDisplay.innerText = 'Up to ₹6,00,000';
+
+  loadMarketplaceBikes(1);
+}
+
 
 async function toggleFavorite(bikeId, btn) {
   const user = AuthService.getUser();

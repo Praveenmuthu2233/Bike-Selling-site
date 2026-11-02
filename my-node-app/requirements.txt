@@ -5,3 +5,4 @@ mysql-connector-python
 Flask-Cors
 bcrypt
 PyJWT
+openpyxl

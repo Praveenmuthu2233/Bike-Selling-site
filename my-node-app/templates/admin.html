@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard | SMR Motors Management Console</title>
+  <title>Admin Dashboard & Financial Management | SMR Motors</title>
   
   <!-- Fonts & Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
@@ -26,22 +26,33 @@
 
       <nav class="admin-nav">
         <a class="admin-nav-item active" onclick="switchAdminTab('tab-overview', this)">
-          <i class="fas fa-chart-pie"></i> Overview & Metrics
+          <i class="fas fa-chart-pie"></i> Overview & Analytics
         </a>
-        <a class="admin-nav-item" onclick="switchAdminTab('tab-bikes', this)">
-          <i class="fas fa-motorcycle"></i> Inventory & Approvals
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-pending', this)">
+          <i class="fas fa-inbox"></i> Pending Approvals
+          <span id="nav-badge-pending" class="badge badge-featured" style="margin-left: auto; display: none;">0</span>
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-negotiations', this)">
+          <i class="fas fa-handshake"></i> Price Negotiations
+          <span id="nav-badge-negotiations" class="badge badge-approved" style="margin-left: auto; display: none;">0</span>
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-approved', this)">
+          <i class="fas fa-motorcycle"></i> Approved & Live
+        </a>
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-sold', this)">
+          <i class="fas fa-check-double"></i> Sold Out & Profits
         </a>
         <a class="admin-nav-item" onclick="switchAdminTab('tab-users', this)">
-          <i class="fas fa-users"></i> User Management
+          <i class="fas fa-users"></i> User Directory
         </a>
         <a class="admin-nav-item" onclick="switchAdminTab('tab-enquiries', this)">
           <i class="fas fa-envelope-open-text"></i> Customer Enquiries
         </a>
         <a class="admin-nav-item" onclick="switchAdminTab('tab-messages', this)">
-          <i class="fas fa-inbox"></i> Contact Messages
+          <i class="fas fa-comments"></i> Showroom Messages
         </a>
-        <a class="admin-nav-item" onclick="switchAdminTab('tab-audit', this)">
-          <i class="fas fa-history"></i> Security Audit Trail
+        <a class="admin-nav-item" onclick="switchAdminTab('tab-export', this)">
+          <i class="fas fa-file-export"></i> Data Export & Reports
         </a>
       </nav>
 
@@ -56,95 +67,217 @@
     <main class="admin-main">
       <header class="admin-topbar">
         <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary);">
-          <span id="admin-breadcrumb-title">Overview</span>
+          <span id="admin-breadcrumb-title">Overview & Analytics</span>
         </div>
         <div style="display: flex; align-items: center; gap: 1.25rem;">
-          <a href="{{ url_for('index') }}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> View Marketplace</a>
+          <!-- Notification Bell -->
+          <div class="notif-bell-wrap">
+            <button class="notif-bell-btn" onclick="toggleNotifDropdown()" title="System Notifications">
+              <i class="fas fa-bell"></i>
+              <span id="topbar-notif-badge" class="notif-badge" style="display: none;">0</span>
+            </button>
+            <div id="topbar-notif-dropdown" class="notif-dropdown">
+              <div class="notif-header">
+                <span style="font-weight: 700; font-size: 0.92rem;"><i class="fas fa-bell" style="color:var(--accent-primary);"></i> System Notifications</span>
+                <button onclick="markAllNotificationsReadAction()" class="btn btn-sm btn-ghost" style="padding: 2px 8px; font-size: 0.75rem;">Mark All Read</button>
+              </div>
+              <div id="topbar-notif-list" class="notif-list">
+                <div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">Loading alerts...</div>
+              </div>
+            </div>
+          </div>
+
+          <a href="{{ url_for('index') }}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-external-link-alt"></i> Marketplace</a>
           <div class="admin-profile-badge">
-            <div class="admin-avatar"><i class="fas fa-user"></i></div>
-            <span id="topbar-admin-name" style="font-weight: 600; font-size: 0.92rem;">Administrator</span>
+            <div class="admin-avatar"><i class="fas fa-user-shield"></i></div>
+            <span id="topbar-admin-name" style="font-weight: 600; font-size: 0.92rem;">Admin</span>
           </div>
         </div>
       </header>
 
       <div class="admin-page-content">
-        <!-- 1. TAB: OVERVIEW & STATS -->
+
+        <!-- 1. TAB: OVERVIEW & FINANCIAL ANALYTICS -->
         <section id="tab-overview" class="admin-tab-pane active">
           <div style="margin-bottom: 2rem;">
-            <span class="section-tag"><i class="fas fa-bolt"></i> Real-Time Telemetry</span>
-            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Platform Intelligence</h1>
+            <span class="section-tag"><i class="fas fa-chart-line"></i> Real-Time Telemetry</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Executive Financial & Operational Intelligence</h1>
           </div>
 
-          <div class="stats-grid">
+          <!-- Financial Profit & Payout Cards -->
+          <div class="financial-grid">
+            <div class="financial-card revenue-card">
+              <div class="financial-label">Total Realized Revenue</div>
+              <div id="fin-stat-revenue" class="financial-val">₹0</div>
+              <div class="financial-sub">From <span id="fin-stat-sold-count">0</span> completed sales</div>
+            </div>
+            <div class="financial-card payout-card">
+              <div class="financial-label">Total Seller Payouts</div>
+              <div id="fin-stat-payouts" class="financial-val">₹0</div>
+              <div class="financial-sub">Direct disbursement to bike sellers</div>
+            </div>
+            <div class="financial-card expense-card">
+              <div class="financial-label">Service & Refurbishment</div>
+              <div id="fin-stat-expenses" class="financial-val">₹0</div>
+              <div class="financial-sub">Service, repair & transport costs</div>
+            </div>
+            <div class="financial-card profit-card">
+              <div class="financial-label">Net Realized Profit</div>
+              <div id="fin-stat-profit" class="financial-val" style="color: #10B981;">₹0</div>
+              <div class="financial-sub">Actual Sale Price − Payout − Expenses</div>
+            </div>
+          </div>
+
+          <!-- Operational Counts Grid -->
+          <div class="stats-grid" style="margin-bottom: 2rem;">
             <div class="stat-card">
               <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
               <div class="stat-content">
-                <span id="adm-stat-bikes" class="stat-val">-</span>
+                <span id="adm-stat-bikes" class="stat-val">0</span>
                 <span class="stat-label">Total Inventory</span>
               </div>
             </div>
             <div class="stat-card">
               <div class="stat-icon purple"><i class="fas fa-clock"></i></div>
               <div class="stat-content">
-                <span id="adm-stat-pending" class="stat-val">-</span>
+                <span id="adm-stat-pending" class="stat-val">0</span>
                 <span class="stat-label">Pending Approval</span>
+              </div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon blue"><i class="fas fa-comments-dollar"></i></div>
+              <div class="stat-content">
+                <span id="adm-stat-negotiating" class="stat-val">0</span>
+                <span class="stat-label">In Price Negotiation</span>
               </div>
             </div>
             <div class="stat-card">
               <div class="stat-icon green"><i class="fas fa-users"></i></div>
               <div class="stat-content">
-                <span id="adm-stat-users" class="stat-val">-</span>
+                <span id="adm-stat-users" class="stat-val">0</span>
                 <span class="stat-label">Registered Users</span>
-              </div>
-            </div>
-            <div class="stat-card">
-              <div class="stat-icon blue"><i class="fas fa-envelope-open-text"></i></div>
-              <div class="stat-content">
-                <span id="adm-stat-enquiries" class="stat-val">-</span>
-                <span class="stat-label">Customer Leads</span>
               </div>
             </div>
           </div>
 
+          <!-- Monthly Financial Trends Visual Chart -->
+          <div class="table-card" style="margin-bottom: 2rem;">
+            <div class="table-header">
+              <div>
+                <h3 style="font-size: 1.15rem; margin: 0;"><i class="fas fa-chart-bar" style="color:var(--accent-primary); margin-right:0.5rem;"></i> Monthly Financial Performance Trends</h3>
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Net realized profit and revenue volume by month</span>
+              </div>
+            </div>
+            <div id="monthly-chart-container" class="chart-container">
+              <!-- Rendered dynamically -->
+            </div>
+          </div>
+
+          <!-- Recent Transactions -->
           <div class="table-card">
             <div class="table-header">
-              <h3 style="font-size: 1.15rem; margin: 0;">Recent User Registrations</h3>
-              <button onclick="switchAdminTab('tab-users', document.querySelectorAll('.admin-nav-item')[2])" class="btn btn-sm btn-outline">Full User List</button>
+              <h3 style="font-size: 1.15rem; margin: 0;"><i class="fas fa-receipt" style="color:var(--accent-primary); margin-right:0.5rem;"></i> Recent Completed Sales & Realized Margin</h3>
+              <button onclick="switchAdminTab('tab-sold', document.querySelectorAll('.admin-nav-item')[4])" class="btn btn-sm btn-outline">All Transactions</button>
             </div>
             <div class="table-responsive">
               <table class="data-table">
                 <thead>
                   <tr>
-                    <th>User</th>
-                    <th>Email</th>
-                    <th>Auth Provider</th>
-                    <th>Joined</th>
+                    <th>Motorcycle</th>
+                    <th>Seller</th>
+                    <th>Sale Price</th>
+                    <th>Seller Payout</th>
+                    <th>Expenses</th>
+                    <th>Net Profit</th>
+                    <th>Sold Date</th>
                   </tr>
                 </thead>
-                <tbody id="overview-recent-users-tbody">
-                  <tr><td colspan="4" style="text-align: center; padding: 2rem;">Loading intelligence...</td></tr>
+                <tbody id="overview-recent-txs-tbody">
+                  <tr><td colspan="7" style="text-align:center; padding: 2rem;">Loading sales telemetry...</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
         </section>
 
-        <!-- 2. TAB: INVENTORY & APPROVALS -->
-        <section id="tab-bikes" class="admin-tab-pane">
+        <!-- 2. TAB: PENDING APPROVALS -->
+        <section id="tab-pending" class="admin-tab-pane">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
             <div>
-              <span class="section-tag"><i class="fas fa-check-double"></i> Quality Control</span>
-              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Inventory Approvals & Control</h1>
+              <span class="section-tag"><i class="fas fa-clipboard-check"></i> Step 1: Listing Review</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Pending Vehicle Approvals</h1>
+              <p style="color: var(--text-secondary);">Inspect submitted motorcycle listings and propose seller payout counteroffers.</p>
+            </div>
+            <button onclick="loadAdminListings('pending', 1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Motorcycle</th>
+                    <th>Brand & Year</th>
+                    <th>Seller Expected</th>
+                    <th>Kilometers</th>
+                    <th>Seller Contact</th>
+                    <th>Submitted</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-pending-tbody">
+                  <tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading pending submissions...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="pending-pagination-container"></div>
+          </div>
+        </section>
+
+        <!-- 3. TAB: PRICE NEGOTIATION MANAGEMENT -->
+        <section id="tab-negotiations" class="admin-tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-handshake"></i> Step 2 & 3: Transparent Negotiation</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Price Negotiation Hub</h1>
+              <p style="color: var(--text-secondary);">Track counteroffers, seller responses, and finalize public selling price with business margin.</p>
+            </div>
+            <button onclick="loadAdminListings('negotiations', 1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Seller Expected</th>
+                    <th>Admin Proposed Payout</th>
+                    <th>Seller Status</th>
+                    <th>Agreement Date</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-negotiations-tbody">
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading negotiations...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="negotiations-pagination-container"></div>
+          </div>
+        </section>
+
+        <!-- 4. TAB: APPROVED & LIVE INVENTORY -->
+        <section id="tab-approved" class="admin-tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-check-circle"></i> Live Marketplace</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Approved & Active Motorcycles</h1>
+              <p style="color: var(--text-secondary);">Currently visible on the public SMR Motors showroom.</p>
             </div>
             <div style="display: flex; gap: 0.75rem;">
-              <select id="adm-bikes-filter-status" class="form-control" style="width: 170px;" onchange="loadAdminBikes()">
-                <option value="">All Statuses</option>
-                <option value="pending" selected>Pending Review</option>
-                <option value="approved">Approved & Active</option>
-                <option value="rejected">Rejected</option>
-                <option value="soldout">Sold Out</option>
-              </select>
-              <button onclick="loadAdminBikes()" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+              <a href="{{ url_for('admin_add_listing') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Direct Add Bike</a>
+              <button onclick="loadAdminListings('approved', 1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
             </div>
           </div>
 
@@ -154,27 +287,69 @@
                 <thead>
                   <tr>
                     <th>Motorcycle</th>
-                    <th>Brand</th>
-                    <th>Price</th>
+                    <th>Brand & Year</th>
+                    <th>Public Price</th>
+                    <th>Seller Payout</th>
+                    <th>Expected Margin</th>
                     <th>Kilometers</th>
-                    <th>Seller</th>
-                    <th>Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
-                <tbody id="admin-bikes-table-body">
-                  <tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading inventory...</td></tr>
+                <tbody id="admin-approved-tbody">
+                  <tr><td colspan="7" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading active inventory...</td></tr>
                 </tbody>
               </table>
             </div>
+            <div id="approved-pagination-container"></div>
           </div>
         </section>
 
-        <!-- 3. TAB: USER MANAGEMENT -->
+        <!-- 5. TAB: SOLD OUT & EXPENSES MANAGEMENT -->
+        <section id="tab-sold" class="admin-tab-pane">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-dollar-sign"></i> Step 5: Realized Accounting</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Sold Out Bikes & Financial Profit</h1>
+              <p style="color: var(--text-secondary);">Complete transaction auditing: Actual Sale Price, Seller Payout, Itemized Expenses, and Net Realized Profit.</p>
+            </div>
+            <div style="display: flex; gap: 0.75rem;">
+              <button onclick="openMarkSoldModal()" class="btn btn-primary"><i class="fas fa-cash-register"></i> Record Sold Bike</button>
+              <button onclick="loadAdminListings('sold', 1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle</th>
+                    <th>Seller Contact</th>
+                    <th>Sale Price</th>
+                    <th>Seller Payout</th>
+                    <th>Total Expenses</th>
+                    <th>Realized Net Profit</th>
+                    <th>Sold Date</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-sold-tbody">
+                  <tr><td colspan="8" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading sold inventory...</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="sold-pagination-container"></div>
+          </div>
+        </section>
+
+        <!-- 6. TAB: USER DIRECTORY -->
         <section id="tab-users" class="admin-tab-pane">
-          <div style="margin-bottom: 2rem;">
-            <span class="section-tag"><i class="fas fa-users-cog"></i> Governance</span>
-            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">User Management</h1>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-users-cog"></i> Governance</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Registered Users Directory</h1>
+            </div>
+            <button onclick="loadAdminUsers(1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
           <div class="table-card">
             <div class="table-responsive">
@@ -193,16 +368,19 @@
                 </tbody>
               </table>
             </div>
+            <div id="users-pagination-container"></div>
           </div>
         </section>
 
-        <!-- 4. TAB: ENQUIRIES -->
+        <!-- 7. TAB: ENQUIRIES -->
         <section id="tab-enquiries" class="admin-tab-pane">
-          <div style="margin-bottom: 2rem;">
-            <span class="section-tag"><i class="fas fa-phone-volume"></i> Buyer Leads</span>
-            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Customer Enquiries & Test Rides</h1>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-phone-volume"></i> Buyer Leads</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Customer Enquiries & Test Rides</h1>
+            </div>
+            <button onclick="loadAdminEnquiries(1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
-
           <div class="table-card">
             <div class="table-responsive">
               <table class="data-table">
@@ -217,20 +395,23 @@
                   </tr>
                 </thead>
                 <tbody id="admin-enquiries-table-body">
-                  <tr><td colspan="6" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading customer enquiries...</td></tr>
+                  <tr><td colspan="6" style="text-align:center; padding: 3rem;">Loading enquiries...</td></tr>
                 </tbody>
               </table>
             </div>
+            <div id="enquiries-pagination-container"></div>
           </div>
         </section>
 
-        <!-- 5. TAB: CONTACT MESSAGES -->
+        <!-- 8. TAB: CONTACT MESSAGES -->
         <section id="tab-messages" class="admin-tab-pane">
-          <div style="margin-bottom: 2rem;">
-            <span class="section-tag"><i class="fas fa-comments"></i> Inquiries</span>
-            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages</h1>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+            <div>
+              <span class="section-tag"><i class="fas fa-comments"></i> Inquiries</span>
+              <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Showroom Contact Messages</h1>
+            </div>
+            <button onclick="loadAdminMessages(1)" class="btn btn-outline"><i class="fas fa-sync-alt"></i> Refresh</button>
           </div>
-
           <div class="table-card">
             <div class="table-responsive">
               <table class="data-table">
@@ -244,44 +425,255 @@
                   </tr>
                 </thead>
                 <tbody id="admin-messages-table-body">
-                  <tr><td colspan="5" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</td></tr>
+                  <tr><td colspan="5" style="text-align:center; padding: 3rem;">Loading messages...</td></tr>
                 </tbody>
               </table>
             </div>
+            <div id="messages-pagination-container"></div>
           </div>
         </section>
 
-        <!-- 6. TAB: AUDIT LOGS -->
-        <section id="tab-audit" class="admin-tab-pane">
+        <!-- 9. TAB: DATA EXPORT & AUDIT REPORTS -->
+        <section id="tab-export" class="admin-tab-pane">
           <div style="margin-bottom: 2rem;">
-            <span class="section-tag"><i class="fas fa-fingerprint"></i> Immutable Trail</span>
-            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Administrative Audit Logs</h1>
+            <span class="section-tag"><i class="fas fa-file-export"></i> Comprehensive Reporting</span>
+            <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">Data Export Center & Financial Reports</h1>
+            <p style="color: var(--text-secondary);">Download structured reports in Microsoft Excel (.xlsx) and CSV (.csv) formats with flexible date filtering.</p>
           </div>
 
-          <div class="table-card">
-            <div class="table-responsive">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Timestamp</th>
-                    <th>Admin</th>
-                    <th>Action</th>
-                    <th>Target</th>
-                    <th>Details</th>
-                  </tr>
-                </thead>
-                <tbody id="admin-audit-table-body">
-                  <tr><td colspan="5" style="text-align:center; padding: 3rem;"><i class="fas fa-spinner fa-spin"></i> Loading audit trail...</td></tr>
-                </tbody>
-              </table>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
+            <!-- Filter Options Panel -->
+            <div class="table-card" style="padding: 1.75rem;">
+              <h3 style="font-size: 1.15rem; margin-bottom: 1.25rem;"><i class="fas fa-filter" style="color:var(--accent-primary); margin-right:0.5rem;"></i> Date Range & Filter Settings</h3>
+              
+              <div style="display: flex; flex-direction: column; gap: 1rem;">
+                <div>
+                  <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">Quick Date Filter</label>
+                  <select id="export-quick-range" class="form-control" onchange="applyQuickDateRange(this.value)">
+                    <option value="all">All Available Records</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="this_week">This Week</option>
+                    <option value="this_month" selected>This Month</option>
+                    <option value="last_month">Last Month</option>
+                    <option value="this_year">This Calendar Year</option>
+                  </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                  <div>
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">Start Date</label>
+                    <input type="date" id="export-start-date" class="form-control">
+                  </div>
+                  <div>
+                    <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">End Date</label>
+                    <input type="date" id="export-end-date" class="form-control">
+                  </div>
+                </div>
+
+                <div>
+                  <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem;">Inventory Status Filter</label>
+                  <select id="export-status-filter" class="form-control">
+                    <option value="all">All Statuses (Pending, Approved, Sold)</option>
+                    <option value="published">Published / Live Marketplace</option>
+                    <option value="pending">Pending Approval</option>
+                    <option value="price_offered">In Negotiation</option>
+                    <option value="soldout">Sold Out Only</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <!-- Download Action Panel -->
+            <div class="table-card" style="padding: 1.75rem; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <h3 style="font-size: 1.15rem; margin-bottom: 1.25rem;"><i class="fas fa-download" style="color:var(--accent-primary); margin-right:0.5rem;"></i> Instant Report Downloads</h3>
+                <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 1.5rem;">
+                  Reports include all primary vehicle metadata, price valuations, seller records, and accounting figures.
+                </p>
+
+                <div style="display: flex; flex-direction: column; gap: 1rem;">
+                  <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                    <div style="font-weight: 700; margin-bottom: 0.25rem;">1. Complete Inventory Report</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Vehicle specifications, prices, sellers, approval status</div>
+                    <div style="display: flex; gap: 0.5rem;">
+                      <button onclick="downloadReport('bikes', 'csv')" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Download CSV</button>
+                      <button onclick="downloadReport('bikes', 'xlsx')" class="btn btn-sm btn-primary"><i class="fas fa-file-excel"></i> Download Excel (.xlsx)</button>
+                    </div>
+                  </div>
+
+                  <div style="background: var(--bg-surface-elevated); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+                    <div style="font-weight: 700; margin-bottom: 0.25rem; color: #10B981;">2. Dedicated Sold Out Financials Report</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Sale Price, Seller Payout, Expense Breakdown & Net Realized Profit with Summary Totals</div>
+                    <div style="display: flex; gap: 0.5rem;">
+                      <button onclick="downloadReport('sold', 'csv')" class="btn btn-sm btn-outline"><i class="fas fa-file-csv"></i> Download CSV</button>
+                      <button onclick="downloadReport('sold', 'xlsx')" class="btn btn-sm btn-primary"><i class="fas fa-file-excel"></i> Download Excel (.xlsx)</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
+
       </div>
     </main>
   </div>
 
-  <!-- Rejection Reason Modal -->
+  <!-- MODAL 1: Propose Payout Counteroffer -->
+  <div id="modal-propose-price" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Propose Seller Payout</h3>
+          <p id="propose-bike-title" style="font-size: 0.85rem; color: var(--accent-primary); margin: 0;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modal-propose-price')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="background: rgba(255,255,255,0.03); padding: 0.85rem; border-radius: var(--radius-md);">
+            <div style="font-size: 0.8rem; color: var(--text-muted);">Seller Expected Price</div>
+            <div id="propose-expected-price" style="font-size: 1.25rem; font-weight: 700; color: #FFF;">₹0</div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Proposed Seller Payout (₹) *</label>
+            <input type="number" id="input-proposed-payout" class="form-control" placeholder="e.g. 125000" min="1000" step="1000">
+            <small style="color: var(--text-muted); font-size: 0.78rem;">This is the net amount guaranteed to the seller upon vehicle sale.</small>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Message / Inspection Assessment Note</label>
+            <textarea id="input-propose-message" class="form-control" rows="3" placeholder="Explain the valuation offer based on vehicle age, tyre condition, and inspection notes..."></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-propose-price')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmProposePayout()"><i class="fas fa-paper-plane"></i> Send Counteroffer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: Publish to Live Marketplace -->
+  <div id="modal-publish-bike" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Publish to Live Marketplace</h3>
+          <p id="publish-bike-title" style="font-size: 0.85rem; color: var(--accent-primary); margin: 0;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modal-publish-bike')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.25); padding: 0.85rem; border-radius: var(--radius-md);">
+            <div style="font-size: 0.8rem; color: var(--color-success); font-weight: 600;"><i class="fas fa-check-circle"></i> Seller Agreed Payout</div>
+            <div id="publish-agreed-payout" style="font-size: 1.35rem; font-weight: 800; color: #FFF;">₹0</div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Public Selling Price (₹) *</label>
+            <input type="number" id="input-public-price" class="form-control" placeholder="e.g. 145000" oninput="calculateLiveMargin()">
+            <small style="color: var(--text-muted); font-size: 0.78rem;">Listed price displayed to buyers on the website.</small>
+          </div>
+
+          <div class="margin-box">
+            <div>
+              <div style="font-size: 0.78rem; text-transform: uppercase; color: var(--accent-primary); font-weight: 700;">Projected Business Margin</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Public Price − Seller Payout</div>
+            </div>
+            <div id="publish-calculated-margin" style="font-size: 1.35rem; font-weight: 800; color: #FFF;">₹0</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-publish-bike')">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmPublishBike()"><i class="fas fa-rocket"></i> Publish to Marketplace</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: Mark Bike as Sold with Expenses Tracking -->
+  <div id="modal-mark-sold" class="modal-backdrop">
+    <div class="modal-dialog" style="max-width: 600px;">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title">Record Vehicle Sale & Financials</h3>
+          <p id="sold-bike-title" style="font-size: 0.85rem; color: var(--accent-primary); margin: 0;"></p>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal('modal-mark-sold')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div style="display: flex; flex-direction: column; gap: 1rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Actual Sale Price (₹) *</label>
+              <input type="number" id="input-sold-price" class="form-control" placeholder="e.g. 140000" oninput="calculateLiveProfit()">
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Seller Payout (₹) *</label>
+              <input type="number" id="input-sold-payout" class="form-control" placeholder="e.g. 125000" oninput="calculateLiveProfit()">
+            </div>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); padding: 1rem; border-radius: var(--radius-md);">
+            <div style="font-size: 0.85rem; font-weight: 700; margin-bottom: 0.75rem; color: var(--text-primary);"><i class="fas fa-tools" style="color:var(--accent-primary);"></i> Itemized Refurbishment & Overhead Expenses</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+              <div>
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Service Expense (₹)</label>
+                <input type="number" id="input-exp-service" class="form-control" placeholder="0" value="0" oninput="calculateLiveProfit()">
+              </div>
+              <div>
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Repair & Parts (₹)</label>
+                <input type="number" id="input-exp-repair" class="form-control" placeholder="0" value="0" oninput="calculateLiveProfit()">
+              </div>
+              <div>
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Transport / Logistics (₹)</label>
+                <input type="number" id="input-exp-transport" class="form-control" placeholder="0" value="0" oninput="calculateLiveProfit()">
+              </div>
+              <div>
+                <label style="font-size: 0.78rem; color: var(--text-muted); display: block; margin-bottom: 0.2rem;">Other Overheads (₹)</label>
+                <input type="number" id="input-exp-other" class="form-control" placeholder="0" value="0" oninput="calculateLiveProfit()">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Buyer Name</label>
+              <input type="text" id="input-buyer-name" class="form-control" placeholder="Customer name">
+            </div>
+            <div>
+              <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Buyer Mobile</label>
+              <input type="tel" id="input-buyer-phone" class="form-control" placeholder="Contact number">
+            </div>
+          </div>
+
+          <div>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.35rem; display: block;">Accounting Notes</label>
+            <textarea id="input-sold-notes" class="form-control" rows="2" placeholder="e.g. Delivered with RTO NOC, full service and brake pads replaced."></textarea>
+          </div>
+
+          <!-- Live Realized Profit Preview Box -->
+          <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: var(--radius-md); padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <div style="font-size: 0.78rem; text-transform: uppercase; color: #10B981; font-weight: 700;">Net Realized Profit</div>
+              <div style="font-size: 0.8rem; color: var(--text-muted);">Sale Price − Payout − Total Expenses</div>
+            </div>
+            <div id="sold-calculated-profit" style="font-size: 1.45rem; font-weight: 800; color: #10B981;">₹0</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('modal-mark-sold')">Cancel</button>
+        <button class="btn btn-success" onclick="confirmMarkSold()"><i class="fas fa-check"></i> Record Sale & Archive</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: Reject Listing -->
   <div id="reject-modal" class="modal-backdrop">
     <div class="modal-dialog">
       <div class="modal-header">
@@ -301,9 +693,8 @@
   <!-- Scripts -->
   <script src="{{ url_for('static', filename='config.js') }}"></script>
   <script src="{{ url_for('static', filename='api.js') }}"></script>
-  <script src="{{ url_for('static', filename='adminScript.js') }}"></script>
   <script>
-    let targetBikeIdForAction = null;
+    let activeTargetBike = null;
 
     function checkAdminAuth() {
       const token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
@@ -325,7 +716,7 @@
       localStorage.removeItem('adminToken');
       sessionStorage.removeItem('adminToken');
       showToast('Logged out of Admin Portal', 'info');
-      setTimeout(() => { window.location.href = "{{ url_for('admin_login_page') }}"; }, 600);
+      setTimeout(() => { window.location.href = "{{ url_for('admin_login_page') }}"; }, 400);
     }
 
     function switchAdminTab(tabId, el) {
@@ -338,123 +729,569 @@
       if (titleEl && el) titleEl.innerText = el.innerText.trim();
 
       if (tabId === 'tab-overview') loadAdminOverview();
-      if (tabId === 'tab-bikes') loadAdminBikes();
-      if (tabId === 'tab-users') loadAdminUsers();
-      if (tabId === 'tab-enquiries') loadAdminEnquiries();
-      if (tabId === 'tab-messages') loadAdminMessages();
-      if (tabId === 'tab-audit') loadAdminAuditLogs();
+      if (tabId === 'tab-pending') loadAdminListings('pending', 1);
+      if (tabId === 'tab-negotiations') loadAdminListings('negotiations', 1);
+      if (tabId === 'tab-approved') loadAdminListings('approved', 1);
+      if (tabId === 'tab-sold') loadAdminListings('sold', 1);
+      if (tabId === 'tab-users') loadAdminUsers(1);
+      if (tabId === 'tab-enquiries') loadAdminEnquiries(1);
+      if (tabId === 'tab-messages') loadAdminMessages(1);
     }
 
+    // 1. Overview & Financial Analytics Loader
     async function loadAdminOverview() {
       try {
         const res = await apiRequest('/api/admin/dashboard');
         if (res.success && res.data) {
-          const { counts, recentUsers } = res.data;
+          const { counts, financials, recentTransactions } = res.data;
+          
+          // Operational counts
           document.getElementById('adm-stat-bikes').innerText = counts.total_bikes || 0;
           document.getElementById('adm-stat-pending').innerText = counts.pending_bikes || 0;
+          document.getElementById('adm-stat-negotiating').innerText = counts.negotiating_bikes || 0;
           document.getElementById('adm-stat-users').innerText = counts.total_users || 0;
-          document.getElementById('adm-stat-enquiries').innerText = counts.total_enquiries || 0;
 
-          const tbody = document.getElementById('overview-recent-users-tbody');
-          if (recentUsers && recentUsers.length > 0) {
-            tbody.innerHTML = recentUsers.map(u => `
+          // Update sidebar badges
+          const pendBadge = document.getElementById('nav-badge-pending');
+          if (pendBadge) {
+            pendBadge.innerText = counts.pending_bikes || 0;
+            pendBadge.style.display = counts.pending_bikes > 0 ? 'inline-block' : 'none';
+          }
+          const negBadge = document.getElementById('nav-badge-negotiations');
+          if (negBadge) {
+            negBadge.innerText = counts.negotiating_bikes || 0;
+            negBadge.style.display = counts.negotiating_bikes > 0 ? 'inline-block' : 'none';
+          }
+
+          // Financial sums
+          document.getElementById('fin-stat-revenue').innerText = '₹' + Number(counts.total_revenue || 0).toLocaleString('en-IN');
+          document.getElementById('fin-stat-payouts').innerText = '₹' + Number(counts.total_seller_payout || 0).toLocaleString('en-IN');
+          document.getElementById('fin-stat-expenses').innerText = '₹' + Number(counts.total_expenses || 0).toLocaleString('en-IN');
+          document.getElementById('fin-stat-profit').innerText = '₹' + Number(counts.total_realized_profit || 0).toLocaleString('en-IN');
+          document.getElementById('fin-stat-sold-count').innerText = counts.total_sold_count || 0;
+
+          // Render Visual Trends Chart
+          renderMonthlyChart(financials?.monthly_trends || []);
+
+          // Render Recent Sales
+          const tbody = document.getElementById('overview-recent-txs-tbody');
+          if (recentTransactions && recentTransactions.length > 0) {
+            tbody.innerHTML = recentTransactions.slice(0, 5).map(t => `
               <tr>
-                <td><strong>${u.name}</strong></td>
-                <td>${u.email}</td>
-                <td><span class="badge badge-featured">Google</span></td>
-                <td>${new Date(u.created_at).toLocaleDateString()}</td>
+                <td><strong>${t.bike_title || 'Motorcycle'}</strong></td>
+                <td>${t.seller_name || 'Seller'}</td>
+                <td style="font-weight:700;">₹${Number(t.actual_sale_price).toLocaleString('en-IN')}</td>
+                <td style="color:#8B5CF6;">₹${Number(t.seller_payout).toLocaleString('en-IN')}</td>
+                <td style="color:#EF4444;">₹${Number(t.total_expenses).toLocaleString('en-IN')}</td>
+                <td style="color:#10B981; font-weight:800;">₹${Number(t.realized_profit).toLocaleString('en-IN')}</td>
+                <td>${new Date(t.sold_at).toLocaleDateString()}</td>
               </tr>
             `).join('');
           } else {
-            tbody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem;">No registered users yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 2rem; color:var(--text-muted);">No sales recorded yet.</td></tr>`;
           }
         }
       } catch (err) {
-        console.warn('Overview fallback:', err);
+        console.warn('Overview telemetry error:', err);
       }
     }
 
-    async function loadAdminBikes() {
-      const tbody = document.getElementById('admin-bikes-table-body');
-      const statusFilter = document.getElementById('adm-bikes-filter-status')?.value || '';
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>`;
+    function renderMonthlyChart(trends) {
+      const chartEl = document.getElementById('monthly-chart-container');
+      if (!chartEl) return;
+      if (!trends || trends.length === 0) {
+        chartEl.innerHTML = `<div style="width:100%; text-align:center; color:var(--text-muted); padding:3rem;">No monthly trend data available.</div>`;
+        return;
+      }
+
+      const maxRev = Math.max(...trends.map(t => Number(t.revenue) || 100000));
+
+      chartEl.innerHTML = trends.map(t => {
+        const revHeight = Math.max(12, Math.round((Number(t.revenue) / maxRev) * 150));
+        const profHeight = Math.max(8, Math.round((Number(t.profit) / maxRev) * 150));
+
+        return `
+          <div class="chart-bar-group" title="${t.month}: Revenue ₹${Number(t.revenue).toLocaleString()}, Profit ₹${Number(t.profit).toLocaleString()} (${t.count} bikes)">
+            <div style="display:flex; gap:4px; align-items:flex-end; width:100%; justify-content:center;">
+              <div class="chart-bar" style="height: ${revHeight}px;"></div>
+              <div class="chart-bar profit" style="height: ${profHeight}px;"></div>
+            </div>
+            <div class="chart-bar-label">${t.month}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 2. Generic Tab Listings Loader with Server-Side Pagination
+    async function loadAdminListings(tab, page = 1) {
+      let tbodyId = '';
+      let paginId = '';
+      if (tab === 'pending') { tbodyId = 'admin-pending-tbody'; paginId = 'pending-pagination-container'; }
+      else if (tab === 'negotiations') { tbodyId = 'admin-negotiations-tbody'; paginId = 'negotiations-pagination-container'; }
+      else if (tab === 'approved') { tbodyId = 'admin-approved-tbody'; paginId = 'approved-pagination-container'; }
+      else if (tab === 'sold') { tbodyId = 'admin-sold-tbody'; paginId = 'sold-pagination-container'; }
+
+      const tbody = document.getElementById(tbodyId);
+      if (!tbody) return;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:3rem;"><i class="fas fa-spinner fa-spin"></i> Loading records...</td></tr>`;
 
       try {
-        const endpoint = statusFilter ? `/api/admin/bikes?status=${statusFilter}` : '/api/admin/bikes';
-        const res = await apiRequest(endpoint);
+        const res = await apiRequest(`/api/admin/listings?tab=${tab}&page=${page}&limit=8`);
         const bikes = res.data || [];
+        const p = res.pagination || { total: bikes.length, page: 1, limit: 8, totalPages: 1 };
 
         if (bikes.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:3rem;">No motorcycles found.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:3rem; color:var(--text-muted);">No records found in this category.</td></tr>`;
+          document.getElementById(paginId).innerHTML = '';
           return;
         }
 
-        tbody.innerHTML = bikes.map(bike => `
-          <tr>
-            <td><strong>${bike.year} ${bike.title}</strong></td>
-            <td>${bike.brand}</td>
-            <td style="color:var(--accent-primary); font-weight:700;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
-            <td>${(bike.kilometers_driven||0).toLocaleString()} km</td>
-            <td>${bike.seller_name || 'Showroom'}</td>
-            <td><span class="badge badge-${bike.status==='approved'?'approved':(bike.status==='rejected'?'rejected':'pending')}">${bike.status}</span></td>
-            <td>
-              <div style="display:flex; gap:0.4rem;">
-                ${bike.status !== 'approved' ? `<button onclick="approveBikeAction(${bike.id})" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button>` : ''}
-                ${bike.status !== 'rejected' ? `<button onclick="promptRejectBike(${bike.id})" class="btn btn-sm btn-danger"><i class="fas fa-times"></i></button>` : ''}
-                <button onclick="deleteBikeAdmin(${bike.id})" class="btn btn-sm btn-outline"><i class="fas fa-trash"></i></button>
-              </div>
-            </td>
-          </tr>
-        `).join('');
+        if (tab === 'pending') {
+          tbody.innerHTML = bikes.map(b => `
+            <tr>
+              <td><strong>${b.year} ${b.title}</strong></td>
+              <td>${b.brand}</td>
+              <td style="color:var(--text-primary); font-weight:700;">₹${Number(b.requested_price || b.price).toLocaleString('en-IN')}</td>
+              <td>${(b.kilometers_driven||0).toLocaleString()} km</td>
+              <td>${b.seller_name || 'User'}<br><small style="color:var(--text-muted);">${b.seller_phone || ''}</small></td>
+              <td>${new Date(b.created_at).toLocaleDateString()}</td>
+              <td>
+                <div style="display:flex; gap:0.4rem;">
+                  <button onclick="openProposePayoutModal(${b.id})" class="btn btn-sm btn-primary" title="Propose Counteroffer"><i class="fas fa-hand-holding-usd"></i> Propose Payout</button>
+                  <button onclick="promptRejectBike(${b.id})" class="btn btn-sm btn-danger" title="Reject"><i class="fas fa-times"></i></button>
+                </div>
+              </td>
+            </tr>
+          `).join('');
+        } else if (tab === 'negotiations') {
+          tbody.innerHTML = bikes.map(b => {
+            const st = b.listing_status || 'price_offered';
+            const isAccepted = st === 'seller_accepted';
+            const isRejected = st === 'seller_rejected';
+            const badgeClass = isAccepted ? 'badge-approved' : (isRejected ? 'badge-rejected' : 'badge-featured');
+            const badgeText = isAccepted ? 'Seller Accepted' : (isRejected ? 'Seller Declined' : 'Awaiting Seller');
+
+            return `
+              <tr>
+                <td><strong>${b.year} ${b.title}</strong><br><small style="color:var(--text-muted);">${b.brand} • ${b.seller_name || ''}</small></td>
+                <td>₹${Number(b.requested_price || b.price).toLocaleString('en-IN')}</td>
+                <td style="color:var(--accent-primary); font-weight:800;">₹${Number(b.proposed_seller_payout || b.price).toLocaleString('en-IN')}</td>
+                <td><span class="badge ${badgeClass}">${badgeText}</span></td>
+                <td>${b.seller_agreement_at ? new Date(b.seller_agreement_at).toLocaleDateString() : 'Pending'}</td>
+                <td>
+                  <div style="display:flex; gap:0.4rem;">
+                    <button onclick="openPublishModal(${b.id})" class="btn btn-sm btn-success" title="Publish to Live Marketplace"><i class="fas fa-rocket"></i> Publish</button>
+                    <button onclick="openProposePayoutModal(${b.id})" class="btn btn-sm btn-outline" title="Revise Counteroffer"><i class="fas fa-edit"></i> Counter</button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        } else if (tab === 'approved') {
+          tbody.innerHTML = bikes.map(b => {
+            const publicPrice = Number(b.public_selling_price || b.price);
+            const sellerPayout = Number(b.accepted_seller_payout || b.proposed_seller_payout || b.requested_price || publicPrice);
+            const margin = publicPrice - sellerPayout;
+
+            return `
+              <tr>
+                <td><strong>${b.year} ${b.title}</strong></td>
+                <td>${b.brand}</td>
+                <td style="color:var(--accent-primary); font-weight:800;">₹${publicPrice.toLocaleString('en-IN')}</td>
+                <td style="color:#8B5CF6;">₹${sellerPayout.toLocaleString('en-IN')}</td>
+                <td style="color:#10B981; font-weight:700;">₹${margin.toLocaleString('en-IN')}</td>
+                <td>${(b.kilometers_driven||0).toLocaleString()} km</td>
+                <td>
+                  <div style="display:flex; gap:0.4rem;">
+                    <button onclick="openMarkSoldModal(${b.id})" class="btn btn-sm btn-success" title="Record Vehicle Sale"><i class="fas fa-cash-register"></i> Mark Sold</button>
+                    <button onclick="promptEditPrice(${b.id}, ${publicPrice})" class="btn btn-sm btn-outline" title="Change Price"><i class="fas fa-tag"></i></button>
+                    <button onclick="deleteBikeAdmin(${b.id})" class="btn btn-sm btn-danger" title="Remove"><i class="fas fa-trash"></i></button>
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('');
+        } else if (tab === 'sold') {
+          tbody.innerHTML = bikes.map(b => `
+            <tr>
+              <td><strong>${b.year} ${b.title}</strong><br><small style="color:var(--text-muted);">${b.brand}</small></td>
+              <td>${b.seller_name || 'Seller'}<br><small style="color:var(--text-muted);">${b.seller_phone || ''}</small></td>
+              <td style="font-weight:700;">₹${Number(b.price).toLocaleString('en-IN')}</td>
+              <td style="color:#8B5CF6;">₹${Number(b.accepted_seller_payout || b.proposed_seller_payout || b.price).toLocaleString('en-IN')}</td>
+              <td style="color:#EF4444;">₹0</td>
+              <td style="color:#10B981; font-weight:800;">Archived</td>
+              <td>${b.sold_at ? new Date(b.sold_at).toLocaleDateString() : 'Completed'}</td>
+              <td><span class="badge badge-soldout">Sold Out</span></td>
+            </tr>
+          `).join('');
+        }
+
+        renderAdminPagination(p, paginId, (newPage) => loadAdminListings(tab, newPage));
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
       }
     }
 
-    async function approveBikeAction(id) {
+    function renderAdminPagination(p, containerId, onPageClick) {
+      const container = document.getElementById(containerId);
+      if (!container) return;
+      if (!p || p.totalPages <= 1) {
+        container.innerHTML = `<div style="padding:1rem; text-align:center; color:var(--text-muted); font-size:0.85rem;">Showing all ${p.total || 0} records</div>`;
+        return;
+      }
+
+      let btns = '';
+      for (let i = 1; i <= p.totalPages; i++) {
+        btns += `<button class="pagination-btn ${i === p.page ? 'active' : ''}" onclick="(${onPageClick.toString()})(${i})">${i}</button>`;
+      }
+
+      container.innerHTML = `
+        <div class="pagination-wrapper" style="padding: 1rem 1.5rem;">
+          <div style="font-size:0.85rem; color:var(--text-muted);">Showing <strong>${p.start}–${p.end}</strong> of <strong>${p.total}</strong></div>
+          <div style="display:flex; gap:0.35rem;">
+            <button class="pagination-btn" ${!p.hasPrev ? 'disabled' : ''} onclick="(${onPageClick.toString()})(${p.page - 1})">Prev</button>
+            ${btns}
+            <button class="pagination-btn" ${!p.hasNext ? 'disabled' : ''} onclick="(${onPageClick.toString()})(${p.page + 1})">Next</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Modal Triggers & Handlers
+    async function openProposePayoutModal(bikeId) {
       try {
-        await apiRequest(`/api/admin/bikes/${id}/approve`, { method: 'PUT' });
-        showToast('Bike approved successfully', 'success');
-        loadAdminBikes();
+        const res = await apiRequest(`/api/bikes/${bikeId}`);
+        const bike = res.data || res;
+        activeTargetBike = bike;
+        document.getElementById('propose-bike-title').innerText = `${bike.year} ${bike.title}`;
+        document.getElementById('propose-expected-price').innerText = '₹' + Number(bike.requested_price || bike.price).toLocaleString('en-IN');
+        document.getElementById('input-proposed-payout').value = bike.proposed_seller_payout || bike.price;
+        openModal('modal-propose-price');
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    async function confirmProposePayout() {
+      if (!activeTargetBike) return;
+      const payout = parseFloat(document.getElementById('input-proposed-payout').value);
+      const msg = document.getElementById('input-propose-message').value.trim();
+      if (!payout || payout <= 0) {
+        showToast('Please enter a valid payout amount', 'error');
+        return;
+      }
+      try {
+        await apiRequest(`/api/admin/bikes/${activeTargetBike.id}/propose-price`, {
+          method: 'POST',
+          body: { proposed_payout: payout, message: msg }
+        });
+        showToast('Counteroffer proposed to seller successfully', 'success');
+        closeModal('modal-propose-price');
+        loadAdminListings('pending', 1);
+        loadAdminListings('negotiations', 1);
+        loadAdminOverview();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    async function openPublishModal(bikeId) {
+      try {
+        const res = await apiRequest(`/api/bikes/${bikeId}`);
+        const bike = res.data || res;
+        activeTargetBike = bike;
+        const payout = Number(bike.accepted_seller_payout || bike.proposed_seller_payout || bike.price);
+        document.getElementById('publish-bike-title').innerText = `${bike.year} ${bike.title}`;
+        document.getElementById('publish-agreed-payout').innerText = '₹' + payout.toLocaleString('en-IN');
+        document.getElementById('input-public-price').value = bike.public_selling_price || Math.round(payout * 1.1);
+        calculateLiveMargin();
+        openModal('modal-publish-bike');
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function calculateLiveMargin() {
+      if (!activeTargetBike) return;
+      const payout = Number(activeTargetBike.accepted_seller_payout || activeTargetBike.proposed_seller_payout || activeTargetBike.price);
+      const publicPrice = Number(document.getElementById('input-public-price').value) || 0;
+      const margin = publicPrice - payout;
+      const el = document.getElementById('publish-calculated-margin');
+      el.innerText = '₹' + margin.toLocaleString('en-IN');
+      el.style.color = margin >= 0 ? '#10B981' : '#EF4444';
+    }
+
+    async function confirmPublishBike() {
+      if (!activeTargetBike) return;
+      const publicPrice = parseFloat(document.getElementById('input-public-price').value);
+      if (!publicPrice || publicPrice <= 0) {
+        showToast('Please enter a valid public price', 'error');
+        return;
+      }
+      try {
+        const res = await apiRequest(`/api/admin/bikes/${activeTargetBike.id}/publish`, {
+          method: 'POST',
+          body: { public_selling_price: publicPrice }
+        });
+        showToast(res.message || 'Motorcycle published to marketplace!', 'success');
+        closeModal('modal-publish-bike');
+        loadAdminListings('negotiations', 1);
+        loadAdminListings('approved', 1);
+        loadAdminOverview();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    async function openMarkSoldModal(bikeId = null) {
+      if (bikeId) {
+        try {
+          const res = await apiRequest(`/api/bikes/${bikeId}`);
+          activeTargetBike = res.data || res;
+          document.getElementById('sold-bike-title').innerText = `${activeTargetBike.year} ${activeTargetBike.title}`;
+          document.getElementById('input-sold-price').value = activeTargetBike.public_selling_price || activeTargetBike.price;
+          document.getElementById('input-sold-payout').value = activeTargetBike.accepted_seller_payout || activeTargetBike.proposed_seller_payout || activeTargetBike.price;
+        } catch (e) {
+          showToast(e.message, 'error');
+        }
+      } else {
+        activeTargetBike = { id: 1, title: 'Motorcycle' };
+        document.getElementById('sold-bike-title').innerText = 'Select bike from active inventory';
+      }
+      calculateLiveProfit();
+      openModal('modal-mark-sold');
+    }
+
+    function calculateLiveProfit() {
+      const salePrice = Number(document.getElementById('input-sold-price').value) || 0;
+      const payout = Number(document.getElementById('input-sold-payout').value) || 0;
+      const expServ = Number(document.getElementById('input-exp-service').value) || 0;
+      const expRep = Number(document.getElementById('input-exp-repair').value) || 0;
+      const expTrans = Number(document.getElementById('input-exp-transport').value) || 0;
+      const expOther = Number(document.getElementById('input-exp-other').value) || 0;
+
+      const totalExp = expServ + expRep + expTrans + expOther;
+      const profit = salePrice - payout - totalExp;
+
+      const profEl = document.getElementById('sold-calculated-profit');
+      profEl.innerText = '₹' + profit.toLocaleString('en-IN');
+      profEl.style.color = profit >= 0 ? '#10B981' : '#EF4444';
+    }
+
+    async function confirmMarkSold() {
+      if (!activeTargetBike) return;
+      const salePrice = parseFloat(document.getElementById('input-sold-price').value);
+      const payout = parseFloat(document.getElementById('input-sold-payout').value);
+      if (!salePrice || salePrice <= 0) {
+        showToast('Please enter the actual sale price', 'error');
+        return;
+      }
+      const payload = {
+        actual_sale_price: salePrice,
+        seller_payout: payout,
+        service_expense: parseFloat(document.getElementById('input-exp-service').value) || 0,
+        repair_expense: parseFloat(document.getElementById('input-exp-repair').value) || 0,
+        transport_expense: parseFloat(document.getElementById('input-exp-transport').value) || 0,
+        other_expense: parseFloat(document.getElementById('input-exp-other').value) || 0,
+        buyer_name: document.getElementById('input-buyer-name').value.trim(),
+        buyer_phone: document.getElementById('input-buyer-phone').value.trim(),
+        notes: document.getElementById('input-sold-notes').value.trim()
+      };
+
+      try {
+        const res = await apiRequest(`/api/admin/bikes/${activeTargetBike.id}/mark-sold`, {
+          method: 'POST',
+          body: payload
+        });
+        showToast(res.message || 'Vehicle marked as sold and financials archived!', 'success');
+        closeModal('modal-mark-sold');
+        loadAdminListings('approved', 1);
+        loadAdminListings('sold', 1);
+        loadAdminOverview();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    function promptRejectBike(id) {
+      activeTargetBike = { id };
+      openModal('reject-modal');
+    }
+
+    async function confirmRejectBike() {
+      if (!activeTargetBike) return;
+      const reason = document.getElementById('reject-reason-input').value.trim();
+      try {
+        await apiRequest(`/api/admin/bikes/${activeTargetBike.id}/reject`, {
+          method: 'PUT',
+          body: { reason: reason || 'Listing does not meet standards' }
+        });
+        showToast('Listing rejected', 'info');
+        closeModal('reject-modal');
+        loadAdminListings('pending', 1);
         loadAdminOverview();
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
-    function promptRejectBike(id) {
-      targetBikeIdForAction = id;
-      openModal('reject-modal');
-    }
-
-    async function confirmRejectBike() {
-      if (!targetBikeIdForAction) return;
-      const reason = document.getElementById('reject-reason-input').value.trim();
-      try {
-        await apiRequest(`/api/admin/bikes/${targetBikeIdForAction}/reject`, {
-          method: 'PUT',
-          body: { reason: reason || 'Listing does not meet standards' }
-        });
-        showToast('Listing rejected', 'info');
-        closeModal('reject-modal');
-        loadAdminBikes();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
     async function deleteBikeAdmin(id) {
-      if (!confirm('Are you sure you want to delete this vehicle?')) return;
+      if (!confirm('Are you sure you want to permanently delete this vehicle?')) return;
       try {
         await apiRequest(`/api/admin/bikes/${id}`, { method: 'DELETE' });
-        showToast('Bike deleted', 'success');
-        loadAdminBikes();
+        showToast('Vehicle deleted successfully', 'success');
+        loadAdminListings('approved', 1);
+        loadAdminOverview();
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
-    async function loadAdminUsers() {
+    async function promptEditPrice(id, currentPrice) {
+      const newPrice = prompt('Enter new selling price (INR):', currentPrice);
+      if (!newPrice || isNaN(newPrice) || Number(newPrice) <= 0) return;
+      try {
+        await apiRequest(`/api/admin/bikes/${id}/price`, {
+          method: 'PUT',
+          body: { price: Number(newPrice) }
+        });
+        showToast('Price updated successfully', 'success');
+        loadAdminListings('approved', 1);
+        loadAdminOverview();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Export Reports Function
+    function applyQuickDateRange(range) {
+      const startEl = document.getElementById('export-start-date');
+      const endEl = document.getElementById('export-end-date');
+      const today = new Date();
+      const formatDate = (d) => d.toISOString().split('T')[0];
+
+      if (range === 'all') {
+        startEl.value = '';
+        endEl.value = '';
+      } else if (range === 'today') {
+        startEl.value = formatDate(today);
+        endEl.value = formatDate(today);
+      } else if (range === 'yesterday') {
+        const yest = new Date(today);
+        yest.setDate(today.getDate() - 1);
+        startEl.value = formatDate(yest);
+        endEl.value = formatDate(yest);
+      } else if (range === 'this_week') {
+        const firstDay = new Date(today);
+        firstDay.setDate(today.getDate() - today.getDay());
+        startEl.value = formatDate(firstDay);
+        endEl.value = formatDate(today);
+      } else if (range === 'this_month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        startEl.value = formatDate(firstDay);
+        endEl.value = formatDate(today);
+      } else if (range === 'last_month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
+        startEl.value = formatDate(firstDay);
+        endEl.value = formatDate(lastDay);
+      } else if (range === 'this_year') {
+        const firstDay = new Date(today.getFullYear(), 0, 1);
+        startEl.value = formatDate(firstDay);
+        endEl.value = formatDate(today);
+      }
+    }
+
+    function downloadReport(reportType, format) {
+      const startDate = document.getElementById('export-start-date').value;
+      const endDate = document.getElementById('export-end-date').value;
+      const statusFilter = document.getElementById('export-status-filter').value;
+
+      const params = new URLSearchParams({ format });
+      if (startDate) params.set('start_date', startDate);
+      if (endDate) params.set('end_date', endDate);
+      if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter);
+
+      const endpoint = reportType === 'sold' 
+        ? `/api/admin/export/sold?${params.toString()}` 
+        : `/api/admin/export/bikes?${params.toString()}`;
+
+      showToast(`Generating ${format.toUpperCase()} export...`, 'info');
+      window.location.href = endpoint;
+    }
+
+    // Notifications Handling
+    let notifsOpen = false;
+    function toggleNotifDropdown() {
+      notifsOpen = !notifsOpen;
+      const dd = document.getElementById('topbar-notif-dropdown');
+      if (dd) dd.classList.toggle('show', notifsOpen);
+      if (notifsOpen) loadAdminNotifications();
+    }
+
+    async function loadAdminNotifications() {
+      try {
+        const res = await apiRequest('/api/notifications?role=admin');
+        const notifs = res.notifications || [];
+        const unreadCount = res.unread_count || 0;
+
+        const badge = document.getElementById('topbar-notif-badge');
+        if (badge) {
+          badge.innerText = unreadCount;
+          badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+        }
+
+        const list = document.getElementById('topbar-notif-list');
+        if (!list) return;
+
+        if (notifs.length === 0) {
+          list.innerHTML = `<div style="padding: 1.5rem; text-align: center; color: var(--text-muted); font-size: 0.85rem;">No notifications right now.</div>`;
+          return;
+        }
+
+        list.innerHTML = notifs.map(n => `
+          <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="handleNotifClick(${n.id}, '${n.link || ''}')">
+            <i class="fas fa-info-circle" style="color:var(--accent-primary); margin-top:0.25rem;"></i>
+            <div style="flex:1;">
+              <div style="font-weight: 600; font-size: 0.85rem; color: #FFF;">${n.title}</div>
+              <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 0.15rem;">${n.message}</div>
+              <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 0.25rem;">${new Date(n.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.warn('Notifications error:', e);
+      }
+    }
+
+    async function handleNotifClick(notifId, link) {
+      try {
+        await apiRequest(`/api/notifications/${notifId}/read`, { method: 'PUT' });
+      } catch (e) {}
+      if (link) {
+        if (link.includes('tab=')) {
+          const tab = link.split('tab=')[1];
+          const navItem = document.querySelector(`.admin-nav-item[onclick*="${tab}"]`);
+          switchAdminTab(`tab-${tab}`, navItem);
+        } else {
+          window.location.href = link;
+        }
+      }
+      toggleNotifDropdown();
+    }
+
+    async function markAllNotificationsReadAction() {
+      try {
+        await apiRequest('/api/notifications/read-all', { method: 'PUT' });
+        showToast('All notifications marked as read', 'success');
+        loadAdminNotifications();
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
+
+    // Users, Enquiries & Messages Loaders
+    async function loadAdminUsers(page = 1) {
       const tbody = document.getElementById('admin-users-table-body');
       try {
         const res = await apiRequest('/api/admin/users');
@@ -473,7 +1310,7 @@
       }
     }
 
-    async function loadAdminEnquiries() {
+    async function loadAdminEnquiries(page = 1) {
       const tbody = document.getElementById('admin-enquiries-table-body');
       try {
         const res = await apiRequest('/api/enquiries');
@@ -481,12 +1318,12 @@
         tbody.innerHTML = enquiries.map(e => `
           <tr>
             <td><strong>${e.name}</strong></td>
-            <td>${e.phone}<br><small>${e.email}</small></td>
-            <td>${e.bike_title || 'General'}</td>
+            <td>${e.phone}<br><small style="color:var(--text-muted);">${e.email}</small></td>
+            <td>${e.bike_title || 'General Motorcycle'}</td>
             <td>${e.message}</td>
             <td><span class="badge badge-${e.status==='completed'?'approved':'pending'}">${e.status}</span></td>
             <td>
-              <button onclick="updateEnquiryStatusAction(${e.id}, 'completed')" class="btn btn-sm btn-success"><i class="fas fa-check"></i></button>
+              <button onclick="updateEnquiryStatusAction(${e.id}, 'completed')" class="btn btn-sm btn-success" title="Mark Done"><i class="fas fa-check"></i></button>
             </td>
           </tr>
         `).join('') || `<tr><td colspan="6" style="text-align:center;">No enquiries found.</td></tr>`;
@@ -499,13 +1336,13 @@
       try {
         await apiRequest(`/api/enquiries/${id}/status`, { method: 'PUT', body: { status } });
         showToast('Enquiry updated', 'success');
-        loadAdminEnquiries();
+        loadAdminEnquiries(1);
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
-    async function loadAdminMessages() {
+    async function loadAdminMessages(page = 1) {
       const tbody = document.getElementById('admin-messages-table-body');
       try {
         const res = await apiRequest('/api/admin/messages');
@@ -513,10 +1350,10 @@
         tbody.innerHTML = msgs.map(m => `
           <tr>
             <td><strong>${m.name}</strong></td>
-            <td>${m.email}<br><small>${m.phone || ''}</small></td>
+            <td>${m.email}<br><small style="color:var(--text-muted);">${m.phone || ''}</small></td>
             <td>${m.message}</td>
             <td>${new Date(m.created_at).toLocaleString()}</td>
-            <td><button onclick="deleteContactMsg(${m.id})" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></td>
+            <td><button onclick="deleteContactMsg(${m.id})" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button></td>
           </tr>
         `).join('') || `<tr><td colspan="5" style="text-align:center;">No contact messages.</td></tr>`;
       } catch (err) {
@@ -528,34 +1365,27 @@
       try {
         await apiRequest(`/api/admin/messages/${id}`, { method: 'DELETE' });
         showToast('Message deleted', 'info');
-        loadAdminMessages();
+        loadAdminMessages(1);
       } catch (err) {
         showToast(err.message, 'error');
       }
     }
 
-    async function loadAdminAuditLogs() {
-      const tbody = document.getElementById('admin-audit-table-body');
-      try {
-        const res = await apiRequest('/api/admin/audit-logs');
-        const logs = res.data || [];
-        tbody.innerHTML = logs.map(l => `
-          <tr>
-            <td>${new Date(l.created_at).toLocaleString()}</td>
-            <td><strong>${l.admin_username}</strong></td>
-            <td><span class="badge badge-featured">${l.action}</span></td>
-            <td>${l.target_type} #${l.target_id || ''}</td>
-            <td>${l.details || '-'}</td>
-          </tr>
-        `).join('') || `<tr><td colspan="5" style="text-align:center;">No audit logs.</td></tr>`;
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
+    // Click outside to close notification dropdown
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.notif-bell-wrap')) {
+        notifsOpen = false;
+        const dd = document.getElementById('topbar-notif-dropdown');
+        if (dd) dd.classList.remove('show');
       }
-    }
+    });
 
     document.addEventListener('DOMContentLoaded', () => {
       const admin = checkAdminAuth();
-      if (admin) loadAdminOverview();
+      if (admin) {
+        loadAdminOverview();
+        loadAdminNotifications();
+      }
     });
   </script>
 </body>

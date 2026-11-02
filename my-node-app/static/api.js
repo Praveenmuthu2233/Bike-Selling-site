@@ -83,7 +83,9 @@ async function apiRequest(endpoint, options = {}) {
         if (isAdminRequest) {
           localStorage.removeItem('adminToken');
           sessionStorage.removeItem('adminToken');
-          window.location.href = '/admin/login.html';
+          if (!window.location.pathname.includes('login')) {
+            window.location.href = '/admin/login.html';
+          }
         }
       }
       throw new Error(data.message || `Request failed with status ${response.status}`);

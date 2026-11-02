@@ -1,6 +1,9 @@
 import os
 import sys
 import json
+import math
+import csv
+import io
 import datetime
 import tempfile
 from functools import wraps
@@ -96,7 +99,7 @@ dbconfig = {
     "user": DB_USER,
     "password": DB_PASSWORD,
     "database": DB_NAME,
-    "connection_timeout": 6
+    "connection_timeout": 12
 }
 
 is_ssl = os.getenv("DB_SSL", "true").lower() in ("true", "1") or "tidbcloud.com" in DB_HOST.lower()
@@ -138,6 +141,10 @@ IN_MEMORY_STORE = {
             "seller_phone": "+91 98765 43210",
             "mobileNum": "9876543210",
             "status": "approved",
+            "listing_status": "published",
+            "negotiation_status": "completed",
+            "requested_price": 145000,
+            "public_selling_price": 145000,
             "isAccepted": 1,
             "isSoldout": 0,
             "featured": 1,
@@ -167,6 +174,10 @@ IN_MEMORY_STORE = {
             "seller_phone": "+91 98765 43210",
             "mobileNum": "9876543210",
             "status": "approved",
+            "listing_status": "published",
+            "negotiation_status": "completed",
+            "requested_price": 132000,
+            "public_selling_price": 132000,
             "isAccepted": 1,
             "isSoldout": 0,
             "featured": 1,
@@ -196,6 +207,10 @@ IN_MEMORY_STORE = {
             "seller_phone": "+91 98765 43210",
             "mobileNum": "9876543210",
             "status": "approved",
+            "listing_status": "published",
+            "negotiation_status": "completed",
+            "requested_price": 168000,
+            "public_selling_price": 168000,
             "isAccepted": 1,
             "isSoldout": 0,
             "featured": 0,
@@ -225,6 +240,10 @@ IN_MEMORY_STORE = {
             "seller_phone": "+91 98765 43210",
             "mobileNum": "9876543210",
             "status": "approved",
+            "listing_status": "published",
+            "negotiation_status": "completed",
+            "requested_price": 105000,
+            "public_selling_price": 105000,
             "isAccepted": 1,
             "isSoldout": 0,
             "featured": 0,
@@ -252,8 +271,107 @@ IN_MEMORY_STORE = {
     ],
     "favorites": [],
     "contact_messages": [],
-    "audit_logs": []
+    "audit_logs": [],
+    "price_negotiations": [
+        {
+            "id": 1,
+            "bike_id": 4,
+            "seller_id": 1,
+            "admin_id": 1,
+            "requested_price": 115000.0,
+            "proposed_payout": 92000.0,
+            "counteroffer_number": 1,
+            "status": "accepted",
+            "message": "Fair market valuation based on vehicle age and inspection.",
+            "seller_response_note": "Accepted by seller",
+            "created_at": "2025-01-23T11:00:00Z"
+        }
+    ],
+    "bike_transactions": [
+        {
+            "id": 1,
+            "bike_id": 4,
+            "bike_title": "Bajaj Pulsar NS200 Pewter Grey",
+            "seller_id": 1,
+            "admin_id": 1,
+            "seller_name": "SMR Motors",
+            "seller_phone": "+91 98765 43210",
+            "seller_payout": 92000.0,
+            "actual_sale_price": 105000.0,
+            "service_expense": 2500.0,
+            "repair_expense": 1200.0,
+            "transport_expense": 800.0,
+            "other_expense": 500.0,
+            "total_expenses": 5000.0,
+            "realized_profit": 8000.0,
+            "sold_at": "2025-01-26T14:30:00Z",
+            "notes": "Full fluid service, brake pads replacement, delivered to buyer with RC transfer.",
+            "buyer_name": "Arun Kumar",
+            "buyer_phone": "+91 94433 22110",
+            "created_at": "2025-01-26T14:30:00Z"
+        }
+    ],
+    "notifications": [
+        {
+            "id": 1,
+            "user_id": 1,
+            "target_role": "user",
+            "title": "Welcome to SMR Motors",
+            "message": "Explore certified pre-owned motorcycles or list your bike for transparent valuation.",
+            "type": "welcome",
+            "link": "/index.html",
+            "is_read": 0,
+            "created_at": "2025-01-20T10:00:00Z"
+        },
+        {
+            "id": 2,
+            "user_id": None,
+            "target_role": "admin",
+            "title": "New Listing Submitted",
+            "message": "A new motorcycle listing is pending review and price proposal.",
+            "type": "listing",
+            "link": "/admin.html?tab=pending",
+            "is_read": 0,
+            "created_at": "2025-01-25T11:00:00Z"
+        }
+    ]
 }
+
+def create_notification(title, message, user_id=None, target_role="user", notif_type="info", link=None):
+    """
+    Persists notification to TiDB Cloud and In-Memory store.
+    """
+    new_notif = {
+        "id": len(IN_MEMORY_STORE["notifications"]) + 1,
+        "user_id": user_id,
+        "target_role": target_role,
+        "title": title,
+        "message": message,
+        "type": notif_type,
+        "link": link or "",
+        "is_read": 0,
+        "created_at": datetime.datetime.utcnow().isoformat()
+    }
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO notifications (user_id, target_role, title, message, type, link, is_read)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (user_id, target_role, title, message, notif_type, link or "", 0)
+            )
+            conn.commit()
+            new_notif["id"] = cursor.lastrowid
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    IN_MEMORY_STORE["notifications"].insert(0, new_notif)
+    return new_notif
+
 
 def get_db():
     """
@@ -376,13 +494,104 @@ def initialize_database():
           `seller_name` VARCHAR(100) NULL,
           `seller_phone` VARCHAR(30) NULL,
           `status` VARCHAR(30) NOT NULL DEFAULT 'pending',
+          `requested_price` DECIMAL(12,2) NULL,
+          `proposed_seller_payout` DECIMAL(12,2) NULL,
+          `accepted_seller_payout` DECIMAL(12,2) NULL,
+          `public_selling_price` DECIMAL(12,2) NULL,
+          `listing_status` VARCHAR(40) NOT NULL DEFAULT 'pending',
+          `negotiation_status` VARCHAR(40) NOT NULL DEFAULT 'pending',
+          `seller_agreement_at` TIMESTAMP NULL,
+          `published_at` TIMESTAMP NULL,
+          `sold_at` TIMESTAMP NULL,
           `rejection_reason` TEXT NULL,
           `featured` TINYINT(1) NOT NULL DEFAULT 0,
           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX `idx_bikes_brand` (`brand`),
           INDEX `idx_bikes_status` (`status`),
+          INDEX `idx_bikes_listing_status` (`listing_status`),
           INDEX `idx_bikes_price` (`price`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # Add any missing columns to existing bikes table
+        for col_name, col_def in [
+            ("requested_price", "DECIMAL(12,2) NULL"),
+            ("proposed_seller_payout", "DECIMAL(12,2) NULL"),
+            ("accepted_seller_payout", "DECIMAL(12,2) NULL"),
+            ("public_selling_price", "DECIMAL(12,2) NULL"),
+            ("listing_status", "VARCHAR(40) DEFAULT 'pending'"),
+            ("negotiation_status", "VARCHAR(40) DEFAULT 'pending'"),
+            ("published_at", "TIMESTAMP NULL"),
+            ("sold_at", "TIMESTAMP NULL"),
+            ("seller_agreement_at", "TIMESTAMP NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `bikes` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # 4b. price_negotiations table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `price_negotiations` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL,
+          `seller_id` INT NULL,
+          `admin_id` INT NULL,
+          `requested_price` DECIMAL(12,2) NULL,
+          `proposed_payout` DECIMAL(12,2) NOT NULL,
+          `counteroffer_number` INT NOT NULL DEFAULT 1,
+          `status` VARCHAR(30) NOT NULL DEFAULT 'pending',
+          `message` TEXT NULL,
+          `seller_response_note` TEXT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          `responded_at` TIMESTAMP NULL,
+          INDEX `idx_pneg_bike` (`bike_id`),
+          INDEX `idx_pneg_seller` (`seller_id`),
+          INDEX `idx_pneg_status` (`status`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # 4c. bike_transactions table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `bike_transactions` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL,
+          `seller_id` INT NULL,
+          `admin_id` INT NULL,
+          `seller_payout` DECIMAL(12,2) NOT NULL,
+          `actual_sale_price` DECIMAL(12,2) NOT NULL,
+          `service_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `repair_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `transport_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `other_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `realized_profit` DECIMAL(12,2) NOT NULL,
+          `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          `notes` TEXT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_tx_bike` (`bike_id`),
+          INDEX `idx_tx_seller` (`seller_id`),
+          INDEX `idx_tx_sold_at` (`sold_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # 4d. notifications table
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `notifications` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `user_id` INT NULL,
+          `target_role` VARCHAR(20) NOT NULL DEFAULT 'user',
+          `title` VARCHAR(200) NOT NULL,
+          `message` TEXT NOT NULL,
+          `type` VARCHAR(50) NOT NULL DEFAULT 'info',
+          `link` VARCHAR(255) NULL,
+          `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_notif_user` (`user_id`),
+          INDEX `idx_notif_role` (`target_role`),
+          INDEX `idx_notif_read` (`is_read`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
@@ -645,7 +854,7 @@ def admin_page():
 @app.route("/admin/login")
 @app.route("/admin/login.html")
 def admin_login_page():
-    return render_template("admin.html")
+    return render_template("adminLogin.html")
 
 @app.route("/sell")
 @app.route("/sell-bike.html")
@@ -694,60 +903,232 @@ def contact_page():
 # REST API ENDPOINTS
 # -----------------------------------------------------------------------------
 
-# Bikes API (supports /api/bikes and legacy /bikes)
+def _normalize_bike(r, is_admin=False):
+    """
+    Normalizes bike record keys across legacy and modern schema.
+    Sanitizes internal seller payout and business margin for public callers.
+    """
+    item = dict(r)
+    if isinstance(item.get("images"), str):
+        try:
+            item["images"] = json.loads(item["images"])
+        except Exception:
+            item["images"] = [item["images"]]
+    if not item.get("images"):
+        item["images"] = ["/static/images/IMG-20251204-WA0053.jpg"]
+    item["listingTitle"] = item.get("title")
+    item["makedFrom"] = item.get("brand")
+    item["bikeModel"] = item.get("model")
+    item["bikeBuyingYear"] = str(item.get("year", 2022))
+    item["sellingPrice"] = str(item.get("price", 100000))
+    item["bikePrice"] = str(item.get("price", 100000))
+    item["bikeKms"] = str(item.get("kilometers_driven", 0))
+    item["sellerName"] = item.get("seller_name") or "SMR Motors"
+    item["mobileNum"] = item.get("seller_phone") or "9876543210"
+    st = item.get("listing_status") or item.get("status") or "pending"
+    item["isAccepted"] = 1 if st in ("approved", "published") else 0
+    item["isSoldout"] = 1 if (st == "soldout" or item.get("isSoldout") == 1) else 0
+    if not is_admin:
+        item.pop("accepted_seller_payout", None)
+        item.pop("proposed_seller_payout", None)
+        item.pop("business_margin", None)
+    return item
+
+# Bikes API (supports server-side pagination, multi-criteria filtering, and public privacy)
 @app.route("/api/bikes", methods=["GET"])
 @app.route("/bikes", methods=["GET"])
 def get_bikes_api():
     status = request.args.get("status")
+    brand = request.args.get("brand")
+    min_price = request.args.get("min_price")
+    max_price = request.args.get("max_price")
+    year = request.args.get("year")
+    search = request.args.get("search", "").strip().lower()
+    sort_by = request.args.get("sort", "newest")
+
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+
+    try:
+        limit = max(1, int(request.args.get("limit", 9)))
+    except (ValueError, TypeError):
+        limit = 9
+
+    all_bikes = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            if status == "soldout":
-                cursor.execute("SELECT * FROM bikes WHERE status = 'soldout' OR featured = -1 ORDER BY id DESC")
-            elif status:
-                cursor.execute("SELECT * FROM bikes WHERE status = %s ORDER BY id DESC", (status,))
-            else:
-                cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            rows = cursor.fetchall()
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            all_bikes = cursor.fetchall()
             cursor.close()
             conn.close()
-            if rows:
-                for r in rows:
-                    if isinstance(r.get("images"), str):
-                        try:
-                            r["images"] = json.loads(r["images"])
-                        except Exception:
-                            r["images"] = [r["images"]]
-                    if not r.get("images"):
-                        r["images"] = ["/static/images/IMG-20251204-WA0053.jpg"]
-                    r["listingTitle"] = r.get("title")
-                    r["makedFrom"] = r.get("brand")
-                    r["bikeModel"] = r.get("model")
-                    r["bikeBuyingYear"] = str(r.get("year", 2022))
-                    r["sellingPrice"] = str(r.get("price", 100000))
-                    r["bikePrice"] = str(r.get("price", 100000))
-                    r["bikeKms"] = str(r.get("kilometers_driven", 0))
-                    r["sellerName"] = r.get("seller_name") or "SMR Motors"
-                    r["mobileNum"] = r.get("seller_phone") or "9876543210"
-                    r["isAccepted"] = 1 if r.get("status") == "approved" else 0
-                    r["isSoldout"] = 1 if r.get("status") == "soldout" else 0
-                return jsonify({"success": True, "data": rows, "bikes": rows, "total": len(rows)})
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
 
-    # In-memory fallback
-    bikes = IN_MEMORY_STORE["bikes"]
-    if status == "soldout":
-        res = [b for b in bikes if b.get("status") == "soldout" or b.get("isSoldout") == 1]
-    elif status:
-        res = [b for b in bikes if b.get("status") == status]
-    else:
-        res = bikes
+    if not all_bikes:
+        all_bikes = list(IN_MEMORY_STORE["bikes"])
 
-    return jsonify({"success": True, "data": res, "bikes": res, "total": len(res)})
+    auth_header = request.headers.get("Authorization", "")
+    is_admin = False
+    if auth_header and "Bearer" in auth_header:
+        try:
+            import jwt
+            token = auth_header.split()[1]
+            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            if decoded.get("role") in ("admin", "superadmin"):
+                is_admin = True
+        except Exception:
+            pass
+
+    normalized = [_normalize_bike(b, is_admin=is_admin) for b in all_bikes]
+
+    filtered = []
+    for b in normalized:
+        b_status = (b.get("listing_status") or b.get("status") or "pending").lower()
+        is_sold = b.get("isSoldout") == 1 or b_status == "soldout"
+
+        if status == "soldout":
+            if not is_sold:
+                continue
+        elif status in ("all", "admin_all"):
+            pass
+        elif status:
+            if b_status != status.lower():
+                continue
+        else:
+            # Public Marketplace rule: ONLY published / approved AND not sold out
+            if b_status not in ("published", "approved") or is_sold:
+                continue
+
+        if brand and brand.lower() != "all" and b.get("brand", "").lower() != brand.lower():
+            continue
+
+        try:
+            b_price = float(b.get("price", 0))
+            if min_price and b_price < float(min_price):
+                continue
+            if max_price and b_price > float(max_price):
+                continue
+        except (ValueError, TypeError):
+            pass
+
+        if year and str(b.get("year", "")) != str(year):
+            continue
+
+        if search:
+            match_txt = f"{b.get('title', '')} {b.get('brand', '')} {b.get('model', '')} {b.get('description', '')}".lower()
+            if search not in match_txt:
+                continue
+
+        filtered.append(b)
+
+    if sort_by == "price_asc":
+        filtered.sort(key=lambda x: float(x.get("price", 0)))
+    elif sort_by == "price_desc":
+        filtered.sort(key=lambda x: float(x.get("price", 0)), reverse=True)
+    elif sort_by == "year_desc":
+        filtered.sort(key=lambda x: int(x.get("year", 0)), reverse=True)
+    elif sort_by == "kms_asc":
+        filtered.sort(key=lambda x: int(x.get("kilometers_driven", 0)))
+    else:
+        filtered.sort(key=lambda x: x.get("id", 0), reverse=True)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    pagination = {
+        "total": total,
+        "page": page,
+        "limit": limit,
+        "totalPages": total_pages,
+        "hasNext": page < total_pages,
+        "hasPrev": page > 1,
+        "start": start_idx + 1 if total > 0 else 0,
+        "end": end_idx
+    }
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "bikes": page_data,
+        "pagination": pagination,
+        "total": total
+    })
+
+@app.route("/api/bikes/sold", methods=["GET"])
+def get_sold_bikes_api():
+    """
+    Public Sold Gallery Endpoint.
+    Strictly sanitizes private financials (no seller payout, expenses, or margin).
+    Supports server-side pagination.
+    """
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 9)))
+    except (ValueError, TypeError):
+        limit = 9
+
+    all_bikes = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE status = 'soldout' OR listing_status = 'soldout' ORDER BY id DESC")
+            all_bikes = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not all_bikes:
+        all_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("status") == "soldout" or b.get("isSoldout") == 1 or b.get("listing_status") == "soldout"]
+
+    sanitized = []
+    for b in all_bikes:
+        item = _normalize_bike(b, is_admin=False)
+        item["status"] = "soldout"
+        item["isSoldout"] = 1
+        item.pop("accepted_seller_payout", None)
+        item.pop("proposed_seller_payout", None)
+        item.pop("business_margin", None)
+        sanitized.append(item)
+
+    total = len(sanitized)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = sanitized[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "bikes": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        },
+        "total": total
+    })
+
 
 @app.route("/api/bikes/<int:bike_id>", methods=["GET"])
 @app.route("/bikes/<int:bike_id>", methods=["GET"])
@@ -820,6 +1201,8 @@ def add_bike_api():
     sname = data.get("seller_name") or data.get("sellerName") or "User"
     sphone = data.get("seller_phone") or data.get("mobileNum") or ""
     status = data.get("status", "pending")
+    listing_status = "pending"
+    negotiation_status = "pending"
 
     # Persist to TiDB Cloud
     conn = get_db()
@@ -827,9 +1210,9 @@ def add_bike_api():
         try:
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO bikes (title, brand, model, year, price, kilometers_driven, fuel_type, transmission, description, images, seller_name, seller_phone, status)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (title, brand, model, year, price, kms, fuel, trans, desc, json.dumps(images), sname, sphone, status)
+                """INSERT INTO bikes (title, brand, model, year, price, requested_price, kilometers_driven, fuel_type, transmission, description, images, seller_name, seller_phone, status, listing_status, negotiation_status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (title, brand, model, year, price, price, kms, fuel, trans, desc, json.dumps(images), sname, sphone, status, listing_status, negotiation_status)
             )
             cursor.execute(
                 """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
@@ -856,6 +1239,10 @@ def add_bike_api():
         "year": year,
         "bikeBuyingYear": str(year),
         "price": price,
+        "requested_price": price,
+        "proposed_seller_payout": None,
+        "accepted_seller_payout": None,
+        "public_selling_price": None,
         "sellingPrice": str(price),
         "bikePrice": str(price),
         "kilometers_driven": kms,
@@ -869,11 +1256,19 @@ def add_bike_api():
         "seller_phone": sphone,
         "mobileNum": sphone,
         "status": status,
+        "listing_status": listing_status,
+        "negotiation_status": negotiation_status,
         "isAccepted": 1 if status == "approved" else 0,
         "isSoldout": 0,
         "created_at": datetime.datetime.utcnow().isoformat()
     }
     IN_MEMORY_STORE["bikes"].append(new_bike)
+    create_notification(
+        f"New Listing: {title}",
+        f"{sname} submitted {title} ({year}) expecting ₹{price:,.0f}. Awaiting inspection & counteroffer.",
+        target_role="admin",
+        link="/admin.html?tab=pending"
+    )
     return jsonify({"success": True, "message": "Bike listed successfully", "id": new_id, "data": new_bike}), 201
 
 # Categories
@@ -1415,24 +1810,797 @@ def admin_dashboard_api():
     bikes = IN_MEMORY_STORE["bikes"]
     users = IN_MEMORY_STORE["users"]
     enquiries = IN_MEMORY_STORE["enquiries"]
+    txs = IN_MEMORY_STORE["bike_transactions"]
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            db_bikes = cursor.fetchall()
+            if db_bikes: bikes = db_bikes
+            cursor.execute("SELECT * FROM users ORDER BY id DESC")
+            db_users = cursor.fetchall()
+            if db_users: users = db_users
+            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
+            db_enq = cursor.fetchall()
+            if db_enq: enquiries = db_enq
+            cursor.execute("SELECT * FROM bike_transactions ORDER BY id DESC")
+            db_txs = cursor.fetchall()
+            if db_txs: txs = db_txs
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+    # Financial sums
+    tot_sold = len(txs)
+    tot_revenue = sum(float(t.get("actual_sale_price") or 0) for t in txs)
+    tot_payouts = sum(float(t.get("seller_payout") or 0) for t in txs)
+    tot_expenses = sum(float(t.get("total_expenses") or 0) for t in txs)
+    tot_profit = sum(float(t.get("realized_profit") or 0) for t in txs)
+
+    # Monthly Trends
+    import collections
+    monthly_data = collections.defaultdict(lambda: {"revenue": 0.0, "payout": 0.0, "expenses": 0.0, "profit": 0.0, "count": 0})
+    for t in txs:
+        dt_str = str(t.get("sold_at") or t.get("created_at") or "")
+        key = dt_str[:7] if len(dt_str) >= 7 else "2025-01"
+        monthly_data[key]["revenue"] += float(t.get("actual_sale_price") or 0)
+        monthly_data[key]["payout"] += float(t.get("seller_payout") or 0)
+        monthly_data[key]["expenses"] += float(t.get("total_expenses") or 0)
+        monthly_data[key]["profit"] += float(t.get("realized_profit") or 0)
+        monthly_data[key]["count"] += 1
+
+    sorted_trends = []
+    for k in sorted(monthly_data.keys()):
+        sorted_trends.append({
+            "month": k,
+            **monthly_data[k]
+        })
+    if not sorted_trends:
+        sorted_trends = [
+            {"month": "2025-01", "revenue": 105000.0, "payout": 92000.0, "expenses": 5000.0, "profit": 8000.0, "count": 1}
+        ]
+
+    counts = {
+        "total_bikes": len(bikes),
+        "pending_bikes": len([b for b in bikes if (b.get("listing_status") == "pending" or b.get("status") == "pending") and not b.get("isSoldout")]),
+        "negotiating_bikes": len([b for b in bikes if b.get("listing_status") in ("price_offered", "seller_accepted", "seller_rejected")]),
+        "approved_bikes": len([b for b in bikes if (b.get("listing_status") == "published" or b.get("status") == "approved") and not b.get("isSoldout")]),
+        "sold_bikes": len([b for b in bikes if b.get("listing_status") == "soldout" or b.get("status") == "soldout" or b.get("isSoldout") == 1]) or tot_sold,
+        "total_users": len(users),
+        "total_enquiries": len(enquiries),
+        "total_sold_count": tot_sold,
+        "total_revenue": tot_revenue,
+        "total_seller_payout": tot_payouts,
+        "total_expenses": tot_expenses,
+        "total_realized_profit": tot_profit
+    }
+
     return jsonify({
         "success": True,
         "data": {
-            "counts": {
-                "total_bikes": len(bikes),
-                "pending_bikes": len([b for b in bikes if b.get("status") == "pending"]),
-                "approved_bikes": len([b for b in bikes if b.get("status") == "approved"]),
-                "total_users": len(users),
-                "total_enquiries": len(enquiries)
+            "counts": counts,
+            "financials": {
+                "total_sold": tot_sold,
+                "total_revenue": tot_revenue,
+                "total_payouts": tot_payouts,
+                "total_expenses": tot_expenses,
+                "total_profit": tot_profit,
+                "monthly_trends": sorted_trends
             },
-            "recentUsers": users,
-            "pendingApprovals": [b for b in bikes if b.get("status") == "pending"]
+            "recentUsers": users[:10],
+            "pendingApprovals": [b for b in bikes if b.get("listing_status") == "pending" or (b.get("status") == "pending" and not b.get("listing_status"))],
+            "recentTransactions": txs[:10]
+        }
+    })
+
+@app.route("/api/admin/listings", methods=["GET"])
+def admin_listings_paginated():
+    tab = request.args.get("tab", "pending")
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    bikes = IN_MEMORY_STORE["bikes"]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            db_bikes = cursor.fetchall()
+            if db_bikes: bikes = db_bikes
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+    normalized = [_normalize_bike(b, is_admin=True) for b in bikes]
+    filtered = []
+    for b in normalized:
+        st = (b.get("listing_status") or b.get("status") or "pending").lower()
+        sold = b.get("isSoldout") == 1 or st == "soldout"
+        if tab == "pending":
+            if st == "pending" and not sold:
+                filtered.append(b)
+        elif tab == "negotiations":
+            if st in ("price_offered", "seller_accepted", "seller_rejected") and not sold:
+                filtered.append(b)
+        elif tab in ("approved", "published"):
+            if st in ("published", "approved") and not sold:
+                filtered.append(b)
+        elif tab in ("sold", "soldout"):
+            if sold:
+                filtered.append(b)
+        else:
+            filtered.append(b)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "tab": tab,
+        "data": page_data,
+        "bikes": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
         }
     })
 
 @app.route("/api/admin/bikes", methods=["GET"])
 def admin_bikes_api():
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["bikes"]})
+    bikes = [_normalize_bike(b, is_admin=True) for b in IN_MEMORY_STORE["bikes"]]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                bikes = [_normalize_bike(b, is_admin=True) for b in rows]
+        except Exception:
+            pass
+    return jsonify({"success": True, "data": bikes, "bikes": bikes})
+
+@app.route("/api/admin/bikes/<int:bike_id>/propose-price", methods=["POST"])
+def admin_propose_price(bike_id):
+    """
+    Step 2: Admin inputs proposed seller payout counteroffer.
+    Listing transitions to price_offered (awaiting seller response).
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    proposed_payout = float(data.get("proposed_payout") or data.get("proposed_seller_payout") or data.get("price") or 0)
+    message = data.get("message", "SMR Motors fair market counteroffer based on vehicle inspection.")
+
+    if proposed_payout <= 0:
+        return jsonify({"success": False, "message": "Proposed payout must be greater than 0"}), 400
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+            bike = cursor.fetchone()
+            if bike:
+                req_price = bike.get("requested_price") or bike.get("price")
+                cursor.execute(
+                    """UPDATE bikes SET 
+                       proposed_seller_payout = %s,
+                       listing_status = 'price_offered',
+                       negotiation_status = 'awaiting_seller_response'
+                       WHERE id = %s""",
+                    (proposed_payout, bike_id)
+                )
+                cursor.execute(
+                    """INSERT INTO price_negotiations 
+                       (bike_id, seller_id, requested_price, proposed_payout, status, message)
+                       VALUES (%s, %s, %s, %s, %s, %s)""",
+                    (bike_id, bike.get("seller_id"), req_price, proposed_payout, "pending", message)
+                )
+                conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print("[Database] Propose price notice:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    for b in IN_MEMORY_STORE["bikes"]:
+        if b["id"] == bike_id:
+            b["proposed_seller_payout"] = proposed_payout
+            b["listing_status"] = "price_offered"
+            b["negotiation_status"] = "awaiting_seller_response"
+            create_notification(
+                f"Payout Proposal for {b.get('title')}",
+                f"SMR Motors has proposed a seller payout of ₹{proposed_payout:,.0f} for your listing.",
+                user_id=b.get("seller_id", 1),
+                target_role="user",
+                link="/profile.html?tab=negotiations"
+            )
+            return jsonify({
+                "success": True,
+                "message": f"Counteroffer of ₹{proposed_payout:,.0f} proposed to seller",
+                "proposed_seller_payout": proposed_payout,
+                "listing_status": "price_offered"
+            })
+
+    return jsonify({"success": True, "message": "Price proposal recorded", "proposed_seller_payout": proposed_payout})
+
+@app.route("/api/users/bikes/<int:bike_id>/negotiate", methods=["POST"])
+def user_respond_negotiation(bike_id):
+    """
+    Step 3: User accepts or rejects admin's proposed payout.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    action = (data.get("action") or "").lower().strip()
+    message = data.get("message") or data.get("seller_response_note") or ""
+
+    if action not in ("accept", "reject"):
+        return jsonify({"success": False, "message": "Invalid action. Must be 'accept' or 'reject'"}), 400
+
+    now_ts = datetime.datetime.utcnow().isoformat()
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+            bike = cursor.fetchone()
+            if bike:
+                payout = bike.get("proposed_seller_payout") or bike.get("price") or 0
+                if action == "accept":
+                    cursor.execute(
+                        """UPDATE bikes SET 
+                           accepted_seller_payout = %s,
+                           listing_status = 'seller_accepted',
+                           negotiation_status = 'accepted',
+                           seller_agreement_at = CURRENT_TIMESTAMP
+                           WHERE id = %s""",
+                        (payout, bike_id)
+                    )
+                    cursor.execute(
+                        """UPDATE price_negotiations SET status = 'accepted', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
+                           WHERE bike_id = %s ORDER BY id DESC LIMIT 1""",
+                        (message, bike_id)
+                    )
+                else:
+                    cursor.execute(
+                        """UPDATE bikes SET 
+                           listing_status = 'seller_rejected',
+                           negotiation_status = 'rejected'
+                           WHERE id = %s""",
+                        (bike_id,)
+                    )
+                    cursor.execute(
+                        """UPDATE price_negotiations SET status = 'rejected', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
+                           WHERE bike_id = %s ORDER BY id DESC LIMIT 1""",
+                        (message, bike_id)
+                    )
+                conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print("[Database] User negotiate notice:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    for b in IN_MEMORY_STORE["bikes"]:
+        if b["id"] == bike_id:
+            payout = b.get("proposed_seller_payout") or b.get("price", 0)
+            if action == "accept":
+                b["accepted_seller_payout"] = payout
+                b["listing_status"] = "seller_accepted"
+                b["negotiation_status"] = "accepted"
+                b["seller_agreement_at"] = now_ts
+                create_notification(
+                    f"Seller Accepted Offer #{bike_id}",
+                    f"Seller agreed to ₹{payout:,.0f} payout for {b.get('title')}. Listing ready to publish.",
+                    target_role="admin",
+                    link="/admin.html?tab=negotiations"
+                )
+            else:
+                b["listing_status"] = "seller_rejected"
+                b["negotiation_status"] = "rejected"
+                create_notification(
+                    f"Seller Declined Offer #{bike_id}",
+                    f"Seller rejected payout proposal for {b.get('title')}. Note: {message}",
+                    target_role="admin",
+                    link="/admin.html?tab=negotiations"
+                )
+            return jsonify({
+                "success": True,
+                "message": f"Proposal successfully {action}ed",
+                "action": action,
+                "listing_status": b["listing_status"]
+            })
+
+    return jsonify({"success": True, "message": f"Proposal {action}ed"})
+
+@app.route("/api/admin/bikes/<int:bike_id>/publish", methods=["POST"])
+def admin_publish_bike(bike_id):
+    """
+    Step 4: Admin sets public selling price, computes margin, and publishes listing to marketplace.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    public_price = float(data.get("public_selling_price") or data.get("price") or 0)
+
+    if public_price <= 0:
+        return jsonify({"success": False, "message": "Public selling price must be greater than 0"}), 400
+
+    now_ts = datetime.datetime.utcnow().isoformat()
+    seller_payout = 0
+    margin = 0
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+            bike = cursor.fetchone()
+            if bike:
+                seller_payout = float(bike.get("accepted_seller_payout") or bike.get("proposed_seller_payout") or bike.get("requested_price") or public_price)
+                margin = public_price - seller_payout
+                cursor.execute(
+                    """UPDATE bikes SET 
+                       public_selling_price = %s,
+                       price = %s,
+                       listing_status = 'published',
+                       status = 'approved',
+                       published_at = CURRENT_TIMESTAMP
+                       WHERE id = %s""",
+                    (public_price, public_price, bike_id)
+                )
+                cursor.execute(
+                    """UPDATE bikesforsale SET 
+                       sellingPrice = %s,
+                       isAccepted = 1
+                       WHERE id = %s""",
+                    (str(public_price), bike_id)
+                )
+                conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print("[Database] Publish bike notice:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    for b in IN_MEMORY_STORE["bikes"]:
+        if b["id"] == bike_id:
+            seller_payout = float(b.get("accepted_seller_payout") or b.get("proposed_seller_payout") or b.get("requested_price") or public_price)
+            margin = public_price - seller_payout
+            b["public_selling_price"] = public_price
+            b["price"] = public_price
+            b["sellingPrice"] = str(public_price)
+            b["listing_status"] = "published"
+            b["status"] = "approved"
+            b["isAccepted"] = 1
+            b["published_at"] = now_ts
+            create_notification(
+                f"Bike #{bike_id} is Now Live!",
+                f"Your {b.get('title')} has been published at ₹{public_price:,.0f}. Agreed payout: ₹{seller_payout:,.0f}.",
+                user_id=b.get("seller_id", 1),
+                target_role="user",
+                link=f"/enquiry-bike-details.html?id={bike_id}"
+            )
+            return jsonify({
+                "success": True,
+                "message": "Bike successfully published to live marketplace",
+                "public_selling_price": public_price,
+                "seller_payout": seller_payout,
+                "business_margin": margin,
+                "listing_status": "published"
+            })
+
+    return jsonify({"success": True, "message": "Bike published", "public_selling_price": public_price})
+
+@app.route("/api/admin/bikes/<int:bike_id>/mark-sold", methods=["POST"])
+def admin_mark_sold(bike_id):
+    """
+    Step 5: Admin marks bike as sold out, inputs actual sale price & expense breakdown.
+    Computes Realized Profit = Actual Sale Price - Seller Payout - Total Expenses.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    actual_sale_price = float(data.get("actual_sale_price") or 0)
+    if actual_sale_price <= 0:
+        return jsonify({"success": False, "message": "Actual sale price must be greater than 0"}), 400
+
+    seller_payout = float(data.get("seller_payout") or 0)
+    service_expense = float(data.get("service_expense") or 0)
+    repair_expense = float(data.get("repair_expense") or 0)
+    transport_expense = float(data.get("transport_expense") or 0)
+    other_expense = float(data.get("other_expense") or 0)
+    notes = data.get("notes", "")
+    buyer_name = data.get("buyer_name", "")
+    buyer_phone = data.get("buyer_phone", "")
+    sold_at = data.get("sold_at") or datetime.datetime.utcnow().isoformat()
+
+    total_expenses = service_expense + repair_expense + transport_expense + other_expense
+
+    target_bike = None
+    for b in IN_MEMORY_STORE["bikes"]:
+        if b["id"] == bike_id:
+            target_bike = b
+            break
+
+    if seller_payout <= 0 and target_bike:
+        seller_payout = float(target_bike.get("accepted_seller_payout") or target_bike.get("proposed_seller_payout") or target_bike.get("price") or 0)
+
+    realized_profit = actual_sale_price - seller_payout - total_expenses
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+            bike_row = cursor.fetchone()
+            if bike_row and seller_payout <= 0:
+                seller_payout = float(bike_row.get("accepted_seller_payout") or bike_row.get("proposed_seller_payout") or bike_row.get("price") or 0)
+                realized_profit = actual_sale_price - seller_payout - total_expenses
+
+            cursor.execute(
+                """UPDATE bikes SET 
+                   status = 'soldout',
+                   listing_status = 'soldout',
+                   isSoldout = 1,
+                   sold_at = CURRENT_TIMESTAMP
+                   WHERE id = %s""",
+                (bike_id,)
+            )
+            cursor.execute("UPDATE bikesforsale SET isSoldout = 1 WHERE id = %s", (bike_id,))
+            cursor.execute(
+                """INSERT INTO bike_transactions 
+                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, notes, sold_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (bike_id, bike_row.get("seller_id") if bike_row else None, seller_payout, actual_sale_price,
+                 service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit,
+                 notes, sold_at)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            print("[Database] Mark sold notice:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if target_bike:
+        target_bike["status"] = "soldout"
+        target_bike["listing_status"] = "soldout"
+        target_bike["isSoldout"] = 1
+        target_bike["sold_at"] = sold_at
+
+    tx_record = {
+        "id": len(IN_MEMORY_STORE["bike_transactions"]) + 1,
+        "bike_id": bike_id,
+        "bike_title": target_bike.get("title") if target_bike else f"Bike #{bike_id}",
+        "seller_name": target_bike.get("seller_name") if target_bike else "Seller",
+        "seller_payout": seller_payout,
+        "actual_sale_price": actual_sale_price,
+        "service_expense": service_expense,
+        "repair_expense": repair_expense,
+        "transport_expense": transport_expense,
+        "other_expense": other_expense,
+        "total_expenses": total_expenses,
+        "realized_profit": realized_profit,
+        "buyer_name": buyer_name,
+        "buyer_phone": buyer_phone,
+        "notes": notes,
+        "sold_at": sold_at
+    }
+    IN_MEMORY_STORE["bike_transactions"].insert(0, tx_record)
+
+    create_notification(
+        f"Bike #{bike_id} Sold!",
+        f"{tx_record['bike_title']} sold for ₹{actual_sale_price:,.0f}. Net realized profit: ₹{realized_profit:,.0f}.",
+        target_role="admin",
+        link="/admin.html?tab=sold"
+    )
+
+    return jsonify({
+        "success": True,
+        "message": f"Bike marked as sold. Net profit: ₹{realized_profit:,.0f}",
+        "transaction": tx_record
+    })
+
+# Export Endpoints (Excel & CSV with date range and status filters)
+@app.route("/api/admin/export/bikes", methods=["GET"])
+def admin_export_bikes():
+    export_format = request.args.get("format", "csv").lower()
+    status_filter = request.args.get("status")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    bikes = IN_MEMORY_STORE["bikes"]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                bikes = rows
+        except Exception:
+            pass
+
+    filtered = []
+    for b in bikes:
+        if status_filter and status_filter != "all":
+            if b.get("listing_status") != status_filter and b.get("status") != status_filter:
+                continue
+        if start_date:
+            b_date = str(b.get("created_at", ""))[:10]
+            if b_date and b_date < start_date:
+                continue
+        if end_date:
+            b_date = str(b.get("created_at", ""))[:10]
+            if b_date and b_date > end_date:
+                continue
+        filtered.append(b)
+
+    headers = [
+        "Bike ID", "Title", "Brand", "Model", "Year", "Listed Price (INR)",
+        "Listing Status", "Approval Status", "Seller Name", "Seller Mobile",
+        "Kilometers", "Fuel Type", "Transmission", "Created At"
+    ]
+    rows_data = []
+    for b in filtered:
+        rows_data.append([
+            b.get("id"),
+            b.get("title"),
+            b.get("brand"),
+            b.get("model"),
+            b.get("year"),
+            b.get("price"),
+            b.get("listing_status") or b.get("status"),
+            b.get("status"),
+            b.get("seller_name") or b.get("sellerName"),
+            b.get("seller_phone") or b.get("mobileNum"),
+            b.get("kilometers_driven") or b.get("bikeKms"),
+            b.get("fuel_type"),
+            b.get("transmission"),
+            str(b.get("created_at", ""))
+        ])
+
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+    if export_format == "xlsx":
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Motorcycle Inventory"
+            ws.append(headers)
+            for r in rows_data:
+                ws.append(r)
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            return app.response_class(
+                output.getvalue(),
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=smr_bikes_export_{timestamp}.xlsx"}
+            )
+        except Exception as e:
+            print("[Export] XLSX generation notice, falling back to CSV:", e)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for r in rows_data:
+        writer.writerow(r)
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    return app.response_class(
+        csv_bytes,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=smr_bikes_export_{timestamp}.csv"}
+    )
+
+@app.route("/api/admin/export/sold", methods=["GET"])
+def admin_export_sold():
+    export_format = request.args.get("format", "csv").lower()
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    txs = IN_MEMORY_STORE["bike_transactions"]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT bt.*, b.title as bike_title, b.brand, b.model, b.year, b.seller_name, b.seller_phone
+                FROM bike_transactions bt
+                LEFT JOIN bikes b ON bt.bike_id = b.id
+                ORDER BY bt.id DESC
+            """)
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                txs = rows
+        except Exception:
+            pass
+
+    headers = [
+        "Bike ID", "Vehicle Title", "Brand", "Model", "Year",
+        "Seller Name", "Seller Mobile", "Seller Agreed Payout (INR)",
+        "Actual Sale Price (INR)", "Service Expense (INR)", "Repair Expense (INR)",
+        "Transport Expense (INR)", "Other Expense (INR)", "Total Expenses (INR)",
+        "Realized Net Profit (INR)", "Sold Date", "Notes"
+    ]
+
+    filtered_txs = []
+    tot_payout = 0
+    tot_revenue = 0
+    tot_expenses = 0
+    tot_profit = 0
+
+    for t in txs:
+        s_date = str(t.get("sold_at") or t.get("created_at") or "")[:10]
+        if start_date and s_date and s_date < start_date:
+            continue
+        if end_date and s_date and s_date > end_date:
+            continue
+
+        payout = float(t.get("seller_payout") or 0)
+        sale_price = float(t.get("actual_sale_price") or 0)
+        tot_exp = float(t.get("total_expenses") or 0)
+        profit = float(t.get("realized_profit") or (sale_price - payout - tot_exp))
+
+        tot_payout += payout
+        tot_revenue += sale_price
+        tot_expenses += tot_exp
+        tot_profit += profit
+
+        filtered_txs.append([
+            t.get("bike_id"),
+            t.get("bike_title") or f"Bike #{t.get('bike_id')}",
+            t.get("brand", "SMR"),
+            t.get("model", ""),
+            t.get("year", ""),
+            t.get("seller_name", "Seller"),
+            t.get("seller_phone", ""),
+            payout,
+            sale_price,
+            float(t.get("service_expense") or 0),
+            float(t.get("repair_expense") or 0),
+            float(t.get("transport_expense") or 0),
+            float(t.get("other_expense") or 0),
+            tot_exp,
+            profit,
+            s_date,
+            t.get("notes", "")
+        ])
+
+    summary_row = [
+        "TOTALS", f"{len(filtered_txs)} Bikes Sold", "", "", "",
+        "", "", tot_payout, tot_revenue, "", "", "", "",
+        tot_expenses, tot_profit, "", "FINANCIAL SUMMARY"
+    ]
+
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+    if export_format == "xlsx":
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = "Sold Bikes Financials"
+            ws.append(headers)
+            for r in filtered_txs:
+                ws.append(r)
+            ws.append([])
+            ws.append(summary_row)
+            output = io.BytesIO()
+            wb.save(output)
+            output.seek(0)
+            return app.response_class(
+                output.getvalue(),
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=smr_sold_financials_{timestamp}.xlsx"}
+            )
+        except Exception as e:
+            print("[Export] XLSX sold generation notice:", e)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(headers)
+    for r in filtered_txs:
+        writer.writerow(r)
+    writer.writerow([])
+    writer.writerow(summary_row)
+    csv_bytes = output.getvalue().encode("utf-8-sig")
+    return app.response_class(
+        csv_bytes,
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=smr_sold_financials_{timestamp}.csv"}
+    )
+
+# Notification Endpoints
+@app.route("/api/notifications", methods=["GET"])
+def get_notifications_api():
+    target_role = request.args.get("role")
+    user_id = request.args.get("user_id")
+
+    notifs = IN_MEMORY_STORE["notifications"]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            if target_role == "admin":
+                cursor.execute("SELECT * FROM notifications WHERE target_role = 'admin' ORDER BY id DESC LIMIT 50")
+            elif user_id:
+                cursor.execute("SELECT * FROM notifications WHERE user_id = %s OR target_role = 'all' ORDER BY id DESC LIMIT 50", (user_id,))
+            else:
+                cursor.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT 50")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                notifs = rows
+        except Exception:
+            pass
+
+    unread_count = sum(1 for n in notifs if not n.get("is_read"))
+    return jsonify({"success": True, "notifications": notifs, "unread_count": unread_count})
+
+@app.route("/api/notifications/<int:notif_id>/read", methods=["PUT"])
+def mark_notification_read(notif_id):
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE notifications SET is_read = 1 WHERE id = %s", (notif_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+    for n in IN_MEMORY_STORE["notifications"]:
+        if n["id"] == notif_id:
+            n["is_read"] = 1
+            return jsonify({"success": True, "message": "Notification marked as read"})
+    return jsonify({"success": True, "message": "Notification marked as read"})
+
+@app.route("/api/notifications/read-all", methods=["PUT"])
+def mark_all_notifications_read():
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE notifications SET is_read = 1")
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+    for n in IN_MEMORY_STORE["notifications"]:
+        n["is_read"] = 1
+    return jsonify({"success": True, "message": "All notifications marked as read"})
 
 @app.route("/api/admin/bikes/<int:bike_id>/approve", methods=["PUT"])
 @app.route("/bikes/<int:bike_id>/accept", methods=["PUT"])
@@ -1441,7 +2609,7 @@ def admin_approve_bike(bike_id):
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE bikes SET status = 'approved' WHERE id = %s", (bike_id,))
+            cursor.execute("UPDATE bikes SET status = 'approved', listing_status = 'published' WHERE id = %s", (bike_id,))
             cursor.execute("UPDATE bikesforsale SET isAccepted = 1 WHERE id = %s", (bike_id,))
             conn.commit()
             cursor.close()
@@ -1453,8 +2621,9 @@ def admin_approve_bike(bike_id):
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["status"] = "approved"
+            b["listing_status"] = "published"
             b["isAccepted"] = 1
-            return jsonify({"success": True, "message": "Bike approved successfully"})
+            return jsonify({"success": True, "message": "Bike approved and published successfully"})
     return jsonify({"success": True, "message": "Bike approved"})
 
 @app.route("/api/admin/bikes/<int:bike_id>/reject", methods=["PUT"])
@@ -1466,7 +2635,7 @@ def admin_reject_bike(bike_id):
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE bikes SET status = 'rejected', rejection_reason = %s WHERE id = %s", (reason, bike_id))
+            cursor.execute("UPDATE bikes SET status = 'rejected', listing_status = 'rejected', rejection_reason = %s WHERE id = %s", (reason, bike_id))
             cursor.execute("UPDATE bikesforsale SET isAccepted = 0 WHERE id = %s", (bike_id,))
             conn.commit()
             cursor.close()
@@ -1478,6 +2647,7 @@ def admin_reject_bike(bike_id):
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["status"] = "rejected"
+            b["listing_status"] = "rejected"
             b["isAccepted"] = 0
             b["rejection_reason"] = reason
             return jsonify({"success": True, "message": "Bike rejected successfully"})
@@ -1492,7 +2662,7 @@ def admin_price_bike(bike_id):
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE bikes SET price = %s WHERE id = %s", (new_price, bike_id))
+            cursor.execute("UPDATE bikes SET price = %s, public_selling_price = %s WHERE id = %s", (new_price, new_price, bike_id))
             cursor.execute("UPDATE bikesforsale SET sellingPrice = %s WHERE id = %s", (str(new_price), bike_id))
             conn.commit()
             cursor.close()
@@ -1504,6 +2674,7 @@ def admin_price_bike(bike_id):
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["price"] = float(new_price)
+            b["public_selling_price"] = float(new_price)
             b["sellingPrice"] = str(new_price)
             return jsonify({"success": True, "message": "Price updated successfully"})
     return jsonify({"success": True, "message": "Price updated"})
@@ -1557,7 +2728,56 @@ def user_dashboard_metrics():
 
 @app.route("/api/users/listings", methods=["GET"])
 def user_my_listings():
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["bikes"]})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 6)))
+    except (ValueError, TypeError):
+        limit = 6
+
+    bikes = IN_MEMORY_STORE["bikes"]
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+            rows = cursor.fetchall()
+            if rows: bikes = rows
+            cursor.close()
+            conn.close()
+        except Exception:
+            pass
+
+    normalized = [_normalize_bike(b, is_admin=True) for b in bikes]
+    total = len(normalized)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = normalized[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "bikes": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
+
+@app.route("/api/users/negotiations", methods=["GET"])
+def user_my_negotiations():
+    bikes = [_normalize_bike(b, is_admin=True) for b in IN_MEMORY_STORE["bikes"]]
+    negs = [b for b in bikes if b.get("listing_status") in ("price_offered", "seller_accepted", "seller_rejected")]
+    return jsonify({"success": True, "data": negs})
 
 @app.route("/api/users/enquiries", methods=["GET"])
 def user_my_enquiries():
@@ -1578,6 +2798,7 @@ def user_profile_api():
         if "phone" in data: user["phone"] = data["phone"]
         return jsonify({"success": True, "message": "Profile updated successfully", "user": user})
     return jsonify({"success": True, "user": IN_MEMORY_STORE["users"][0]})
+
 
 # Legacy Gallery & Attachments Uploads
 @app.route("/upload/gallery", methods=["POST"])
