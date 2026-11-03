@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Marketplace Disclaimer & Advisory | SMR Motors</title>
+  <meta name="description" content="Official Disclaimer for SMR Motors Motorcycle Marketplace. Understanding vehicle inspection responsibilities, seller representations, documentation, and transaction safety.">
+
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
+</head>
+<body>
+
+  <!-- Global Header Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="{{ url_for('index') }}#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn" aria-label="Toggle Navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-nav-backdrop"></div>
+  <div class="mobile-nav-drawer">
+    <div class="mobile-nav-header">
+      <div class="nav-brand">
+        <span class="brand-badge">SMR</span>
+        <span>MOTORS</span>
+      </div>
+      <button class="drawer-close btn-icon btn-ghost"><i class="fas fa-times"></i></button>
+    </div>
+    <ul class="mobile-nav-links">
+      <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+      <li><a href="{{ url_for('index') }}#inventory" class="nav-link">Motorcycles</a></li>
+      <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+      <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Inventory</a></li>
+      <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+      <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      <li><a href="{{ url_for('user_profile') }}" class="nav-link">My Dashboard</a></li>
+      <li><a href="{{ url_for('privacy_page') }}" class="nav-link">Privacy Policy</a></li>
+      <li><a href="{{ url_for('disclaimer_page') }}" class="nav-link active">Disclaimer</a></li>
+    </ul>
+    <div class="mobile-nav-footer nav-auth-slot">
+      <a href="{{ url_for('user_login') }}" class="btn btn-outline"><i class="fas fa-user"></i> Sign In</a>
+      <a href="{{ url_for('bike_selling') }}" class="btn btn-primary"><i class="fas fa-plus"></i> List Motorcycle</a>
+    </div>
+  </div>
+
+  <main class="main-content" style="padding-top: 3rem; padding-bottom: 5rem;">
+    <div class="container" style="max-width: 960px;">
+      
+      <!-- Disclaimer Header Hero -->
+      <div style="text-align: center; margin-bottom: 3.5rem;">
+        <span class="section-tag" style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+          <i class="fas fa-circle-exclamation" style="color: var(--accent-primary);"></i> Buyer Advisory & Marketplace Role
+        </span>
+        <h1 style="font-size: 2.75rem; font-weight: 800; line-height: 1.2; margin-bottom: 1rem;">
+          Platform Disclaimer & Notice
+        </h1>
+        <p style="color: var(--text-secondary); font-size: 1.05rem; max-width: 680px; margin: 0 auto;">
+          Please read this vehicle marketplace advisory carefully before submitting an offer, purchasing a motorcycle, or conducting transactions on SMR Motors.
+        </p>
+        <div style="margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+          <span>Applies to all listings across Tamil Nadu & India</span> &bull; <span>Last Revised: November 2026</span>
+        </div>
+      </div>
+
+      <!-- Disclaimer Content Card -->
+      <div class="legal-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 2.5rem 2.25rem; display: flex; flex-direction: column; gap: 2.25rem; line-height: 1.7; box-shadow: var(--shadow-md);">
+
+        <!-- 1. Marketplace Intermediary Role -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-handshake" style="color: var(--accent-primary);"></i> 1. Marketplace & Intermediary Capacity
+          </h2>
+          <p style="color: var(--text-secondary);">
+            SMR Motors acts as a digital marketplace, showcase platform, and dealership intermediary connecting independent motorcycle sellers with prospective buyers. Where indicated, vehicles listed by private sellers represent peer-to-peer inventory where SMR Motors facilitates discovery, showroom staging, and preliminary inspection.
+          </p>
+        </section>
+
+        <!-- 2. Independent Verification Required -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-magnifying-glass" style="color: var(--accent-primary);"></i> 2. Seller-Provided Specifications & Verification
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Motorcycle specifications—including manufacturing year, odometer reading (kilometers driven), engine displacement (CC), modifications, service history, and condition remarks—are provided directly by the seller or preliminary owner records.
+          </p>
+          <div style="background: rgba(255, 107, 0, 0.08); border-left: 3px solid var(--accent-primary); padding: 1rem 1.25rem; border-radius: 0 8px 8px 0; color: #E2E8F0; font-size: 0.92rem;">
+            <strong>Buyer Advisory:</strong> All prospective buyers must independently inspect and verify vehicle specifications, engine condition, chassis numbers, and documentation before entering into a binding financial agreement or making payments.
+          </div>
+        </section>
+
+        <!-- 3. Physical Inspection & Test Rides -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-wrench" style="color: var(--accent-primary);"></i> 3. Physical Vehicle Inspection & Test Rides
+          </h2>
+          <p style="color: var(--text-secondary);">
+            Buyers are strongly encouraged to inspect motorcycles in person at our authorized showroom or designated inspection center in Salem. You are welcome to bring a certified mechanic or trusted technician to examine mechanical and electrical components. No guarantee or warranty of mechanical fitness should be implied without a formalized, documented dealership inspection certificate.
+          </p>
+        </section>
+
+        <!-- 4. Legal Documentation & Ownership Transfer -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-id-card" style="color: var(--accent-primary);"></i> 4. Documentation, RC Transfer & Clear Title
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Prior to completing any vehicle purchase, buyers and sellers are jointly responsible for ensuring the following documents are legitimate and unencumbered:
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li>Original Registration Certificate (RC Smart Card).</li>
+            <li>Valid Insurance Policy (Third-Party or Comprehensive).</li>
+            <li>Pollution Under Control (PUC) Certificate.</li>
+            <li>RTO Transfer Forms (Form 29 and Form 30) signed by the registered owner.</li>
+            <li>Hypothecation Termination (Form 35 and NOC from financier, if previously financed).</li>
+          </ul>
+        </section>
+
+        <!-- 5. Dynamic Pricing & Availability -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-tags" style="color: var(--accent-primary);"></i> 5. Pricing Variations & Inventory Availability
+          </h2>
+          <p style="color: var(--text-secondary);">
+            Listed prices are subject to negotiation, market fluctuations, and seller counteroffers. An online listing does not constitute an irrevocable commercial offer. A motorcycle is only reserved when a formal booking deposit is acknowledged in writing by dealership staff. Availability is subject to prior sale.
+          </p>
+        </section>
+
+        <!-- 6. Limitation of Liability -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-shield-alt" style="color: var(--accent-primary);"></i> 6. Limitation of Liability
+          </h2>
+          <p style="color: var(--text-secondary);">
+            To the maximum extent permitted under applicable consumer protection legislation and Indian contract law, SMR Motors disclaims liability for inaccuracies in seller-supplied listing details, undisclosed pre-existing mechanical defects, or off-platform disputes. Users must conduct transactions through verified dealership communication channels.
+          </p>
+        </section>
+
+        <!-- 7. Safe Communication Channels -->
+        <section>
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <i class="fas fa-comments" style="color: var(--accent-primary);"></i> 7. Legitimate Communication Channels
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            To protect yourself from scams, do not transfer funds to unauthorized third-party accounts. Always verify our official communications through our registered email and showroom contact points:
+          </p>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+            <div><strong>Official Verification Desk:</strong> <a href="mailto:praveenmuthu9500@gmail.com" style="color: var(--accent-primary); font-weight: 600;">praveenmuthu9500@gmail.com</a></div>
+            <div><strong>Showroom Help Desk:</strong> <a href="{{ url_for('contact_page') }}" style="color: var(--accent-primary);">Contact Us Page</a></div>
+            <div><strong>Physical Dealership:</strong> Main Bypass Road, Auto Hub, Salem, Tamil Nadu, India</div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================================================
+       PROFESSIONAL FOOTER (Requirement 4)
+       ================================================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div class="nav-brand" style="margin-bottom: 1rem;">
+            <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+            <span>MOTORS<span class="brand-accent">.</span></span>
+          </div>
+          <p class="footer-desc">
+            Verified Pre-Owned Motorcycles Marketplace. Multi-point inspection, clean title documentation, and fair transparent pricing across Tamil Nadu.
+          </p>
+          <div class="live-business-hours-badge"></div>
+        </div>
+
+        <div class="footer-column">
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('index') }}" class="footer-link">Home</a></li>
+            <li><a href="{{ url_for('index') }}#inventory" class="footer-link">Inventory</a></li>
+            <li><a href="{{ url_for('bike_selling') }}" class="footer-link">Sell Your Bike</a></li>
+            <li><a href="{{ url_for('sold_out_page') }}" class="footer-link">Sold Gallery</a></li>
+            <li><a href="{{ url_for('about_page') }}" class="footer-link">About Us</a></li>
+            <li><a href="{{ url_for('contact_page') }}" class="footer-link">Contact Us</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Legal & Safety</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('privacy_page') }}" class="footer-link">Privacy Policy</a></li>
+            <li><a href="{{ url_for('disclaimer_page') }}" class="footer-link" style="color: var(--accent-primary); font-weight: 700;">Disclaimer</a></li>
+            <li><a href="{{ url_for('contact_page') }}#terms" class="footer-link">Terms & Conditions</a></li>
+            <li><a href="{{ url_for('user_profile') }}" class="footer-link">User Dashboard</a></li>
+            <li><a href="{{ url_for('admin_page') }}" class="footer-link">Admin Portal</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Contact & Hours</h4>
+          <div class="footer-contact-item">
+            <i class="fas fa-envelope"></i>
+            <span><a href="mailto:praveenmuthu9500@gmail.com" style="color:inherit; text-decoration:none;">praveenmuthu9500@gmail.com</a></span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-phone-alt"></i>
+            <span>+91 98765 43210 / +91 91234 56789</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>SMR Motors Showroom, Auto Hub, Main Bypass Road, Salem</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-clock"></i>
+            <span>Monday – Sunday: 9:30 AM – 8:30 PM (Asia/Kolkata)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All Rights Reserved.</div>
+        <div>Verified Pre-Owned Motorcycles Marketplace.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+</body>
+</html>

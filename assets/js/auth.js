@@ -54,8 +54,8 @@ const AuthService = {
         this.setSession(res.token, res.user);
         showToast('Signed in successfully!', 'success');
         setTimeout(() => {
-          window.location.href = '/user/dashboard.html';
-        }, 800);
+          window.location.href = '/profile.html';
+        }, 600);
       } else {
         showToast(res.message || 'Google sign-in failed', 'error');
       }
@@ -71,8 +71,8 @@ const AuthService = {
         this.setSession(res.token, res.user);
         showToast('Demo account activated!', 'success');
         setTimeout(() => {
-          window.location.href = '/user/dashboard.html';
-        }, 800);
+          window.location.href = '/profile.html';
+        }, 600);
       } else {
         showToast(res.message || 'Demo login failed', 'error');
       }
@@ -85,8 +85,36 @@ const AuthService = {
     this.clearSession();
     showToast('Signed out safely', 'info');
     setTimeout(() => {
-      window.location.href = '/login.html';
-    }, 600);
+      window.location.href = '/index.html';
+    }, 400);
+  },
+
+  handleOriginMismatchError(err) {
+    console.warn('[Google Auth Diagnostic]', err);
+    const banner = document.getElementById('oauth-diagnostic-banner');
+    if (banner) {
+      const currentOrigin = window.location.origin;
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; padding: 14px 16px; margin-bottom: 1.25rem; font-size: 0.86rem; color: #FCA5A5; line-height: 1.5;">
+          <div style="font-weight: 700; color: #FFF; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <i class="fas fa-exclamation-triangle" style="color: #EF4444;"></i> Google OAuth: Error 400 (origin_mismatch)
+          </div>
+          <div>Your current website origin is: <code style="background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: #38BDF8;">${currentOrigin}</code></div>
+          <div style="margin-top: 8px;">
+            To resolve this in Google Cloud Console:
+            <ol style="margin-left: 1.2rem; margin-top: 4px;">
+              <li>Open <strong>Google Cloud Console &rarr; Credentials &rarr; OAuth 2.0 Client IDs</strong></li>
+              <li>Under <strong>Authorized JavaScript origins</strong>, add: <code style="color:#FFF;">${currentOrigin}</code></li>
+              <li>Under <strong>Authorized redirect URIs</strong>, add: <code style="color:#FFF;">${currentOrigin}/api/auth/google/callback</code></li>
+            </ol>
+          </div>
+          <div style="margin-top: 8px; color: #FDE047;">
+            <i class="fas fa-lightbulb"></i> In the meantime, click <strong>Sign In as Demo Rider</strong> below for instant full access without Google configuration.
+          </div>
+        </div>
+      `;
+    }
   }
 };
 
@@ -131,6 +159,9 @@ async function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
           if (response && response.credential) {
             AuthService.handleGoogleCredential(response.credential);
           }
+        },
+        error_callback: (err) => {
+          AuthService.handleOriginMismatchError(err);
         }
       });
 
@@ -146,6 +177,7 @@ async function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
       }
     } catch (err) {
       console.error('[Google Auth Initialization Error]:', err);
+      AuthService.handleOriginMismatchError(err);
     }
   }
 }

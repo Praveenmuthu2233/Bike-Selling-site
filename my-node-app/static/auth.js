@@ -54,8 +54,8 @@ const AuthService = {
         this.setSession(res.token, res.user);
         showToast('Signed in successfully!', 'success');
         setTimeout(() => {
-          window.location.href = '/user/dashboard.html';
-        }, 800);
+          window.location.href = '/profile.html';
+        }, 600);
       } else {
         showToast(res.message || 'Google sign-in failed', 'error');
       }
@@ -71,8 +71,8 @@ const AuthService = {
         this.setSession(res.token, res.user);
         showToast('Demo account activated!', 'success');
         setTimeout(() => {
-          window.location.href = '/user/dashboard.html';
-        }, 800);
+          window.location.href = '/profile.html';
+        }, 600);
       } else {
         showToast(res.message || 'Demo login failed', 'error');
       }
@@ -85,8 +85,8 @@ const AuthService = {
     this.clearSession();
     showToast('Signed out safely', 'info');
     setTimeout(() => {
-      window.location.href = '/login.html';
-    }, 600);
+      window.location.href = '/index.html';
+    }, 400);
   },
 
   handleOriginMismatchError(err) {

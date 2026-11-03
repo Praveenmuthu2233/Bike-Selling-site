@@ -1,6 +1,51 @@
 /**
- * SMR Motors - Main Application Interactions & UI Utilities
+ * SMR Motors - Main Application Interactions, Global Navigation & Profile State
  */
+
+// Global Profile Navigation Handler
+window.handleProfileNavigation = function(event) {
+  if (event) event.preventDefault();
+  const user = typeof AuthService !== 'undefined' ? AuthService.getUser() : null;
+  const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('adminToken');
+
+  if (user) {
+    window.location.href = '/profile.html';
+  } else if (adminToken) {
+    window.location.href = '/admin.html';
+  } else {
+    window.location.href = '/login.html';
+  }
+};
+
+// Global User Profile Dropdown Toggle
+window.toggleUserProfileDropdown = function(event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  const wrapper = document.getElementById('userProfileDropdownWrap');
+  const menu = document.getElementById('userProfileDropdownMenu');
+  if (wrapper && menu) {
+    const isShowing = menu.classList.contains('show');
+    if (isShowing) {
+      menu.classList.remove('show');
+      wrapper.classList.remove('open');
+    } else {
+      menu.classList.add('show');
+      wrapper.classList.add('open');
+    }
+  }
+};
+
+// Global click outside listener to close dropdowns
+document.addEventListener('click', (e) => {
+  const wrapper = document.getElementById('userProfileDropdownWrap');
+  const menu = document.getElementById('userProfileDropdownMenu');
+  if (wrapper && menu && !wrapper.contains(e.target)) {
+    menu.classList.remove('show');
+    wrapper.classList.remove('open');
+  }
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
   // 1. Header scroll effect
@@ -40,28 +85,142 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 3. User session header state
-  const user = await AuthService.verifySession();
+  // 3. User session header state & Redesigned User Profile Dropdown (Requirement 1 & 2)
+  let user = null;
+  if (typeof AuthService !== 'undefined') {
+    user = await AuthService.verifySession();
+  }
+
+  const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('adminToken');
+  let adminUser = null;
+  try {
+    const adminStr = localStorage.getItem('admin_user') || localStorage.getItem('adminUser');
+    if (adminStr) adminUser = JSON.parse(adminStr);
+  } catch (e) {}
+
   const authNavSlots = document.querySelectorAll('.nav-auth-slot');
   authNavSlots.forEach(slot => {
+    const isMobileSlot = slot.closest('.mobile-nav-drawer') || slot.classList.contains('mobile-nav-footer');
+
     if (user) {
+      const userImg = user.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80';
+      const userName = user.name || 'Rider';
+      const firstName = userName.split(' ')[0];
+      const userEmail = user.email || '';
+
+      if (isMobileSlot) {
+        // Mobile Drawer Layout
+        slot.innerHTML = `
+          <div style="display:flex; flex-direction:column; gap:0.75rem; width:100%;">
+            <a href="/profile.html" style="display:flex; align-items:center; gap:0.75rem; padding:0.65rem 0.85rem; background:rgba(255,255,255,0.05); border-radius:12px; border:1px solid rgba(255,255,255,0.1); text-decoration:none;">
+              <img src="${userImg}" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1.5px solid var(--accent-primary);" alt="${userName}">
+              <div style="display:flex; flex-direction:column; overflow:hidden;">
+                <span style="font-weight:700; color:#fff; font-size:0.9rem;">${userName}</span>
+                <span style="font-size:0.75rem; color:var(--text-muted);">${userEmail}</span>
+              </div>
+            </a>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.5rem;">
+              <a href="/profile.html" class="btn btn-sm btn-secondary" style="justify-content:center; text-decoration:none;"><i class="fas fa-gauge-high"></i> Dashboard</a>
+              <a href="/bikeSelling.html" class="btn btn-sm btn-primary" style="justify-content:center; text-decoration:none;"><i class="fas fa-plus"></i> Sell Bike</a>
+            </div>
+            <button onclick="AuthService.logout()" class="btn btn-sm btn-outline" style="width:100%; justify-content:center; color:#F87171; border-color:rgba(239,68,68,0.3);"><i class="fas fa-arrow-right-from-bracket"></i> Logout</button>
+          </div>
+        `;
+      } else {
+        // Desktop Top Navbar Dropdown
+        slot.innerHTML = `
+          <div style="display:flex; align-items:center; gap:0.75rem;">
+            <div class="user-profile-dropdown-wrapper" id="userProfileDropdownWrap">
+              <button type="button" class="user-profile-trigger" onclick="toggleUserProfileDropdown(event)" aria-label="User Profile Menu">
+                <img src="${userImg}" class="trigger-avatar" alt="${userName}">
+                <span class="trigger-name">${firstName}</span>
+                <i class="fas fa-chevron-down trigger-chevron"></i>
+              </button>
+
+              <div class="user-profile-dropdown-menu" id="userProfileDropdownMenu">
+                <div class="dropdown-user-header">
+                  <img src="${userImg}" class="dropdown-user-avatar" alt="${userName}">
+                  <div class="dropdown-user-details">
+                    <span class="dropdown-user-name">${userName}</span>
+                    <span class="dropdown-user-email">${userEmail}</span>
+                  </div>
+                </div>
+
+                <div class="dropdown-menu-list">
+                  <a href="/profile.html" class="dropdown-item-link">
+                    <i class="fas fa-gauge-high"></i>
+                    <span>My Dashboard</span>
+                  </a>
+                  <a href="/profile.html?tab=listings" class="dropdown-item-link">
+                    <i class="fas fa-motorcycle"></i>
+                    <span>My Bike Listings</span>
+                  </a>
+                  <a href="/profile.html?tab=enquiries" class="dropdown-item-link">
+                    <i class="fas fa-envelope-open-text"></i>
+                    <span>My Enquiries</span>
+                  </a>
+                  <a href="/profile.html?tab=favorites" class="dropdown-item-link">
+                    <i class="fas fa-heart"></i>
+                    <span>My Favorites</span>
+                  </a>
+                  <a href="/profile.html?tab=profile" class="dropdown-item-link">
+                    <i class="fas fa-user-pen"></i>
+                    <span>Edit Profile</span>
+                  </a>
+
+                  ${adminToken ? `
+                    <div class="dropdown-divider"></div>
+                    <a href="/admin.html" class="dropdown-item-link" style="color:var(--accent-primary);">
+                      <i class="fas fa-shield-alt"></i>
+                      <span>Admin Console (${adminUser ? adminUser.role : 'Manager'})</span>
+                    </a>
+                  ` : ''}
+
+                  <div class="dropdown-divider"></div>
+                  <button type="button" onclick="AuthService.logout()" class="dropdown-item-link logout-item">
+                    <i class="fas fa-arrow-right-from-bracket"></i>
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <a href="/bikeSelling.html" class="btn btn-sm btn-primary">
+              <i class="fas fa-plus"></i> Sell Bike
+            </a>
+          </div>
+        `;
+      }
+    } else if (adminToken && !isMobileSlot) {
+      // If admin only is logged in
+      const admName = adminUser ? (adminUser.full_name || adminUser.username) : 'Admin';
       slot.innerHTML = `
-        <div style="display:flex;align-items:center;gap:0.75rem;">
-          <a href="/user/dashboard.html" class="btn btn-sm btn-secondary" style="border-radius: var(--radius-full); padding: 0.35rem 0.85rem; display:flex; align-items:center; gap:0.5rem;">
-            <img src="${user.profile_image || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80'}" style="width:24px;height:24px;border-radius:50%;object-fit:cover;" />
-            <span>${user.name.split(' ')[0]}</span>
+        <div style="display:flex; align-items:center; gap:0.75rem;">
+          <a href="/admin.html" class="btn btn-sm btn-outline" style="border-color:var(--accent-primary); color:var(--accent-primary);">
+            <i class="fas fa-shield-alt"></i> ${admName} Console
           </a>
-          <button onclick="AuthService.logout()" class="btn btn-sm btn-outline" title="Sign out" style="padding:0.35rem 0.65rem;">
-            <i class="fas fa-sign-out-alt"></i>
-          </button>
+          <a href="/login.html" class="btn btn-sm btn-secondary">User Sign In</a>
+          <a href="/bikeSelling.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
         </div>
       `;
     } else {
+      // Logged Out State
       slot.innerHTML = `
         <a href="/login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
-        <a href="/sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        <a href="/bikeSelling.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
       `;
     }
+  });
+
+  // Also bind all profile/dashboard links in navbar & footer to use handleProfileNavigation if logged out
+  document.querySelectorAll('a[href*="profile.html"], a[href*="user_profile"]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      const activeUser = typeof AuthService !== 'undefined' ? AuthService.getUser() : null;
+      if (!activeUser && !localStorage.getItem('token') && !sessionStorage.getItem('token')) {
+        e.preventDefault();
+        window.location.href = '/login.html';
+      }
+    });
   });
 
   // 4. Dynamic Business Hours & Showroom Status (Asia/Kolkata Timezone)

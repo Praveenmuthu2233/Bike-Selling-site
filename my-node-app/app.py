@@ -984,10 +984,12 @@ def normalize_admin_role(raw_role):
     r = str(raw_role or "").lower().strip()
     if r in ("superadmin", "main", "owner"):
         return "superadmin"
-    return "admin"
+    if r in ("admin", "staff", "manager"):
+        return "admin"
+    return None
 
 def admin_required(f):
-    """Allows both SUPERADMIN (Owner) and ADMIN (Staff) access."""
+    """Allows both SUPERADMIN (Owner) and ADMIN (Staff) access. Rejects normal user roles."""
     @wraps(f)
     def wrapper(*args, **kwargs):
         header = request.headers.get("Authorization")
@@ -999,7 +1001,10 @@ def admin_required(f):
         try:
             import jwt
             decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
-            decoded["role"] = normalize_admin_role(decoded.get("role"))
+            role = normalize_admin_role(decoded.get("role"))
+            if not role:
+                return jsonify({"success": False, "message": "Access Forbidden: Administrative privileges required."}), 403
+            decoded["role"] = role
             g.admin = decoded
         except Exception:
             return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
@@ -1020,13 +1025,13 @@ def superadmin_required(f):
             import jwt
             decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
             role = normalize_admin_role(decoded.get("role"))
-            decoded["role"] = role
-            g.admin = decoded
             if role != "superadmin":
                 return jsonify({
                     "success": False,
                     "message": "Access Forbidden: Superadmin owner permission required for confidential financial records and operations."
                 }), 403
+            decoded["role"] = role
+            g.admin = decoded
         except Exception:
             return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
         return f(*args, **kwargs)
@@ -1125,7 +1130,11 @@ def user_login():
 @app.route("/profile")
 @app.route("/profile.html")
 @app.route("/user/profile")
+@app.route("/user/profile.html")
 @app.route("/user/dashboard")
+@app.route("/user/dashboard.html")
+@app.route("/dashboard")
+@app.route("/dashboard.html")
 def user_profile():
     if request.headers.get("Authorization"):
         # API request
@@ -1135,6 +1144,7 @@ def user_profile():
 @app.route("/admin")
 @app.route("/admin.html")
 @app.route("/admin/dashboard")
+@app.route("/admin/dashboard.html")
 def admin_page():
     return render_template("admin.html")
 
@@ -1185,6 +1195,68 @@ def about_page():
 @app.route("/contact.html")
 def contact_page():
     return render_template("contact.html")
+
+@app.route("/privacy")
+@app.route("/privacy.html")
+@app.route("/privacy-policy")
+@app.route("/privacy-policy.html")
+def privacy_page():
+    return render_template("privacy.html")
+
+@app.route("/disclaimer")
+@app.route("/disclaimer.html")
+def disclaimer_page():
+    return render_template("disclaimer.html")
+
+@app.route("/api/privacy/request", methods=["POST"])
+def privacy_request_api():
+    """
+    Submits a privacy, data export, or account deletion request (Requirement 6).
+    """
+    data = request.get_json(silent=True) or {}
+    req_type = data.get("request_type", "general")
+    name = (data.get("name") or "").strip()
+    email = (data.get("email") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    details = (data.get("details") or "").strip()
+
+    if not email or not name:
+        return jsonify({"success": False, "message": "Name and email are required to verify account ownership."}), 400
+
+    subject = f"Privacy / Account Request: {req_type.replace('_', ' ').title()}"
+    full_msg = f"Privacy Request Type: {req_type}\nPhone: {phone}\nSubmitted At: {datetime.datetime.now(datetime.timezone.utc).isoformat()}\n\nDetails:\n{details}"
+
+    msg_id = None
+    conn = get_db()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "INSERT INTO contact_messages (name, email, subject, message, status) VALUES (%s, %s, %s, %s, 'new')",
+                (name, email, subject, full_msg)
+            )
+            conn.commit()
+            msg_id = cur.lastrowid
+            cur.close()
+            conn.close()
+        except Exception as e:
+            print("[Database] Privacy request insert notice:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    create_notification(
+        f"Privacy Request: {name}",
+        f"Type: {req_type} ({email}). Review in Contact Messages.",
+        target_role="admin",
+        notif_type="info"
+    )
+
+    return jsonify({
+        "success": True,
+        "message": f"Your {req_type.replace('_', ' ')} request has been registered under reference #{msg_id or 'PRIV-2026'}. Our privacy compliance team will verify and process your inquiry via {email}.",
+        "ticket_id": msg_id or 1001
+    }), 201
 
 # -----------------------------------------------------------------------------
 # REST API ENDPOINTS
@@ -2606,21 +2678,11 @@ def admin_login_api():
 
 @app.route("/api/admin/dashboard", methods=["GET"])
 @app.route("/adminProfile", methods=["GET"])
+@admin_required
 def admin_dashboard_api():
-    # Detect caller role from token if present
-    is_superadmin = True
-    user_role = "superadmin"
-    auth_header = request.headers.get("Authorization")
-    if auth_header:
-        try:
-            parts = auth_header.split()
-            if len(parts) == 2 and parts[0].lower() == "bearer":
-                import jwt
-                dec = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
-                user_role = normalize_admin_role(dec.get("role"))
-                is_superadmin = (user_role == "superadmin")
-        except Exception:
-            pass
+    # Detect caller role from verified admin token (Requirement 1 & RBAC)
+    is_superadmin = (g.admin.get("role") == "superadmin")
+    user_role = g.admin.get("role", "admin")
 
     bikes = IN_MEMORY_STORE["bikes"]
     users = IN_MEMORY_STORE["users"]

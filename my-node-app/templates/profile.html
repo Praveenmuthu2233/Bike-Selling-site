@@ -650,9 +650,12 @@
         if (addBikePhone) addBikePhone.value = user.phone;
       }
 
-      // Check URL query param to open specific tab (e.g. ?tab=negotiations)
+      // Check URL query param or hash to open specific tab (e.g. ?tab=listings or #tab-enquiries)
       const urlParams = new URLSearchParams(window.location.search);
-      const tabParam = urlParams.get('tab');
+      let tabParam = urlParams.get('tab');
+      if (!tabParam && window.location.hash) {
+        tabParam = window.location.hash.replace('#tab-', '').replace('#user-tab-', '').replace('#', '');
+      }
       if (tabParam) {
         const targetLink = document.querySelector(`.user-nav-link[onclick*="user-tab-${tabParam}"]`);
         if (targetLink) switchUserTab(`user-tab-${tabParam}`, targetLink);

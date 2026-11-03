@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy Policy | SMR Motors</title>
+  <meta name="description" content="Official Privacy Policy for SMR Motors Motorcycle Marketplace. Learn how we collect, store, secure and manage your personal information and Google account data.">
+
+  <!-- Fonts & Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Mandatory Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
+</head>
+<body>
+
+  <!-- Global Header Navigation -->
+  <header class="navbar">
+    <div class="container">
+      <a href="{{ url_for('index') }}" class="nav-brand">
+        <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+        <span>MOTORS<span class="brand-accent">.</span></span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+        <li><a href="{{ url_for('index') }}#inventory" class="nav-link">Inventory</a></li>
+        <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+        <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Gallery</a></li>
+        <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+        <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <div class="nav-auth-slot">
+          <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
+          <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
+        </div>
+        <button class="mobile-menu-btn" aria-label="Toggle Navigation">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Mobile Drawer -->
+  <div class="mobile-nav-backdrop"></div>
+  <div class="mobile-nav-drawer">
+    <div class="mobile-nav-header">
+      <div class="nav-brand">
+        <span class="brand-badge">SMR</span>
+        <span>MOTORS</span>
+      </div>
+      <button class="drawer-close btn-icon btn-ghost"><i class="fas fa-times"></i></button>
+    </div>
+    <ul class="mobile-nav-links">
+      <li><a href="{{ url_for('index') }}" class="nav-link">Home</a></li>
+      <li><a href="{{ url_for('index') }}#inventory" class="nav-link">Motorcycles</a></li>
+      <li><a href="{{ url_for('bike_selling') }}" class="nav-link">Sell Your Bike</a></li>
+      <li><a href="{{ url_for('sold_out_page') }}" class="nav-link">Sold Inventory</a></li>
+      <li><a href="{{ url_for('about_page') }}" class="nav-link">About Us</a></li>
+      <li><a href="{{ url_for('contact_page') }}" class="nav-link">Contact</a></li>
+      <li><a href="{{ url_for('user_profile') }}" class="nav-link">My Dashboard</a></li>
+      <li><a href="{{ url_for('privacy_page') }}" class="nav-link active">Privacy Policy</a></li>
+      <li><a href="{{ url_for('disclaimer_page') }}" class="nav-link">Disclaimer</a></li>
+    </ul>
+    <div class="mobile-nav-footer nav-auth-slot">
+      <a href="{{ url_for('user_login') }}" class="btn btn-outline"><i class="fas fa-user"></i> Sign In</a>
+      <a href="{{ url_for('bike_selling') }}" class="btn btn-primary"><i class="fas fa-plus"></i> List Motorcycle</a>
+    </div>
+  </div>
+
+  <main class="main-content" style="padding-top: 3rem; padding-bottom: 5rem;">
+    <div class="container" style="max-width: 960px;">
+      
+      <!-- Policy Header Hero -->
+      <div style="text-align: center; margin-bottom: 3.5rem;">
+        <span class="section-tag" style="display: inline-flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+          <i class="fas fa-shield-halved" style="color: var(--accent-primary);"></i> Legal Transparency & Data Protection
+        </span>
+        <h1 style="font-size: 2.75rem; font-weight: 800; line-height: 1.2; margin-bottom: 1rem;">
+          Privacy Policy & Data Rights
+        </h1>
+        <p style="color: var(--text-secondary); font-size: 1.05rem; max-width: 680px; margin: 0 auto;">
+          At SMR Motors, we prioritize the privacy, security, and integrity of your personal information. This policy transparently outlines how data is collected, processed, and safeguarded.
+        </p>
+        <div style="margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+          <span>Effective Date: January 1, 2026</span> &bull; <span>Last Updated: November 2026</span>
+        </div>
+      </div>
+
+      <!-- Quick Action: Privacy Request Banner -->
+      <div style="background: linear-gradient(135deg, rgba(255,107,0,0.1) 0%, rgba(15,23,42,0.95) 100%); border: 1px solid rgba(255,107,0,0.3); border-radius: var(--radius-lg); padding: 1.5rem 1.75rem; margin-bottom: 3rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h4 style="margin: 0 0 0.25rem; font-size: 1.1rem; color: #FFFFFF;"><i class="fas fa-user-lock" style="color: var(--accent-primary); margin-right: 8px;"></i> Exercise Your Privacy Rights</h4>
+          <p style="margin: 0; font-size: 0.88rem; color: var(--text-secondary);">Request a full export of your stored personal data or initiate an account deletion request.</p>
+        </div>
+        <button onclick="document.getElementById('privacy-request-section').scrollIntoView({behavior: 'smooth'})" class="btn btn-sm btn-primary">
+          <i class="fas fa-paper-plane"></i> Submit Data Request
+        </button>
+      </div>
+
+      <!-- Policy Body Content -->
+      <div class="legal-card" style="background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 2.5rem 2.25rem; display: flex; flex-direction: column; gap: 2.5rem; line-height: 1.7; box-shadow: var(--shadow-md);">
+
+        <!-- 1. Introduction -->
+        <section id="section-1">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">01.</span> Introduction
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Welcome to <strong>SMR Motors</strong> ("we," "our," or "the Platform"). SMR Motors operates a pre-owned motorcycle marketplace and dealership platform headquartered in Salem, Tamil Nadu, India.
+          </p>
+          <p style="color: var(--text-secondary);">
+            This Privacy Policy explains how SMR Motors collects, uses, discloses, and protects your information when you visit our website (<a href="https://bike-selling-site-lco8.onrender.com" target="_blank" style="color: var(--accent-primary);">https://bike-selling-site-lco8.onrender.com</a>) or use our services to browse, list, inspect, or purchase motorcycles. By using the Platform, you acknowledge the terms described herein.
+          </p>
+        </section>
+
+        <!-- 2. Information We Collect -->
+        <section id="section-2">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">02.</span> Information We Collect
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            We collect only the minimum information necessary to deliver transparent motorcycle matchmaking, verify vehicle ownership, and enable communication between buyers, sellers, and dealership staff.
+          </p>
+        </section>
+
+        <!-- 3. Personal Information -->
+        <section id="section-3">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">03.</span> Personal Information
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            When you register, submit an inquiry, list a motorcycle, or contact us, we collect:
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem; margin-bottom: 0.75rem;">
+            <li><strong>Full Name:</strong> Used for account personalization and official inquiry routing.</li>
+            <li><strong>Email Address:</strong> Used as your unique account identifier, for booking notifications, and for sending counteroffers.</li>
+            <li><strong>Phone Number:</strong> Used solely to coordinate vehicle inspections, test rides, and transfer paperwork.</li>
+            <li><strong>Location / City:</strong> Used to display dealership location or vehicle handover point.</li>
+          </ul>
+        </section>
+
+        <!-- 4. Google Account Authentication -->
+        <section id="section-4">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">04.</span> Google Account Authentication
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            We utilize <strong>Google Identity Services (Google OAuth 2.0)</strong> for seamless, passwordless user authentication. When you sign in with Google:
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem; margin-bottom: 0.75rem;">
+            <li>We receive your cryptographic Google ID token, verified through Google’s public key infrastructure.</li>
+            <li>We access only your verified name, primary email address, profile avatar URL, and Google user ID.</li>
+            <li><strong>We never receive, request, or store your Google account password.</strong></li>
+            <li>We do not request access to your Google Drive, Gmail messages, contacts, or calendar.</li>
+          </ul>
+        </section>
+
+        <!-- 5. Bike Listing Information -->
+        <section id="section-5">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">05.</span> Bike Listing Information
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            When you submit a motorcycle for sale, we collect technical details including make, model, registration year, odometer kilometers, fuel type, transmission, vehicle registration number, seller requested payout, and condition description.
+          </p>
+          <p style="color: var(--text-secondary);">
+            Before public publication, vehicle registration numbers are reviewed by our administration team. Private financial margins (such as confidential dealership expenses) are never disclosed to third parties.
+          </p>
+        </section>
+
+        <!-- 6. Customer Enquiries -->
+        <section id="section-6">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">06.</span> Customer Enquiries
+          </h2>
+          <p style="color: var(--text-secondary);">
+            When buyers submit price proposals or test ride queries through our motorcycle details page, we record the message text, contact details, and timestamp in our enquiries ledger. Sellers and dealership staff use this information solely to review and respond to the specific query.
+          </p>
+        </section>
+
+        <!-- 7. Uploaded Images -->
+        <section id="section-7">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">07.</span> Uploaded Images
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Users and dealership managers can upload up to 6 gallery photographs per motorcycle. Uploaded images are validated for size (under 5MB each) and sanitized to strip potentially dangerous embedded scripts. Images are stored securely on our application file storage and cataloged in our database.
+          </p>
+        </section>
+
+        <!-- 8. How We Use Information -->
+        <section id="section-8">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">08.</span> How We Use Information
+          </h2>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li>Publishing verified pre-owned listings to the live marketplace.</li>
+            <li>Facilitating buyer inquiries and seller counteroffers.</li>
+            <li>Dispatching real-time notifications when a listing is approved, rejected, or receives an offer.</li>
+            <li>Preventing fraudulent vehicle listings, spam, and platform abuse.</li>
+            <li>Complying with applicable motor vehicle documentation standards in Tamil Nadu.</li>
+          </ul>
+        </section>
+
+        <!-- 9. Database Storage and Security -->
+        <section id="section-9">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">09.</span> Database Storage and Security
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Our primary data layer is hosted on a managed <strong>TiDB Cloud MySQL-compatible distributed cluster</strong>.
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li><strong>Transport Security:</strong> All connections to our database gateway require mutual TLS verification using the root ISRG Certificate Authority (<a href="file:///my-node-app/certs/isrgrootx1.pem" style="color: var(--accent-primary);">isrgrootx1.pem</a>).</li>
+            <li><strong>Encryption in Transit:</strong> HTTPS SSL/TLS encryption across all public web traffic.</li>
+            <li><strong>Access Control:</strong> Administrative and staff endpoints enforce role-based access control (RBAC). Passwords for staff accounts are cryptographically hashed using PBKDF2/SHA256 before storage.</li>
+          </ul>
+        </section>
+
+        <!-- 10. Third-Party Services -->
+        <section id="section-10">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">10.</span> Third-Party Services
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            We integrate with the following trusted third-party providers:
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li><strong>Google Identity Services:</strong> Provides cryptographic sign-in and token validation.</li>
+            <li><strong>TiDB Cloud (PingCAP):</strong> Enterprise cloud database infrastructure with TLS encryption.</li>
+            <li><strong>Cloudflare / FontAwesome / Google Fonts:</strong> Public content delivery networks for styling and web fonts.</li>
+          </ul>
+          <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            We do not sell, rent, or monetize your personal information to third-party advertisers or data brokers.
+          </p>
+        </section>
+
+        <!-- 11. Cookies and Sessions -->
+        <section id="section-11">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">11.</span> Cookies and Sessions
+          </h2>
+          <p style="color: var(--text-secondary);">
+            The Platform uses JSON Web Tokens (JWT) stored in browser <code>localStorage</code> or <code>sessionStorage</code> to maintain your authenticated session. We do not deploy invasive third-party tracking pixels or behavioral advertising cookies.
+          </p>
+        </section>
+
+        <!-- 12. Data Retention -->
+        <section id="section-12">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">12.</span> Data Retention
+          </h2>
+          <p style="color: var(--text-secondary);">
+            We retain active user accounts and motorcycle listings for as long as your account remains active. Completed sale transactions are archived in our sales ledger for financial compliance and accounting purposes as required by Indian commercial law.
+          </p>
+        </section>
+
+        <!-- 13. User Rights -->
+        <section id="section-13">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">13.</span> User Rights
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Under applicable digital data protection standards, you have the right to:
+          </p>
+          <ul style="color: var(--text-secondary); padding-left: 1.5rem;">
+            <li>Access and review all personal data associated with your profile.</li>
+            <li>Correct inaccurate phone numbers, location, or vehicle specifications.</li>
+            <li>Withdraw your motorcycle listing at any time prior to finalized sale.</li>
+            <li>Request the permanent deletion of your profile and data records.</li>
+          </ul>
+        </section>
+
+        <!-- 14. Account Deletion Requests -->
+        <section id="section-14">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">14.</span> Account Deletion Requests
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+            You can request the deletion of your account and associated personal data at any time. Submit your request using the form below or email us directly at <a href="mailto:praveenmuthu9500@gmail.com" style="color: var(--accent-primary);">praveenmuthu9500@gmail.com</a>. Upon identity confirmation, non-archived user records will be permanently expunged within 14 business days.
+          </p>
+
+          <!-- Interactive Privacy Request Form -->
+          <div id="privacy-request-section" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 1.75rem; margin-top: 1.25rem;">
+            <h4 style="color: #FFFFFF; margin-bottom: 1rem; font-size: 1.1rem;"><i class="fas fa-file-shield" style="color: var(--accent-primary); margin-right: 6px;"></i> Official Data Protection & Deletion Request Form</h4>
+            <form id="privacy-request-form" onsubmit="handlePrivacyRequestSubmit(event)">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">Your Full Name *</label>
+                  <input type="text" id="priv-req-name" required placeholder="e.g. Karthik Raja" style="width: 100%; height: 42px; background: #0A0E1A; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0 0.85rem; color: #FFF; font-family: inherit;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">Registered Email Address *</label>
+                  <input type="email" id="priv-req-email" required placeholder="karthik@example.com" style="width: 100%; height: 42px; background: #0A0E1A; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0 0.85rem; color: #FFF; font-family: inherit;">
+                </div>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                  <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">Phone Number</label>
+                  <input type="text" id="priv-req-phone" placeholder="+91 98765 43210" style="width: 100%; height: 42px; background: #0A0E1A; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0 0.85rem; color: #FFF; font-family: inherit;">
+                </div>
+                <div>
+                  <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">Request Type *</label>
+                  <select id="priv-req-type" style="width: 100%; height: 42px; background: #0A0E1A; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0 0.85rem; color: #FFF; font-family: inherit;">
+                    <option value="account_deletion">Permanent Account & Data Deletion</option>
+                    <option value="data_export">Export My Personal Data (JSON/CSV)</option>
+                    <option value="data_correction">Correction of Personal Information</option>
+                    <option value="privacy_inquiry">General Privacy Inquiry</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style="margin-bottom: 1.25rem;">
+                <label style="display: block; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.35rem; font-weight: 600;">Details or Instructions</label>
+                <textarea id="priv-req-details" rows="3" placeholder="Please provide any additional details regarding your request..." style="width: 100%; background: #0A0E1A; border: 1px solid var(--border-medium); border-radius: 8px; padding: 0.75rem 0.85rem; color: #FFF; font-family: inherit; resize: vertical;"></textarea>
+              </div>
+
+              <button type="submit" id="priv-req-btn" class="btn btn-primary" style="height: 44px; padding: 0 1.5rem; font-weight: 700;">
+                <i class="fas fa-paper-plane"></i> Submit Formal Request
+              </button>
+            </form>
+          </div>
+        </section>
+
+        <!-- 15. Children's Privacy -->
+        <section id="section-15">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">05.</span> Children's Privacy
+          </h2>
+          <p style="color: var(--text-secondary);">
+            The Platform is intended strictly for individuals aged 18 and older who hold legal capacity to operate and transfer registered motor vehicles under Indian law. We do not knowingly solicit or collect personal information from minors.
+          </p>
+        </section>
+
+        <!-- 16. Policy Updates -->
+        <section id="section-16">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">16.</span> Policy Updates
+          </h2>
+          <p style="color: var(--text-secondary);">
+            We may periodically update this Privacy Policy to reflect modifications in our features, security practices, or regulatory requirements. Any revisions will be published here with an updated "Last Updated" timestamp.
+          </p>
+        </section>
+
+        <!-- 17. Contact Information -->
+        <section id="section-17">
+          <h2 style="font-size: 1.45rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+            <span style="color: var(--accent-primary); font-size: 1.15rem;">17.</span> Contact Information
+          </h2>
+          <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            For inquiries, data requests, or concerns regarding our privacy practices, contact our Data Protection Compliance Officer:
+          </p>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 1.25rem 1.5rem; display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+            <div><strong>Entity:</strong> SMR Motors Dealership & Used Motorcycle Marketplace</div>
+            <div><strong>Direct Contact Email:</strong> <a href="mailto:praveenmuthu9500@gmail.com" style="color: var(--accent-primary); font-weight: 600;">praveenmuthu9500@gmail.com</a></div>
+            <div><strong>Location:</strong> Main Bypass Road, Auto Hub, Salem, Tamil Nadu, India</div>
+            <div><strong>General Contact Desk:</strong> <a href="{{ url_for('contact_page') }}" style="color: var(--accent-primary);">https://bike-selling-site-lco8.onrender.com/contact.html</a></div>
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ==================================================
+       PROFESSIONAL FOOTER (Requirement 4)
+       ================================================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div style="font-weight: 800; font-size: 1.25rem; color: #FFFFFF; letter-spacing: -0.5px; margin-bottom: 0.75rem;">
+            SMR MOTORS
+          </div>
+          <p class="footer-desc">
+            Verified Pre-Owned Motorcycles Marketplace. Multi-point inspection, clean title documentation, and fair transparent pricing across Tamil Nadu.
+          </p>
+          <div class="live-business-hours-badge"></div>
+        </div>
+
+        <div class="footer-column">
+          <h4>Quick Links</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('index') }}" class="footer-link">Home</a></li>
+            <li><a href="{{ url_for('index') }}#inventory" class="footer-link">Inventory</a></li>
+            <li><a href="{{ url_for('bike_selling') }}" class="footer-link">Sell Your Bike</a></li>
+            <li><a href="{{ url_for('sold_out_page') }}" class="footer-link">Sold Gallery</a></li>
+            <li><a href="{{ url_for('about_page') }}" class="footer-link">About Us</a></li>
+            <li><a href="{{ url_for('contact_page') }}" class="footer-link">Contact Us</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Legal & Safety</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('privacy_page') }}" class="footer-link" style="color: var(--accent-primary); font-weight: 700;">Privacy Policy</a></li>
+            <li><a href="{{ url_for('disclaimer_page') }}" class="footer-link">Disclaimer</a></li>
+            <li><a href="{{ url_for('contact_page') }}#terms" class="footer-link">Terms & Conditions</a></li>
+            <li><a href="{{ url_for('user_profile') }}" class="footer-link">User Dashboard</a></li>
+            <li><a href="{{ url_for('admin_page') }}" class="footer-link">Admin Portal</a></li>
+          </ul>
+        </div>
+
+        <div class="footer-column">
+          <h4>Contact & Hours</h4>
+          <div class="footer-contact-item">
+            <i class="fas fa-envelope"></i>
+            <span><a href="mailto:praveenmuthu9500@gmail.com" style="color:inherit; text-decoration:none;">praveenmuthu9500@gmail.com</a></span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-phone-alt"></i>
+            <span>+91 98765 43210 / +91 91234 56789</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>SMR Motors Showroom, Auto Hub, Main Bypass Road, Salem</span>
+          </div>
+          <div class="footer-contact-item">
+            <i class="fas fa-clock"></i>
+            <span>Monday – Sunday: 9:30 AM – 8:30 PM (Asia/Kolkata)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <div>&copy; 2026 SMR Motors. All Rights Reserved.</div>
+        <div>Verified Pre-Owned Motorcycles Marketplace.</div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script src="{{ url_for('static', filename='auth.js') }}"></script>
+  <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <script>
+    async function handlePrivacyRequestSubmit(e) {
+      e.preventDefault();
+      const btn = document.getElementById('priv-req-btn');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+      const payload = {
+        name: document.getElementById('priv-req-name').value.trim(),
+        email: document.getElementById('priv-req-email').value.trim(),
+        phone: document.getElementById('priv-req-phone').value.trim(),
+        request_type: document.getElementById('priv-req-type').value,
+        details: document.getElementById('priv-req-details').value.trim()
+      };
+
+      try {
+        const res = await apiRequest('/api/privacy/request', {
+          method: 'POST',
+          body: payload
+        });
+        showToast(res.message || 'Request successfully submitted!', 'success');
+        document.getElementById('privacy-request-form').reset();
+      } catch (err) {
+        showToast(err.message || 'Failed to submit request', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+  </script>
+</body>
+</html>
