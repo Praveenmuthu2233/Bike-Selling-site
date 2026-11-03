@@ -9,6 +9,7 @@ import tempfile
 import secrets
 import hashlib
 from functools import wraps
+import jwt
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_from_directory, g, session
 from flask_cors import CORS
@@ -42,6 +43,19 @@ except Exception:
 CORS(app, resources={r"*": {"origins": "*"}},
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
      allow_headers=["Content-Type", "Authorization", "X-Requested-With"])
+
+@app.after_request
+def add_cache_control_headers(response):
+    """
+    Enforces no-cache headers for dynamic API endpoints to prevent stale data
+    or caching proxies/CDNs from serving outdated inventory.
+    Static assets remain cacheable by browser.
+    """
+    if request.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
 
 # Configuration
 JWT_SECRET = os.getenv("JWT_SECRET", "smr-motors-jwt-secret-key-2025")
@@ -459,20 +473,27 @@ def get_db():
         if _tidb_pool is None:
             pool_cfg = dict(dbconfig)
             pool_cfg["pool_name"] = "smr_tidb_pool"
-            pool_cfg["pool_size"] = 5
+            pool_cfg["pool_size"] = 10
             pool_cfg["pool_reset_session"] = True
             _tidb_pool = pooling.MySQLConnectionPool(**pool_cfg)
-        return _tidb_pool.get_connection()
-    except Exception:
-        # Fallback to direct connection if pooling is not supported or connection pool fails
-        try:
-            import mysql.connector
-            return mysql.connector.connect(**dbconfig)
-        except Exception as e:
-            err_msg = str(e)
-            if DB_PASSWORD and DB_PASSWORD in err_msg:
-                err_msg = err_msg.replace(DB_PASSWORD, "[PROTECTED]")
-            return None
+        conn = _tidb_pool.get_connection()
+        if conn and conn.is_connected():
+            return conn
+    except Exception as pool_err:
+        # If pool is exhausted or closed, reset pool reference
+        _tidb_pool = None
+
+    # Direct connection fallback with ping verification
+    try:
+        import mysql.connector
+        conn = mysql.connector.connect(**dbconfig)
+        return conn
+    except Exception as e:
+        err_msg = str(e)
+        if DB_PASSWORD and DB_PASSWORD in err_msg:
+            err_msg = err_msg.replace(DB_PASSWORD, "[PROTECTED]")
+        print("[Database Connection Error]:", err_msg)
+        return None
 
 def log_admin_action(admin_username, action, target_type, target_id=None, details=None):
     """
@@ -1589,13 +1610,16 @@ def get_bikes_api():
         "end": end_idx
     }
 
-    return jsonify({
+    resp = jsonify({
         "success": True,
         "data": page_data,
         "bikes": page_data,
         "pagination": pagination,
         "total": total
     })
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route("/api/bikes/sold", methods=["GET"])
 def get_sold_bikes_api():
@@ -1707,7 +1731,7 @@ def get_sold_bikes_api():
     end_idx = min(start_idx + limit, total)
     page_data = sanitized[start_idx:end_idx]
 
-    return jsonify({
+    resp = jsonify({
         "success": True,
         "data": page_data,
         "bikes": page_data,
@@ -1723,6 +1747,9 @@ def get_sold_bikes_api():
         },
         "total": total
     })
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @app.route("/api/bikes/<int:bike_id>", methods=["GET"])
@@ -1837,19 +1864,41 @@ def add_bike_api():
     sname = data.get("seller_name") or data.get("sellerName") or "User"
     sphone = data.get("seller_phone") or data.get("mobileNum") or ""
     seller_id = data.get("seller_id") or session.get("user_id") or None
-    status = data.get("status", "pending")
-    listing_status = "pending"
-    negotiation_status = "pending"
+    # Check caller authentication to set status and listing_status correctly
+    auth_header = request.headers.get("Authorization", "")
+    is_admin_caller = False
+    if auth_header and "Bearer" in auth_header:
+        try:
+            token = auth_header.split()[1]
+            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            if decoded.get("role") in ("admin", "superadmin"):
+                is_admin_caller = True
+        except Exception:
+            pass
 
-    # Persist to TiDB Cloud
+    req_status = (data.get("status") or "").lower()
+    if is_admin_caller and req_status in ("approved", "published"):
+        status = "approved"
+        listing_status = "published"
+        negotiation_status = "completed"
+        is_accepted = 1
+    else:
+        status = "pending"
+        listing_status = "pending"
+        negotiation_status = "pending"
+        is_accepted = 0
+
+    # Persist to TiDB Cloud with verification
     conn = get_db()
     if conn:
         try:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
             cursor.execute(
-                """INSERT INTO bikes (title, brand, model, year, registration_number, price, requested_price, kilometers_driven, fuel_type, transmission, location, description, images, seller_id, seller_name, seller_phone, status, listing_status, negotiation_status)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (title, brand, model, year, reg_no, price, price, kms, fuel, trans, location, desc, json.dumps(images), seller_id, sname, sphone, status, listing_status, negotiation_status)
+                """INSERT INTO bikes (title, brand, model, year, registration_number, price, requested_price, public_selling_price, kilometers_driven, fuel_type, transmission, location, description, images, seller_id, seller_name, seller_phone, status, listing_status, negotiation_status, isSoldout, approved_at, published_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (title, brand, model, year, reg_no, price, price, price if status == "approved" else None, kms, fuel, trans, location, desc, json.dumps(images), seller_id, sname, sphone, status, listing_status, negotiation_status, 0,
+                 datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") if status == "approved" else None,
+                 datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S") if status == "approved" else None)
             )
             new_id = cursor.lastrowid
 
@@ -1864,16 +1913,26 @@ def add_bike_api():
             cursor.execute(
                 """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, vehicleNumber, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (title, brand, model, str(year), reg_no, str(price), str(price), str(kms), sname, sphone, desc, 1 if status == "approved" else 0, 0)
+                (title, brand, model, str(year), reg_no, str(price), str(price), str(kms), sname, sphone, desc, is_accepted, 0)
             )
             conn.commit()
+
+            # Diagnostic log and round-trip verification (Requirement 8 & 9)
+            cursor.execute("SELECT id, status, listing_status FROM bikes WHERE id = %s", (new_id,))
+            verified_bike = cursor.fetchone()
             cursor.close()
             conn.close()
+
+            if not verified_bike:
+                print(f"[CRITICAL] Bike insertion verification failed for id #{new_id}")
+                return jsonify({"success": False, "message": "Database insertion verification failed."}), 500
+            print(f"[Database Persistence Log] Bike #{new_id} inserted and verified in TiDB Cloud: status='{verified_bike.get('status')}', listing_status='{verified_bike.get('listing_status')}'")
         except Exception as e:
             print("[Database] add_bike error:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
+            return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     new_bike = {
         "id": new_id,
@@ -4000,13 +4059,23 @@ def admin_mark_sold(bike_id):
                  buyer_name, buyer_phone, notes, admin_uname, sold_at)
             )
             conn.commit()
+
+            # Diagnostic log and round-trip verification (Requirement 8 & 9)
+            cursor.execute("SELECT id, status, listing_status, isSoldout FROM bikes WHERE id = %s", (bike_id,))
+            verified_bike = cursor.fetchone()
             cursor.close()
             conn.close()
+
+            if not verified_bike or verified_bike.get("isSoldout") != 1:
+                print(f"[CRITICAL] Bike mark-sold verification failed for bike #{bike_id}: {verified_bike}")
+                return jsonify({"success": False, "message": "Database mark-sold verification failed."}), 500
+            print(f"[Database Persistence Log] Bike #{bike_id} marked sold and verified in TiDB Cloud: status='{verified_bike.get('status')}', isSoldout={verified_bike.get('isSoldout')}")
         except Exception as e:
-            print("[Database] Mark sold notice:", e)
+            print("[Database] Mark sold error:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
+            return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     if actual_sale_price <= 0:
         actual_sale_price = float(target_bike.get("public_selling_price") or target_bike.get("price") or 100000) if target_bike else 100000.0
@@ -4659,7 +4728,7 @@ def admin_approve_bike(bike_id):
     conn = get_db()
     if conn:
         try:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
             if approved_price:
                 cursor.execute("""
                     UPDATE bikes SET
@@ -4694,8 +4763,17 @@ def admin_approve_bike(bike_id):
             """, (bike_id, current_status or "pending", admin_username))
 
             conn.commit()
+
+            # Diagnostic log and round-trip verification (Requirement 8 & 9)
+            cursor.execute("SELECT id, status, listing_status, isSoldout FROM bikes WHERE id = %s", (bike_id,))
+            verified_bike = cursor.fetchone()
             cursor.close()
             conn.close()
+
+            if not verified_bike or verified_bike.get("status") != "approved" or verified_bike.get("listing_status") != "published":
+                print(f"[CRITICAL] Bike approval verification failed for bike #{bike_id}: {verified_bike}")
+                return jsonify({"success": False, "message": "Database approval verification failed."}), 500
+            print(f"[Database Persistence Log] Bike #{bike_id} approved and verified in TiDB Cloud: status='{verified_bike.get('status')}', listing_status='{verified_bike.get('listing_status')}'")
         except Exception as e:
             if conn:
                 try: conn.close()
@@ -4765,7 +4843,7 @@ def admin_reject_bike(bike_id):
     conn = get_db()
     if conn:
         try:
-            cursor = conn.cursor()
+            cursor = conn.cursor(dictionary=True)
             cursor.execute("""
                 UPDATE bikes SET
                   status = 'rejected',
@@ -4784,8 +4862,17 @@ def admin_reject_bike(bike_id):
             """, (bike_id, current_status or "pending", admin_username, reason))
 
             conn.commit()
+
+            # Diagnostic log and round-trip verification (Requirement 8 & 9)
+            cursor.execute("SELECT id, status, listing_status FROM bikes WHERE id = %s", (bike_id,))
+            verified_bike = cursor.fetchone()
             cursor.close()
             conn.close()
+
+            if not verified_bike or verified_bike.get("status") != "rejected":
+                print(f"[CRITICAL] Bike rejection verification failed for bike #{bike_id}: {verified_bike}")
+                return jsonify({"success": False, "message": "Database rejection verification failed."}), 500
+            print(f"[Database Persistence Log] Bike #{bike_id} rejected and verified in TiDB Cloud: status='{verified_bike.get('status')}', listing_status='{verified_bike.get('listing_status')}'")
         except Exception as e:
             if conn:
                 try: conn.close()
