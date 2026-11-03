@@ -214,3 +214,47 @@ CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   INDEX `idx_audit_admin` (`admin_id`),
   INDEX `idx_audit_action` (`action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 9. Customer Support Chat Conversations Table
+CREATE TABLE IF NOT EXISTS `chat_conversations` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `subject` VARCHAR(255) NOT NULL DEFAULT 'General Support Inquiry',
+  `bike_id` INT NULL,
+  `status` VARCHAR(50) NOT NULL DEFAULT 'open',
+  `assigned_admin_id` INT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX `idx_conv_user` (`user_id`),
+  INDEX `idx_conv_bike` (`bike_id`),
+  INDEX `idx_conv_status` (`status`),
+  INDEX `idx_conv_assigned` (`assigned_admin_id`),
+  INDEX `idx_conv_updated` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. Customer Support Chat Messages Table
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `conversation_id` INT NOT NULL,
+  `sender_id` INT NOT NULL,
+  `sender_role` VARCHAR(20) NOT NULL,
+  `message` TEXT NOT NULL,
+  `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_msg_conv` (`conversation_id`),
+  INDEX `idx_msg_sender` (`sender_id`),
+  INDEX `idx_msg_read` (`is_read`),
+  INDEX `idx_msg_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 11. Customer Support Chat Read Receipts
+CREATE TABLE IF NOT EXISTS `chat_read_status` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `conversation_id` INT NOT NULL,
+  `user_id` INT NOT NULL,
+  `last_read_message_id` INT NOT NULL DEFAULT 0,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `uk_conv_user` (`conversation_id`, `user_id`),
+  INDEX `idx_crs_conv` (`conversation_id`),
+  INDEX `idx_crs_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

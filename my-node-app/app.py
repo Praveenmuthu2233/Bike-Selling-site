@@ -8,6 +8,8 @@ import datetime
 import tempfile
 import secrets
 import hashlib
+import time
+from html import escape
 from functools import wraps
 import jwt
 from dotenv import load_dotenv
@@ -1058,6 +1060,54 @@ def initialize_database():
           `isAccepted` BOOLEAN DEFAULT TRUE,
           `isSoldout` BOOLEAN DEFAULT FALSE,
           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # 10. Customer Support Chat Tables
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `chat_conversations` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `user_id` INT NOT NULL,
+          `subject` VARCHAR(255) NOT NULL DEFAULT 'General Support Inquiry',
+          `bike_id` INT NULL,
+          `status` VARCHAR(50) NOT NULL DEFAULT 'open',
+          `assigned_admin_id` INT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX `idx_conv_user` (`user_id`),
+          INDEX `idx_conv_bike` (`bike_id`),
+          INDEX `idx_conv_status` (`status`),
+          INDEX `idx_conv_assigned` (`assigned_admin_id`),
+          INDEX `idx_conv_updated` (`updated_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `chat_messages` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `conversation_id` INT NOT NULL,
+          `sender_id` INT NOT NULL,
+          `sender_role` VARCHAR(20) NOT NULL,
+          `message` TEXT NOT NULL,
+          `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_msg_conv` (`conversation_id`),
+          INDEX `idx_msg_sender` (`sender_id`),
+          INDEX `idx_msg_read` (`is_read`),
+          INDEX `idx_msg_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `chat_read_status` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `conversation_id` INT NOT NULL,
+          `user_id` INT NOT NULL,
+          `last_read_message_id` INT NOT NULL DEFAULT 0,
+          `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          UNIQUE KEY `uk_conv_user` (`conversation_id`, `user_id`),
+          INDEX `idx_crs_conv` (`conversation_id`),
+          INDEX `idx_crs_user` (`user_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
         conn.commit()
@@ -6367,6 +6417,680 @@ def upload_files_legacy():
             f.save(os.path.join(UPLOAD_DIR, fn))
             saved.append([fn, f"/uploads/{fn}"])
     return jsonify({"message": "Files uploaded successfully", "files": saved})
+
+
+# -----------------------------------------------------------------------------
+# REAL-TIME CUSTOMER & ADMIN CHAT SYSTEM (TiDB CLOUD PERSISTENT)
+# -----------------------------------------------------------------------------
+_chat_rate_limits = {}
+
+def get_chat_caller():
+    """
+    Identifies caller from Authorization Bearer token or session.
+    Returns: (role, caller_id, metadata)
+    role: 'user', 'admin', 'superadmin' or (None, None, None)
+    """
+    auth = request.headers.get("Authorization", "")
+    if auth and "Bearer" in auth:
+        try:
+            token = auth.split()[1]
+            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            admin_role = normalize_admin_role(decoded.get("role"))
+            if admin_role:
+                return (admin_role, decoded.get("admin_id") or decoded.get("id") or 1, decoded)
+            if decoded.get("user_id") or decoded.get("id"):
+                uid = decoded.get("user_id") or decoded.get("id")
+                return ("user", uid, decoded)
+        except Exception:
+            pass
+
+    if session.get("admin_logged_in"):
+        role = normalize_admin_role(session.get("admin_role")) or "admin"
+        return (role, session.get("admin_id", 1), {
+            "admin_id": session.get("admin_id", 1),
+            "username": session.get("admin_username", "admin"),
+            "role": role
+        })
+
+    if session.get("user_id"):
+        return ("user", session.get("user_id"), {
+            "user_id": session.get("user_id"),
+            "name": session.get("user_name", "User"),
+            "email": session.get("user_email", "")
+        })
+
+    return (None, None, None)
+
+def check_chat_rate_limit(sender_key, max_messages=5, window_seconds=5):
+    now = time.time()
+    if sender_key not in _chat_rate_limits:
+        _chat_rate_limits[sender_key] = []
+    _chat_rate_limits[sender_key] = [t for t in _chat_rate_limits[sender_key] if now - t < window_seconds]
+    if len(_chat_rate_limits[sender_key]) >= max_messages:
+        return False
+    _chat_rate_limits[sender_key].append(now)
+    return True
+
+@app.route("/api/chat/unread-count", methods=["GET"])
+def get_chat_unread_count():
+    caller_role, caller_id, _ = get_chat_caller()
+    if not caller_role:
+        return jsonify({"success": False, "unread_count": 0}), 401
+
+    conn = get_db()
+    unread_count = 0
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            if caller_role == "user":
+                cursor.execute("""
+                    SELECT COUNT(*) AS unread
+                    FROM chat_messages m
+                    JOIN chat_conversations c ON m.conversation_id = c.id
+                    WHERE c.user_id = %s AND m.sender_role IN ('admin', 'superadmin') AND m.is_read = 0
+                """, (caller_id,))
+            else:
+                cursor.execute("""
+                    SELECT COUNT(*) AS unread
+                    FROM chat_messages m
+                    JOIN chat_conversations c ON m.conversation_id = c.id
+                    WHERE m.sender_role = 'user' AND m.is_read = 0
+                """)
+            row = cursor.fetchone()
+            if row:
+                unread_count = row.get("unread", 0)
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            print("[Chat DB Error] unread count:", e)
+
+    return jsonify({"success": True, "unread_count": int(unread_count)})
+
+@app.route("/api/chat/conversations", methods=["GET"])
+def get_user_chat_conversations():
+    caller_role, caller_id, caller_info = get_chat_caller()
+    if not caller_role:
+        return jsonify({"success": False, "message": "Authentication required. Please sign in."}), 401
+
+    conn = get_db()
+    conversations = []
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT 
+                    c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
+                    c.created_at, c.updated_at,
+                    b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model,
+                    b.price AS bike_price, b.images AS bike_images,
+                    (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
+                    (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
+                    (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
+                    (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id AND sender_role IN ('admin', 'superadmin') AND is_read = 0) AS unread_count,
+                    a.username AS assigned_admin_name
+                FROM chat_conversations c
+                LEFT JOIN bikes b ON c.bike_id = b.id
+                LEFT JOIN admins a ON c.assigned_admin_id = a.id
+                WHERE c.user_id = %s
+                ORDER BY c.updated_at DESC
+            """, (caller_id,))
+            rows = cursor.fetchall() or []
+            for r in rows:
+                first_img = None
+                if r.get("bike_images"):
+                    try:
+                        imgs = json.loads(r["bike_images"]) if isinstance(r["bike_images"], str) else r["bike_images"]
+                        if isinstance(imgs, list) and len(imgs) > 0:
+                            first_img = imgs[0]
+                    except Exception:
+                        first_img = r["bike_images"]
+                conversations.append({
+                    "id": r["id"],
+                    "user_id": r["user_id"],
+                    "subject": r["subject"],
+                    "bike_id": r["bike_id"],
+                    "bike_title": r.get("bike_title"),
+                    "bike_brand": r.get("bike_brand"),
+                    "bike_model": r.get("bike_model"),
+                    "bike_price": float(r["bike_price"]) if r.get("bike_price") is not None else None,
+                    "bike_image": first_img,
+                    "status": r["status"],
+                    "assigned_admin_id": r["assigned_admin_id"],
+                    "assigned_admin_name": r.get("assigned_admin_name") or "SMR Support Team",
+                    "last_message": r.get("last_message") or "Conversation created",
+                    "last_sender_role": r.get("last_sender_role") or "system",
+                    "last_message_at": str(r.get("last_message_at") or r.get("created_at") or ""),
+                    "unread_count": int(r.get("unread_count") or 0),
+                    "created_at": str(r.get("created_at") or ""),
+                    "updated_at": str(r.get("updated_at") or "")
+                })
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            print("[Chat DB Error] list conversations:", e)
+            return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+    return jsonify({"success": True, "conversations": conversations})
+
+@app.route("/api/chat/conversations", methods=["POST"])
+def create_chat_conversation():
+    caller_role, caller_id, caller_info = get_chat_caller()
+    if not caller_role:
+        return jsonify({"success": False, "message": "Authentication required. Please sign in."}), 401
+
+    data = request.get_json(silent=True) or {}
+    message_text = (data.get("message") or "").strip()
+    if not message_text:
+        return jsonify({"success": False, "message": "Message text cannot be empty."}), 400
+    if len(message_text) > 2000:
+        return jsonify({"success": False, "message": "Message exceeds maximum length of 2,000 characters."}), 400
+
+    sender_key = f"{caller_role}_{caller_id}"
+    if not check_chat_rate_limit(sender_key):
+        return jsonify({"success": False, "message": "You are sending messages too quickly. Please wait a moment."}), 429
+
+    bike_id = data.get("bike_id")
+    subject = (data.get("subject") or "").strip()
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        if bike_id:
+            cursor.execute("SELECT id, title, brand, model, price, images FROM bikes WHERE id = %s", (bike_id,))
+            bike_info = cursor.fetchone()
+            if bike_info and not subject:
+                subject = f"Inquiry about {bike_info.get('title', 'Motorcycle')}"
+
+        if not subject:
+            subject = "General Support Inquiry"
+
+        # Check if an existing open conversation already exists for this user and bike
+        if bike_id:
+            cursor.execute("""
+                SELECT id FROM chat_conversations
+                WHERE user_id = %s AND bike_id = %s AND status = 'open'
+                ORDER BY id DESC LIMIT 1
+            """, (caller_id, bike_id))
+            existing = cursor.fetchone()
+            if existing:
+                conv_id = existing["id"]
+                cursor.execute("""
+                    INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                    VALUES (%s, %s, %s, %s, 0)
+                """, (conv_id, caller_id, caller_role, message_text))
+                new_msg_id = cursor.lastrowid
+                cursor.execute("UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_id,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+                cust_name = caller_info.get("name") or caller_info.get("username") or f"Customer #{caller_id}"
+                create_notification(
+                    title=f"New Chat Message: {subject}",
+                    message=f"{cust_name}: {message_text[:100]}",
+                    user_id=None,
+                    target_role="admin",
+                    notif_type="info",
+                    link=f"/admin.html?tab=customer-chat&conv_id={conv_id}"
+                )
+
+                return jsonify({
+                    "success": True,
+                    "conversation_id": conv_id,
+                    "message_id": new_msg_id,
+                    "reused_existing": True,
+                    "message": "Message sent successfully"
+                }), 201
+
+        cursor.execute("""
+            INSERT INTO chat_conversations (user_id, subject, bike_id, status)
+            VALUES (%s, %s, %s, 'open')
+        """, (caller_id, subject, bike_id))
+        conv_id = cursor.lastrowid
+
+        cursor.execute("""
+            INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+            VALUES (%s, %s, %s, %s, 0)
+        """, (conv_id, caller_id, caller_role, message_text))
+        new_msg_id = cursor.lastrowid
+
+        cursor.execute("""
+            INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE last_read_message_id = %s
+        """, (conv_id, caller_id, new_msg_id, new_msg_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        cust_name = caller_info.get("name") or caller_info.get("username") or f"Customer #{caller_id}"
+        create_notification(
+            title=f"New Customer Chat: {subject}",
+            message=f"{cust_name} started a new support conversation: {message_text[:100]}",
+            user_id=None,
+            target_role="admin",
+            notif_type="info",
+            link=f"/admin.html?tab=customer-chat&conv_id={conv_id}"
+        )
+
+        return jsonify({
+            "success": True,
+            "conversation_id": conv_id,
+            "message_id": new_msg_id,
+            "message": "Conversation started successfully"
+        }), 201
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        print("[Chat DB Error] create conversation:", e)
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+@app.route("/api/chat/conversations/<int:conv_id>/messages", methods=["GET"])
+def get_conversation_messages(conv_id):
+    caller_role, caller_id, caller_info = get_chat_caller()
+    if not caller_role:
+        return jsonify({"success": False, "message": "Authentication required. Please sign in."}), 401
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT c.*, b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model,
+                   b.price AS bike_price, b.images AS bike_images,
+                   u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar
+            FROM chat_conversations c
+            LEFT JOIN bikes b ON c.bike_id = b.id
+            LEFT JOIN users u ON c.user_id = u.id
+            WHERE c.id = %s
+        """, (conv_id,))
+        conv = cursor.fetchone()
+        if not conv:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Conversation not found."}), 404
+
+        if caller_role == "user" and int(conv["user_id"]) != int(caller_id):
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Access forbidden: You can only access your own conversations."}), 403
+
+        first_img = None
+        if conv.get("bike_images"):
+            try:
+                imgs = json.loads(conv["bike_images"]) if isinstance(conv["bike_images"], str) else conv["bike_images"]
+                if isinstance(imgs, list) and len(imgs) > 0:
+                    first_img = imgs[0]
+            except Exception:
+                first_img = conv["bike_images"]
+
+        since_id = request.args.get("since_id")
+        sql = "SELECT id, conversation_id, sender_id, sender_role, message, is_read, created_at FROM chat_messages WHERE conversation_id = %s"
+        params = [conv_id]
+        if since_id and str(since_id).isdigit() and int(since_id) > 0:
+            sql += " AND id > %s"
+            params.append(int(since_id))
+        sql += " ORDER BY id ASC"
+
+        cursor.execute(sql, tuple(params))
+        msg_rows = cursor.fetchall() or []
+
+        if caller_role == "user":
+            cursor.execute("""
+                UPDATE chat_messages SET is_read = 1
+                WHERE conversation_id = %s AND sender_role IN ('admin', 'superadmin') AND is_read = 0
+            """, (conv_id,))
+        else:
+            cursor.execute("""
+                UPDATE chat_messages SET is_read = 1
+                WHERE conversation_id = %s AND sender_role = 'user' AND is_read = 0
+            """, (conv_id,))
+
+        if msg_rows:
+            max_id = max(m["id"] for m in msg_rows)
+            cursor.execute("""
+                INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+                VALUES (%s, %s, %s)
+                ON DUPLICATE KEY UPDATE last_read_message_id = GREATEST(last_read_message_id, %s)
+            """, (conv_id, caller_id, max_id, max_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        formatted_msgs = [{
+            "id": m["id"],
+            "conversation_id": m["conversation_id"],
+            "sender_id": m["sender_id"],
+            "sender_role": m["sender_role"],
+            "message": m["message"],
+            "is_read": bool(m["is_read"]),
+            "created_at": str(m["created_at"])
+        } for m in msg_rows]
+
+        return jsonify({
+            "success": True,
+            "conversation": {
+                "id": conv["id"],
+                "user_id": conv["user_id"],
+                "subject": conv["subject"],
+                "status": conv["status"],
+                "assigned_admin_id": conv["assigned_admin_id"],
+                "customer_name": conv.get("customer_name") or f"Customer #{conv['user_id']}",
+                "customer_email": conv.get("customer_email") or "",
+                "customer_avatar": conv.get("customer_avatar"),
+                "bike_id": conv.get("bike_id"),
+                "bike_title": conv.get("bike_title"),
+                "bike_brand": conv.get("bike_brand"),
+                "bike_model": conv.get("bike_model"),
+                "bike_price": float(conv["bike_price"]) if conv.get("bike_price") is not None else None,
+                "bike_image": first_img,
+                "created_at": str(conv.get("created_at") or ""),
+                "updated_at": str(conv.get("updated_at") or "")
+            },
+            "messages": formatted_msgs
+        })
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        print("[Chat DB Error] get messages:", e)
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+@app.route("/api/chat/conversations/<int:conv_id>/messages", methods=["POST"])
+def send_chat_message(conv_id):
+    caller_role, caller_id, caller_info = get_chat_caller()
+    if not caller_role:
+        return jsonify({"success": False, "message": "Authentication required. Please sign in."}), 401
+
+    data = request.get_json(silent=True) or {}
+    message_text = (data.get("message") or "").strip()
+    if not message_text:
+        return jsonify({"success": False, "message": "Message text cannot be empty."}), 400
+    if len(message_text) > 2000:
+        return jsonify({"success": False, "message": "Message exceeds maximum length of 2,000 characters."}), 400
+
+    sender_key = f"{caller_role}_{caller_id}"
+    if not check_chat_rate_limit(sender_key):
+        return jsonify({"success": False, "message": "You are sending messages too quickly. Please wait a moment."}), 429
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("""
+            SELECT c.*, u.name AS customer_name, u.email AS customer_email
+            FROM chat_conversations c
+            LEFT JOIN users u ON c.user_id = u.id
+            WHERE c.id = %s
+        """, (conv_id,))
+        conv = cursor.fetchone()
+        if not conv:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Conversation not found."}), 404
+
+        if caller_role == "user" and int(conv["user_id"]) != int(caller_id):
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Access forbidden: You can only message in your own conversations."}), 403
+
+        cursor.execute("""
+            INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+            VALUES (%s, %s, %s, %s, 0)
+        """, (conv_id, caller_id, caller_role, message_text))
+        new_msg_id = cursor.lastrowid
+
+        new_status = "open" if (caller_role == "user" and conv["status"] == "resolved") else conv["status"]
+        cursor.execute("""
+            UPDATE chat_conversations 
+            SET status = %s, updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (new_status, conv_id))
+
+        cursor.execute("""
+            INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE last_read_message_id = %s
+        """, (conv_id, caller_id, new_msg_id, new_msg_id))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        if caller_role == "user":
+            c_name = conv.get("customer_name") or f"Customer #{caller_id}"
+            create_notification(
+                title=f"Chat from {c_name}",
+                message=f"{message_text[:120]}",
+                user_id=None,
+                target_role="admin",
+                notif_type="info",
+                link=f"/admin.html?tab=customer-chat&conv_id={conv_id}"
+            )
+        else:
+            create_notification(
+                title="SMR Support Reply",
+                message=f"Admin: {message_text[:120]}",
+                user_id=conv["user_id"],
+                target_role="user",
+                notif_type="info",
+                link=f"/profile.html?tab=messages&conv_id={conv_id}"
+            )
+            c_email = conv.get("customer_email")
+            if c_email and "@" in c_email:
+                try:
+                    c_name = conv.get("customer_name") or "Valued Customer"
+                    send_email_notification(
+                        to_email=c_email,
+                        subject=f"SMR Motors Support: {conv.get('subject', 'Your Inquiry')}",
+                        body_text=f"Hello {c_name},\n\nSMR Motors Support has replied to your inquiry:\n\n\"{message_text}\"\n\nView and reply in your dashboard: https://bike-selling-site-lco8.onrender.com/profile.html?tab=messages\n\nRegards,\nSMR Motors Team",
+                        body_html=f"""<div style="font-family:sans-serif; max-width:600px; margin:auto; padding:20px; border:1px solid #e2e8f0; border-radius:8px;">
+                            <h2 style="color:#ea580c; margin-top:0;">SMR Motors Support Reply</h2>
+                            <p>Hello <strong>{escape(c_name)}</strong>,</p>
+                            <p>Our support team has sent you a message:</p>
+                            <blockquote style="background:#f8fafc; border-left:4px solid #ea580c; padding:12px 16px; margin:16px 0; font-size:15px; color:#1e293b;">{escape(message_text)}</blockquote>
+                            <p><a href="https://bike-selling-site-lco8.onrender.com/profile.html?tab=messages" style="display:inline-block; background:#ea580c; color:#fff; padding:10px 20px; text-decoration:none; border-radius:6px; font-weight:600;">View & Reply in Dashboard</a></p>
+                        </div>"""
+                    )
+                except Exception as em_err:
+                    print("[Chat Email Notice]:", em_err)
+
+        return jsonify({
+            "success": True,
+            "message": {
+                "id": new_msg_id,
+                "conversation_id": conv_id,
+                "sender_id": caller_id,
+                "sender_role": caller_role,
+                "message": message_text,
+                "is_read": False,
+                "created_at": datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            }
+        }), 201
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        print("[Chat DB Error] send message:", e)
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+@app.route("/api/admin/chat/conversations", methods=["GET"])
+@admin_required
+def admin_get_chat_conversations():
+    f_status = (request.args.get("filter") or "all").lower().strip()
+    search = (request.args.get("search") or "").lower().strip()
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    conversations = []
+    try:
+        cursor = conn.cursor(dictionary=True)
+        sql = """
+            SELECT 
+                c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
+                c.created_at, c.updated_at,
+                u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar, u.phone AS customer_phone,
+                b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model, b.price AS bike_price, b.images AS bike_images,
+                (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
+                (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
+                (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
+                (SELECT COUNT(*) FROM chat_messages WHERE conversation_id = c.id AND sender_role = 'user' AND is_read = 0) AS unread_count,
+                a.username AS assigned_admin_name
+            FROM chat_conversations c
+            LEFT JOIN users u ON c.user_id = u.id
+            LEFT JOIN bikes b ON c.bike_id = b.id
+            LEFT JOIN admins a ON c.assigned_admin_id = a.id
+            WHERE 1=1
+        """
+        params = []
+        if f_status == "open":
+            sql += " AND c.status = 'open'"
+        elif f_status == "resolved":
+            sql += " AND c.status = 'resolved'"
+
+        sql += " ORDER BY c.updated_at DESC"
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall() or []
+
+        for r in rows:
+            unread = int(r.get("unread_count") or 0)
+            if f_status == "unread" and unread == 0:
+                continue
+
+            c_name = str(r.get("customer_name") or "").lower()
+            c_email = str(r.get("customer_email") or "").lower()
+            subj = str(r.get("subject") or "").lower()
+            b_title = str(r.get("bike_title") or "").lower()
+
+            if search:
+                if search not in c_name and search not in c_email and search not in subj and search not in b_title:
+                    continue
+
+            first_img = None
+            if r.get("bike_images"):
+                try:
+                    imgs = json.loads(r["bike_images"]) if isinstance(r["bike_images"], str) else r["bike_images"]
+                    if isinstance(imgs, list) and len(imgs) > 0:
+                        first_img = imgs[0]
+                except Exception:
+                    first_img = r["bike_images"]
+
+            conversations.append({
+                "id": r["id"],
+                "user_id": r["user_id"],
+                "subject": r["subject"],
+                "status": r["status"],
+                "assigned_admin_id": r["assigned_admin_id"],
+                "assigned_admin_name": r.get("assigned_admin_name") or "Unassigned",
+                "customer": {
+                    "id": r["user_id"],
+                    "name": r.get("customer_name") or f"Customer #{r['user_id']}",
+                    "email": r.get("customer_email") or "",
+                    "phone": r.get("customer_phone") or "",
+                    "avatar": r.get("customer_avatar")
+                },
+                "bike": {
+                    "id": r.get("bike_id"),
+                    "title": r.get("bike_title"),
+                    "brand": r.get("bike_brand"),
+                    "model": r.get("bike_model"),
+                    "price": float(r["bike_price"]) if r.get("bike_price") is not None else None,
+                    "image": first_img
+                } if r.get("bike_id") else None,
+                "last_message": r.get("last_message") or "No messages",
+                "last_sender_role": r.get("last_sender_role") or "system",
+                "last_message_at": str(r.get("last_message_at") or r.get("created_at") or ""),
+                "unread_count": unread,
+                "created_at": str(r.get("created_at") or ""),
+                "updated_at": str(r.get("updated_at") or "")
+            })
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        print("[Chat DB Error] admin get conversations:", e)
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+    return jsonify({"success": True, "conversations": conversations, "total": len(conversations)})
+
+@app.route("/api/admin/chat/conversations/<int:conv_id>/status", methods=["PUT"])
+@admin_required
+def admin_update_chat_status(conv_id):
+    data = request.get_json(silent=True) or {}
+    status = (data.get("status") or "").lower().strip()
+    if status not in ("open", "resolved"):
+        return jsonify({"success": False, "message": "Status must be 'open' or 'resolved'."}), 400
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE chat_conversations SET status = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (status, conv_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log_admin_action(g.admin.get("username", "admin"), "update_chat_status", "chat_conversation", conv_id, f"Set conversation #{conv_id} status to '{status}'")
+        return jsonify({"success": True, "message": f"Conversation marked as {status}.", "status": status})
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/admin/chat/conversations/<int:conv_id>/assign", methods=["PUT"])
+@superadmin_required
+def admin_assign_chat_staff(conv_id):
+    data = request.get_json(silent=True) or {}
+    admin_id = data.get("assigned_admin_id")
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE chat_conversations SET assigned_admin_id = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s", (admin_id, conv_id))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        log_admin_action(g.admin.get("username", "admin"), "assign_chat_staff", "chat_conversation", conv_id, f"Assigned conversation #{conv_id} to admin #{admin_id}")
+        return jsonify({"success": True, "message": "Conversation assigned successfully.", "assigned_admin_id": admin_id})
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/admin/chat/online-status", methods=["GET"])
+def get_chat_online_status():
+    return jsonify({
+        "success": True,
+        "online": True,
+        "status_text": "Online • Typically replies in 5 mins",
+        "support_name": "SMR Motors Support Team",
+        "operating_hours": "Mon - Sat: 9:00 AM - 8:00 PM IST"
+    })
 
 # -----------------------------------------------------------------------------
 # APPLICATION ENTRYPOINT & DATABASE INITIALIZATION
