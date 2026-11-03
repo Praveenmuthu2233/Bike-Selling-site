@@ -328,9 +328,201 @@ async function submitEnquiry(event) {
   }
 }
 
+// ==============================================================================
+// SHOWCASE CAROUSEL (Requirement 9: One bike at a time on mobile, autoplay, swipe)
+// ==============================================================================
+let carouselBikes = [];
+let carouselCurrentIndex = 0;
+let carouselAutoplayTimer = null;
+let touchStartX = 0;
+let touchEndX = 0;
+
+async function initShowcaseCarousel() {
+  const track = document.getElementById('carousel-track');
+  const dotsContainer = document.getElementById('carousel-dots');
+  const wrap = document.getElementById('showcase-carousel-wrap');
+  if (!track) return;
+
+  try {
+    const res = await apiRequest('/api/bikes?status=approved&limit=12');
+    const bikes = (res.data || res.bikes || []).filter(b => {
+      const st = (b.status || b.listing_status || '').toLowerCase();
+      return (st === 'approved' || st === 'published') && b.isSoldout != 1;
+    });
+
+    if (bikes.length === 0) {
+      if (wrap) wrap.style.display = 'none';
+      return;
+    }
+
+    carouselBikes = bikes;
+    if (wrap) wrap.style.display = 'block';
+
+    track.innerHTML = carouselBikes.map((bike, idx) => {
+      let images = [];
+      try {
+        images = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []);
+      } catch (e) {
+        images = [];
+      }
+      const coverImage = (images && images.length > 0) ? images[0] : '/static/images/IMG-20251204-WA0053.jpg';
+      const formattedPrice = Number(bike.price || bike.sellingPrice || 100000).toLocaleString('en-IN');
+      const locationText = bike.location || 'Salem, Tamil Nadu';
+
+      return `
+        <div class="carousel-slide" data-slide-index="${idx}">
+          <div class="bike-card" style="box-shadow: 0 8px 24px rgba(0,0,0,0.35);">
+            <div class="bike-card-img-wrapper" style="height: 220px;">
+              <img src="${coverImage}" alt="${bike.title}" class="bike-card-img" loading="lazy" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+              <div class="bike-card-badge">
+                <span class="badge badge-approved"><i class="fas fa-check-circle"></i> SMR Inspected</span>
+              </div>
+              <button class="bike-fav-btn" onclick="toggleFavorite(${bike.id}, this)" title="Save to Favorites">
+                <i class="far fa-heart"></i>
+              </button>
+            </div>
+            <div class="bike-card-body" style="padding: 1.25rem;">
+              <div class="bike-card-brand">${bike.brand || 'Motorcycle'} • ${bike.model || ''}</div>
+              <h3 class="bike-card-title" style="font-size: 1.15rem; margin-bottom: 0.5rem;">${bike.title}</h3>
+              <div class="bike-specs-row" style="margin-bottom: 0.85rem;">
+                <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
+                <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> ${(bike.kilometers_driven || 0).toLocaleString()} km</div>
+                <div class="bike-spec-item"><i class="fas fa-gas-pump"></i> ${bike.fuel_type || 'Petrol'}</div>
+                <div class="bike-spec-item"><i class="fas fa-map-marker-alt"></i> ${locationText.split(',')[0]}</div>
+              </div>
+              <div class="bike-card-footer" style="padding-top: 0.85rem; border-top: 1px solid var(--border-subtle);">
+                <div class="bike-price-wrap">
+                  <span class="bike-price-label">Price</span>
+                  <span class="bike-price-value" style="font-size: 1.25rem;">₹${formattedPrice}</span>
+                </div>
+                <div style="display: flex; gap: 0.4rem;">
+                  <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline">Details</a>
+                  <button onclick="openEnquiryModal(${bike.id})" class="btn btn-sm btn-primary">Enquire</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    renderCarouselDots();
+    updateCarouselPosition();
+    startCarouselAutoplay();
+
+    // Hover pause listeners
+    wrap.addEventListener('mouseenter', stopCarouselAutoplay);
+    wrap.addEventListener('mouseleave', startCarouselAutoplay);
+
+    // Touch swipe listeners for mobile (Requirement 9)
+    const viewport = document.getElementById('carousel-viewport');
+    if (viewport) {
+      viewport.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+        stopCarouselAutoplay();
+      }, { passive: true });
+
+      viewport.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleCarouselSwipe();
+        startCarouselAutoplay();
+      }, { passive: true });
+    }
+
+  } catch (err) {
+    console.warn('Carousel showcase notice:', err);
+    if (wrap) wrap.style.display = 'none';
+  }
+}
+
+function handleCarouselSwipe() {
+  const threshold = 40;
+  if (touchEndX < touchStartX - threshold) {
+    carouselNext();
+  } else if (touchEndX > touchStartX + threshold) {
+    carouselPrev();
+  }
+}
+
+function getMaxCarouselIndex() {
+  const isMobile = window.innerWidth <= 768;
+  const visibleCards = isMobile ? 1 : 3;
+  return Math.max(0, carouselBikes.length - visibleCards);
+}
+
+function renderCarouselDots() {
+  const dotsContainer = document.getElementById('carousel-dots');
+  if (!dotsContainer) return;
+  const isMobile = window.innerWidth <= 768;
+  const visibleCards = isMobile ? 1 : 3;
+  const totalSteps = Math.max(1, carouselBikes.length - visibleCards + 1);
+
+  if (totalSteps <= 1) {
+    dotsContainer.innerHTML = '';
+    return;
+  }
+
+  dotsContainer.innerHTML = Array.from({ length: totalSteps }).map((_, i) => `
+    <button class="carousel-dot ${i === carouselCurrentIndex ? 'active' : ''}" onclick="goToCarouselSlide(${i})" aria-label="Slide ${i+1}"></button>
+  `).join('');
+}
+
+function updateCarouselPosition() {
+  const track = document.getElementById('carousel-track');
+  if (!track || carouselBikes.length === 0) return;
+
+  const isMobile = window.innerWidth <= 768;
+  const stepPercent = isMobile ? 100 : (100 / 3);
+  track.style.transform = `translateX(-${carouselCurrentIndex * stepPercent}%)`;
+
+  const dots = document.querySelectorAll('.carousel-dot');
+  dots.forEach((dot, idx) => {
+    dot.classList.toggle('active', idx === carouselCurrentIndex);
+  });
+}
+
+function carouselNext() {
+  const maxIdx = getMaxCarouselIndex();
+  carouselCurrentIndex = (carouselCurrentIndex >= maxIdx) ? 0 : carouselCurrentIndex + 1;
+  updateCarouselPosition();
+}
+
+function carouselPrev() {
+  const maxIdx = getMaxCarouselIndex();
+  carouselCurrentIndex = (carouselCurrentIndex <= 0) ? maxIdx : carouselCurrentIndex - 1;
+  updateCarouselPosition();
+}
+
+function goToCarouselSlide(idx) {
+  carouselCurrentIndex = Math.min(Math.max(0, idx), getMaxCarouselIndex());
+  updateCarouselPosition();
+}
+
+function startCarouselAutoplay() {
+  stopCarouselAutoplay();
+  carouselAutoplayTimer = setInterval(carouselNext, 4500);
+}
+
+function stopCarouselAutoplay() {
+  if (carouselAutoplayTimer) {
+    clearInterval(carouselAutoplayTimer);
+    carouselAutoplayTimer = null;
+  }
+}
+
+window.addEventListener('resize', () => {
+  if (carouselBikes.length > 0) {
+    const maxIdx = getMaxCarouselIndex();
+    if (carouselCurrentIndex > maxIdx) carouselCurrentIndex = maxIdx;
+    renderCarouselDots();
+    updateCarouselPosition();
+  }
+});
+
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('marketplace-bikes-grid')) {
     loadMarketplaceBikes();
+    initShowcaseCarousel();
 
     const searchInput = document.getElementById('search-input');
     const brandSelect = document.getElementById('filter-brand');

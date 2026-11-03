@@ -504,3 +504,122 @@
   margin-bottom: 0.5rem;
 }
 
+/* ==============================================================================
+   RESPONSIVE DRAWER, COLLAPSIBLE SIDEBAR & MOBILE CARDS (Requirement 1 & 14)
+   ============================================================================== */
+
+/* Desktop Sidebar Collapse Toggle */
+.admin-layout.sidebar-collapsed .admin-sidebar {
+  width: 76px;
+}
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-brand span:not(.brand-badge),
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-item span,
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-group-header span:not(i),
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-group-header .nav-chevron,
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-sub-menu,
+.admin-layout.sidebar-collapsed .admin-sidebar-footer {
+  display: none !important;
+}
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-item,
+.admin-layout.sidebar-collapsed .admin-sidebar .admin-nav-group-header {
+  justify-content: center;
+  padding: 0.75rem 0;
+}
+.admin-layout.sidebar-collapsed .admin-main {
+  margin-left: 76px;
+}
+
+/* Mobile Drawer & Backdrop Overlay */
+.admin-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  z-index: 2999;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.admin-sidebar-backdrop.open {
+  display: block;
+  opacity: 1;
+}
+
+.desktop-only {
+  display: inline-flex;
+}
+.mobile-only {
+  display: none;
+}
+
+@media (max-width: 992px) {
+  .desktop-only {
+    display: none !important;
+  }
+  .mobile-only {
+    display: inline-flex !important;
+  }
+  .admin-sidebar {
+    transform: translateX(-100%);
+    width: 280px;
+    z-index: 3000;
+  }
+  .admin-sidebar.open {
+    transform: translateX(0);
+    box-shadow: 0 0 35px rgba(0, 0, 0, 0.85);
+  }
+  .admin-main {
+    margin-left: 0 !important;
+  }
+  .admin-topbar {
+    padding: 0 1rem;
+  }
+  .admin-page-content {
+    padding: 1.25rem 1rem;
+  }
+}
+
+/* Mobile Card View Transformation for Wide Tables (Requirement 1 & 14) */
+@media (max-width: 768px) {
+  .responsive-table-mobile thead {
+    display: none !important;
+  }
+  .responsive-table-mobile tbody,
+  .responsive-table-mobile tr,
+  .responsive-table-mobile td {
+    display: block !important;
+    width: 100% !important;
+  }
+  .responsive-table-mobile tr {
+    background: var(--bg-surface) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-lg) !important;
+    margin-bottom: 1rem !important;
+    padding: 1rem !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+  }
+  .responsive-table-mobile td {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 0.5rem 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    text-align: right !important;
+  }
+  .responsive-table-mobile td:last-child {
+    border-bottom: none !important;
+    padding-top: 0.75rem !important;
+    justify-content: flex-end !important;
+  }
+  .responsive-table-mobile td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    text-align: left;
+    margin-right: 1rem;
+  }
+}
+

@@ -45,41 +45,60 @@
       </div>
 
       <ul class="user-nav-list">
+        <!-- 1. Dashboard -->
         <li>
           <a class="user-nav-link active" onclick="switchUserTab('user-tab-overview', this)">
-            <i class="fas fa-tachometer-alt"></i> Dashboard Overview
+            <i class="fas fa-tachometer-alt"></i> 1. Dashboard
           </a>
         </li>
-        <li>
-          <a class="user-nav-link" onclick="switchUserTab('user-tab-profile', this)">
-            <i class="fas fa-user-edit"></i> My Profile
-          </a>
-        </li>
+        <!-- 2. My Bike Listings -->
         <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-listings', this)">
-            <i class="fas fa-motorcycle"></i> My Listed Bikes
+            <i class="fas fa-motorcycle"></i> 2. My Bike Listings
           </a>
         </li>
+        <!-- 3. Add New Bike -->
+        <li>
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-add-bike', this)">
+            <i class="fas fa-plus-circle" style="color:var(--accent-primary);"></i> 3. Add New Bike
+          </a>
+        </li>
+        <!-- 4. My Enquiries -->
+        <li>
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-enquiries', this)">
+            <i class="fas fa-envelope-open-text"></i> 4. My Enquiries
+          </a>
+        </li>
+        <!-- 5. Price Offers -->
         <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-negotiations', this)">
-            <i class="fas fa-handshake"></i> Price Negotiations
+            <i class="fas fa-handshake"></i> 5. Price Offers
             <span id="user-badge-negotiations" class="badge badge-featured" style="margin-left: auto; display: none;">0</span>
           </a>
         </li>
-        <li>
-          <a class="user-nav-link" onclick="switchUserTab('user-tab-enquiries', this)">
-            <i class="fas fa-envelope-open-text"></i> My Enquiries
-          </a>
-        </li>
+        <!-- 6. Favorites -->
         <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-favorites', this)">
-            <i class="fas fa-heart"></i> Saved Favorites
+            <i class="fas fa-heart"></i> 6. Favorites
           </a>
         </li>
+        <!-- 7. Profile -->
+        <li>
+          <a class="user-nav-link" onclick="switchUserTab('user-tab-profile', this)">
+            <i class="fas fa-user-edit"></i> 7. Profile
+          </a>
+        </li>
+        <!-- 8. Notifications -->
         <li>
           <a class="user-nav-link" onclick="switchUserTab('user-tab-notifications', this)">
-            <i class="fas fa-bell"></i> Alerts & Notifications
+            <i class="fas fa-bell"></i> 8. Notifications
             <span id="user-badge-notifications" class="badge badge-approved" style="margin-left: auto; display: none;">0</span>
+          </a>
+        </li>
+        <!-- 9. Logout -->
+        <li style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.5rem;">
+          <a class="user-nav-link" onclick="AuthService.logout()" style="color: #EF4444;">
+            <i class="fas fa-sign-out-alt" style="color: #EF4444;"></i> 9. Logout
           </a>
         </li>
       </ul>
@@ -101,21 +120,13 @@
           <p style="color: var(--text-secondary);">Manage your motorcycle listings, track buyer enquiries, and review saved motorcycles.</p>
         </div>
 
-        <!-- Quick Stats Grid -->
-        <div class="stats-grid">
+        <!-- Quick Stats Grid (Requirement 8: 6 accurate live metrics) -->
+        <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));">
           <div class="stat-card">
             <div class="stat-icon orange"><i class="fas fa-motorcycle"></i></div>
             <div class="stat-content">
               <span id="stat-total-bikes" class="stat-val">0</span>
-              <span class="stat-label">My Listed Bikes</span>
-            </div>
-          </div>
-
-          <div class="stat-card">
-            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
-            <div class="stat-content">
-              <span id="stat-approved-bikes" class="stat-val">0</span>
-              <span class="stat-label">Approved & Active</span>
+              <span class="stat-label">Total Listings</span>
             </div>
           </div>
 
@@ -128,10 +139,34 @@
           </div>
 
           <div class="stat-card">
+            <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-content">
+              <span id="stat-approved-bikes" class="stat-val">0</span>
+              <span class="stat-label">Approved & Active</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon red" style="color:#EF4444; background:rgba(239,68,68,0.1);"><i class="fas fa-times-circle"></i></div>
+            <div class="stat-content">
+              <span id="stat-rejected-bikes" class="stat-val" style="color:#EF4444;">0</span>
+              <span class="stat-label">Rejected Listings</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon yellow" style="color:#F59E0B; background:rgba(245,158,11,0.1);"><i class="fas fa-tag"></i></div>
+            <div class="stat-content">
+              <span id="stat-sold-bikes" class="stat-val" style="color:#F59E0B;">0</span>
+              <span class="stat-label">Sold Out</span>
+            </div>
+          </div>
+
+          <div class="stat-card">
             <div class="stat-icon blue"><i class="fas fa-paper-plane"></i></div>
             <div class="stat-content">
               <span id="stat-enquiries" class="stat-val">0</span>
-              <span class="stat-label">Active Enquiries</span>
+              <span class="stat-label">Pending Enquiries</span>
             </div>
           </div>
         </div>
@@ -212,26 +247,27 @@
         </div>
       </div>
 
-      <!-- 3. TAB: MY LISTINGS -->
+      <!-- 2. TAB: MY LISTINGS (Requirement 8) -->
       <div id="user-tab-listings" class="user-tab-pane">
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
           <div>
             <span class="section-tag"><i class="fas fa-warehouse"></i> Inventory Portfolio</span>
             <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">My Listed Motorcycles</h1>
+            <p style="color:var(--text-secondary); margin:0.25rem 0 0;">Track the review status, view feedback or admin rejection reasons for your motorcycles.</p>
           </div>
-          <a href="{{ url_for('bike_selling') }}" class="btn btn-primary"><i class="fas fa-plus"></i> Add New Bike</a>
+          <button onclick="switchUserTab('user-tab-add-bike', document.querySelectorAll('.user-nav-link')[2])" class="btn btn-primary"><i class="fas fa-plus"></i> List Another Bike</button>
         </div>
 
         <div class="table-card">
           <div class="table-responsive">
-            <table class="data-table">
+            <table class="data-table responsive-table-mobile">
               <thead>
                 <tr>
-                  <th>Motorcycle</th>
-                  <th>Brand</th>
-                  <th>Price</th>
+                  <th>Vehicle</th>
+                  <th>Brand & Model</th>
+                  <th>Expected Price</th>
                   <th>Kilometers</th>
-                  <th>Status</th>
+                  <th>Review Status</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -240,6 +276,132 @@
               </tbody>
             </table>
           </div>
+          <div id="my-listings-pagination" style="padding: 1rem 1.5rem;"></div>
+        </div>
+      </div>
+
+      <!-- 3. TAB: ADD NEW BIKE (Requirement 7 & 8: 6-image uploader & direct listing form) -->
+      <div id="user-tab-add-bike" class="user-tab-pane">
+        <div style="margin-bottom: 2rem;">
+          <span class="section-tag"><i class="fas fa-camera"></i> Instant Evaluation</span>
+          <h1 style="font-size: 2.25rem; margin-top: 0.25rem;">List Your Motorcycle For Sale</h1>
+          <p style="color: var(--text-secondary);">Upload up to 6 high-resolution photos and specify vehicle details. SMR Motors provides 100% free inspection and direct payouts.</p>
+        </div>
+
+        <div class="table-card" style="padding: 2rem;">
+          <form id="user-add-bike-form" onsubmit="handleUserSubmitNewBike(event)">
+            <!-- 6-Image Interactive Uploader -->
+            <div style="margin-bottom: 2rem;">
+              <label style="display: block; font-size: 1rem; font-weight: 700; color: #FFF; margin-bottom: 0.5rem;">
+                <i class="fas fa-images" style="color: var(--accent-primary);"></i> Upload Vehicle Photos (Up to 6 images) *
+              </label>
+              <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                First image is your listing's primary cover photo. Allowed formats: JPG, JPEG, PNG, WEBP (Max 5MB per photo).
+              </p>
+              
+              <!-- Preview Grid -->
+              <div id="user-bike-image-previews" style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 1rem;">
+                <!-- Populated dynamically via JS -->
+              </div>
+
+              <!-- Upload input button -->
+              <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+                <input type="file" id="user-bike-files-input" accept="image/jpeg,image/png,image/webp" multiple onchange="handleUserBikeFilesSelected(this)" style="display: none;">
+                <button type="button" onclick="document.getElementById('user-bike-files-input').click()" class="btn btn-outline">
+                  <i class="fas fa-upload"></i> Choose Photos
+                </button>
+                <span id="user-bike-upload-status" style="font-size: 0.85rem; color: var(--text-muted);">0 / 6 photos selected</span>
+              </div>
+            </div>
+
+            <!-- Vehicle Details Form Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem;">
+              <div style="grid-column: 1 / -1;">
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Listing Headline / Title *</label>
+                <input type="text" id="add-bike-title" class="form-control" placeholder="e.g. Royal Enfield Hunter 350 Dapper Ash - Single Owner" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Brand / Manufacturer *</label>
+                <select id="add-bike-brand" class="form-control" required>
+                  <option value="">Select Brand</option>
+                  <option value="Royal Enfield">Royal Enfield</option>
+                  <option value="Yamaha">Yamaha</option>
+                  <option value="KTM">KTM</option>
+                  <option value="Bajaj">Bajaj</option>
+                  <option value="Honda">Honda</option>
+                  <option value="TVS">TVS</option>
+                  <option value="Suzuki">Suzuki</option>
+                  <option value="Hero">Hero</option>
+                  <option value="Kawasaki">Kawasaki</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Model Name *</label>
+                <input type="text" id="add-bike-model" class="form-control" placeholder="e.g. Hunter 350 / MT-15" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Year of Manufacture *</label>
+                <input type="number" id="add-bike-year" class="form-control" min="2000" max="2026" value="2022" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Registration Number (TN-XX-XXXX) *</label>
+                <input type="text" id="add-bike-reg" class="form-control" placeholder="e.g. TN-30-AB-1234" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Kilometers Driven *</label>
+                <input type="number" id="add-bike-kms" class="form-control" min="0" placeholder="e.g. 12500" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Fuel Type</label>
+                <select id="add-bike-fuel" class="form-control">
+                  <option value="Petrol">Petrol</option>
+                  <option value="Electric">Electric</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Transmission</label>
+                <select id="add-bike-trans" class="form-control">
+                  <option value="Manual">Manual</option>
+                  <option value="Automatic">Automatic</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Location (City in TN)</label>
+                <input type="text" id="add-bike-loc" class="form-control" placeholder="e.g. Salem, Tamil Nadu">
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Expected Selling Price (₹) *</label>
+                <input type="number" id="add-bike-price" class="form-control" min="10000" placeholder="e.g. 145000" required>
+              </div>
+
+              <div>
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Contact Phone Number *</label>
+                <input type="tel" id="add-bike-phone" class="form-control" placeholder="e.g. 9876543210" required>
+              </div>
+
+              <div style="grid-column: 1 / -1;">
+                <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Description & Maintenance History</label>
+                <textarea id="add-bike-desc" class="form-control" rows="3" placeholder="Condition, service history, single owner, insurance validity..."></textarea>
+              </div>
+            </div>
+
+            <div style="margin-top: 2rem; padding-top: 1.5rem; border-top: 1px solid var(--border-subtle); display: flex; justify-content: flex-end; gap: 1rem;">
+              <button type="reset" class="btn btn-secondary">Reset</button>
+              <button type="submit" id="submit-user-bike-btn" class="btn btn-primary">
+                <i class="fas fa-paper-plane"></i> Submit Motorcycle Listing
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -329,10 +491,142 @@
       if (el) el.classList.add('active');
 
       if (tabId === 'user-tab-listings') loadUserListings();
+      if (tabId === 'user-tab-add-bike') renderUserBikeImagePreviews();
       if (tabId === 'user-tab-negotiations') loadUserNegotiations();
       if (tabId === 'user-tab-enquiries') loadUserEnquiries();
       if (tabId === 'user-tab-favorites') loadFavorites();
       if (tabId === 'user-tab-notifications') loadUserNotifications();
+    }
+
+    // User Add Bike - 6 Image Gallery Management (Requirement 7 & 8)
+    let userBikeUploadedImages = [];
+
+    function handleUserBikeFilesSelected(input) {
+      if (!input.files || input.files.length === 0) return;
+      const remaining = 6 - userBikeUploadedImages.length;
+      if (remaining <= 0) {
+        showToast('Maximum 6 photos allowed. Remove a photo to add more.', 'warning');
+        input.value = '';
+        return;
+      }
+      const filesToUpload = Array.from(input.files).slice(0, remaining);
+      uploadUserBikeFiles(filesToUpload);
+      input.value = '';
+    }
+
+    async function uploadUserBikeFiles(files) {
+      const statusEl = document.getElementById('user-bike-upload-status');
+      if (statusEl) statusEl.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Uploading photos...';
+
+      const formData = new FormData();
+      files.forEach(f => formData.append('images', f));
+
+      try {
+        const res = await apiRequest('/api/upload/images', {
+          method: 'POST',
+          body: formData
+        });
+        if (res.images && res.images.length > 0) {
+          res.images.forEach(img => userBikeUploadedImages.push(img.url));
+          renderUserBikeImagePreviews();
+          showToast(`Added ${res.images.length} photo(s) to listing`, 'success');
+        }
+      } catch (err) {
+        showToast(err.message || 'Photo upload failed', 'error');
+      } finally {
+        if (statusEl) statusEl.innerText = `${userBikeUploadedImages.length} / 6 photos selected`;
+      }
+    }
+
+    function renderUserBikeImagePreviews() {
+      const container = document.getElementById('user-bike-image-previews');
+      const statusEl = document.getElementById('user-bike-upload-status');
+      if (!container) return;
+
+      if (statusEl) statusEl.innerText = `${userBikeUploadedImages.length} / 6 photos selected`;
+
+      if (userBikeUploadedImages.length === 0) {
+        container.innerHTML = '<span style="font-size:0.85rem; color:var(--text-muted);">No photos selected yet.</span>';
+        return;
+      }
+
+      container.innerHTML = userBikeUploadedImages.map((url, idx) => `
+        <div style="position:relative; width:80px; height:80px; border-radius:8px; overflow:hidden; border:2px solid ${idx===0?'var(--accent-primary)':'var(--border-subtle)'}; background:#000;">
+          <img src="${url}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+          <span style="position:absolute; bottom:2px; left:2px; background:${idx===0?'var(--accent-primary)':'rgba(0,0,0,0.7)'}; color:#FFF; font-size:10px; font-weight:700; padding:1px 4px; border-radius:3px;">
+            ${idx === 0 ? 'Cover' : '#' + (idx+1)}
+          </span>
+          <button type="button" onclick="removeUserBikeImage(${idx})" style="position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%; background:#EF4444; border:none; color:#FFF; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    function removeUserBikeImage(idx) {
+      userBikeUploadedImages.splice(idx, 1);
+      renderUserBikeImagePreviews();
+    }
+
+    async function handleUserSubmitNewBike(e) {
+      e.preventDefault();
+      const submitBtn = document.getElementById('submit-user-bike-btn');
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Listing...';
+
+      const user = AuthService.getUser();
+      const payload = {
+        title: document.getElementById('add-bike-title').value.trim(),
+        brand: document.getElementById('add-bike-brand').value,
+        model: document.getElementById('add-bike-model').value.trim(),
+        year: parseInt(document.getElementById('add-bike-year').value) || 2022,
+        registration_number: document.getElementById('add-bike-reg').value.trim(),
+        kilometers_driven: parseInt(document.getElementById('add-bike-kms').value) || 0,
+        fuel_type: document.getElementById('add-bike-fuel').value,
+        transmission: document.getElementById('add-bike-trans').value,
+        location: document.getElementById('add-bike-loc').value.trim() || 'Salem, Tamil Nadu',
+        price: parseFloat(document.getElementById('add-bike-price').value) || 100000,
+        seller_name: user?.name || 'Rider',
+        seller_phone: document.getElementById('add-bike-phone').value.trim() || user?.phone || '',
+        description: document.getElementById('add-bike-desc').value.trim(),
+        images: userBikeUploadedImages
+      };
+
+      try {
+        const res = await apiRequest('/api/bikes', {
+          method: 'POST',
+          body: payload
+        });
+        showToast(res.message || 'Motorcycle listed successfully! Awaiting review.', 'success');
+        document.getElementById('user-add-bike-form').reset();
+        userBikeUploadedImages = [];
+        renderUserBikeImagePreviews();
+        
+        // Refresh dashboard metrics
+        try {
+          const statsRes = await apiRequest('/api/users/dashboard');
+          if (statsRes.success && statsRes.data) {
+            updateDashboardMetrics(statsRes.data.stats);
+          }
+        } catch (e) {}
+
+        // Transition to listings tab
+        const listingsLink = document.querySelectorAll('.user-nav-link')[1];
+        switchUserTab('user-tab-listings', listingsLink);
+      } catch (err) {
+        showToast(err.message || 'Failed to submit motorcycle listing', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Motorcycle Listing';
+      }
+    }
+
+    function updateDashboardMetrics(s) {
+      if (!s) return;
+      document.getElementById('stat-total-bikes').innerText = s.total_listings || 0;
+      document.getElementById('stat-pending-bikes').innerText = s.pending_listings || 0;
+      document.getElementById('stat-approved-bikes').innerText = s.approved_listings || 0;
+      document.getElementById('stat-rejected-bikes').innerText = s.rejected_listings || 0;
+      document.getElementById('stat-sold-bikes').innerText = s.sold_listings || 0;
+      document.getElementById('stat-enquiries').innerText = s.pending_enquiries || s.total_enquiries || 0;
     }
 
     document.addEventListener('DOMContentLoaded', async () => {
@@ -350,7 +644,11 @@
 
       document.getElementById('input-name').value = user.name;
       document.getElementById('input-email').value = user.email;
-      if (user.phone) document.getElementById('input-phone').value = user.phone;
+      if (user.phone) {
+        document.getElementById('input-phone').value = user.phone;
+        const addBikePhone = document.getElementById('add-bike-phone');
+        if (addBikePhone) addBikePhone.value = user.phone;
+      }
 
       // Check URL query param to open specific tab (e.g. ?tab=negotiations)
       const urlParams = new URLSearchParams(window.location.search);
@@ -360,20 +658,16 @@
         if (targetLink) switchUserTab(`user-tab-${tabParam}`, targetLink);
       }
 
-      // Load user stats & unread notifications count
+      // Load user stats & unread notifications count (6 live metrics from TiDB Cloud)
       try {
         const statsRes = await apiRequest('/api/users/dashboard');
         if (statsRes.success && statsRes.data) {
-          const s = statsRes.data.stats;
-          document.getElementById('stat-total-bikes').innerText = s.total_listings || 0;
-          document.getElementById('stat-approved-bikes').innerText = s.approved_listings || 0;
-          document.getElementById('stat-pending-bikes').innerText = s.pending_listings || 0;
-          document.getElementById('stat-enquiries').innerText = s.total_enquiries || 0;
+          updateDashboardMetrics(statsRes.data.stats);
 
           const tableBody = document.getElementById('user-recent-listings-body');
           const bikes = statsRes.data.my_listings || [];
           if (bikes.length === 0) {
-            tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color:var(--text-muted);">No listings yet. <a href="{{ url_for('bike_selling') }}" style="color:var(--accent-primary);">List your first bike!</a></td></tr>`;
+            tableBody.innerHTML = `<tr><td colspan="4" style="text-align:center; padding: 2rem; color:var(--text-muted);">No listings yet. <button onclick="switchUserTab('user-tab-add-bike', document.querySelectorAll('.user-nav-link')[2])" class="btn btn-sm btn-primary" style="margin-left:0.5rem;">List your first bike!</button></td></tr>`;
           } else {
             tableBody.innerHTML = bikes.slice(0, 5).map(b => `
               <tr>
@@ -391,12 +685,13 @@
 
       // Load notification count
       try {
-        const notifRes = await apiRequest('/api/notifications');
-        const count = notifRes.unread_count || 0;
+        const notifRes = await apiRequest('/api/users/notifications');
+        const notifs = notifRes.data || notifRes.notifications || [];
+        const unreadCount = notifs.filter(n => n.is_read == 0).length;
         const b = document.getElementById('user-badge-notifications');
         if (b) {
-          b.innerText = count;
-          b.style.display = count > 0 ? 'inline-block' : 'none';
+          b.innerText = unreadCount;
+          b.style.display = unreadCount > 0 ? 'inline-block' : 'none';
         }
       } catch (e) {}
     });
@@ -432,32 +727,92 @@
       try {
         const res = await apiRequest(`/api/users/listings?page=${page}&limit=6`);
         const listings = res.data || [];
+        const p = res.pagination || { total: listings.length, page: 1, limit: 6, totalPages: 1 };
         if (listings.length === 0) {
-          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2rem;">No listings yet.</td></tr>`;
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 2.5rem; color:var(--text-muted);">You have not listed any motorcycles yet. <button onclick="switchUserTab('user-tab-add-bike', document.querySelectorAll('.user-nav-link')[2])" class="btn btn-sm btn-primary" style="margin-left:0.5rem;">List a Bike Now</button></td></tr>`;
+          document.getElementById('my-listings-pagination').innerHTML = '';
           return;
         }
         tbody.innerHTML = listings.map(bike => {
-          const st = bike.listing_status || bike.status;
+          const st = (bike.listing_status || bike.status || 'pending').toLowerCase();
           let badgeClass = 'badge-pending';
-          if (st === 'approved' || st === 'published') badgeClass = 'badge-approved';
-          else if (st === 'price_offered') badgeClass = 'badge-featured';
-          else if (st === 'seller_accepted') badgeClass = 'badge-approved';
-          else if (st === 'rejected' || st === 'seller_rejected') badgeClass = 'badge-rejected';
-          else if (st === 'soldout') badgeClass = 'badge-soldout';
+          let statusText = 'Pending Approval';
+          if (st === 'approved' || st === 'published') {
+            badgeClass = 'badge-approved';
+            statusText = 'Approved & Live';
+          } else if (st === 'price_offered') {
+            badgeClass = 'badge-featured';
+            statusText = 'Offer Received';
+          } else if (st === 'seller_accepted') {
+            badgeClass = 'badge-approved';
+            statusText = 'Offer Accepted';
+          } else if (st === 'rejected' || st === 'seller_rejected') {
+            badgeClass = 'badge-rejected';
+            statusText = 'Listing Rejected';
+          } else if (st === 'soldout') {
+            badgeClass = 'badge-soldout';
+            statusText = 'Sold Out';
+          }
+
+          let coverThumb = '/static/images/IMG-20251204-WA0053.jpg';
+          if (Array.isArray(bike.images) && bike.images.length > 0) {
+            coverThumb = bike.images[0];
+          }
+
+          // Requirement 8: Display rejection reasons prominently on rejected listings
+          let rejectionBanner = '';
+          if (st === 'rejected' && bike.rejection_reason) {
+            rejectionBanner = `
+              <div style="margin-top:0.45rem; padding:0.5rem 0.75rem; background:rgba(239,68,68,0.12); border:1px solid rgba(239,68,68,0.3); border-radius:6px; font-size:0.8rem; color:#FCA5A5;">
+                <i class="fas fa-exclamation-triangle" style="color:#EF4444; margin-right:4px;"></i>
+                <strong>Admin Rejection Reason:</strong> ${bike.rejection_reason}
+              </div>
+            `;
+          }
 
           return `
             <tr>
-              <td style="font-weight:700;">${bike.year} ${bike.title}</td>
-              <td>${bike.brand}</td>
-              <td style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
-              <td>${(bike.kilometers_driven||0).toLocaleString()} km</td>
-              <td><span class="badge ${badgeClass}">${st}</span></td>
-              <td>
-                <button onclick="deleteMyBike(${bike.id})" class="btn btn-sm btn-danger" title="Delete"><i class="fas fa-trash"></i></button>
+              <td data-label="Vehicle">
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                  <img src="${coverThumb}" style="width:48px; height:48px; border-radius:6px; object-fit:cover; border:1px solid var(--border-subtle); flex-shrink:0;" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+                  <div>
+                    <div style="font-weight:700; color:#FFF;">${bike.year} ${bike.title}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);"><i class="fas fa-map-marker-alt"></i> ${bike.location || 'Salem, TN'}</div>
+                    ${rejectionBanner}
+                  </div>
+                </div>
+              </td>
+              <td data-label="Brand & Model">${bike.brand} • ${bike.model}</td>
+              <td data-label="Expected Price" style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
+              <td data-label="Kilometers">${(bike.kilometers_driven||0).toLocaleString()} km</td>
+              <td data-label="Review Status"><span class="badge ${badgeClass}">${statusText}</span></td>
+              <td data-label="Action">
+                <div style="display:flex; gap:0.4rem; justify-content:flex-end;">
+                  ${st === 'approved' || st === 'published' ? `
+                    <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline" target="_blank" title="View Showroom Listing"><i class="fas fa-eye"></i></a>
+                  ` : ''}
+                  <button onclick="deleteMyBike(${bike.id})" class="btn btn-sm btn-danger" title="Delete Listing"><i class="fas fa-trash"></i></button>
+                </div>
               </td>
             </tr>
           `;
         }).join('');
+
+        // Render pagination
+        const paginEl = document.getElementById('my-listings-pagination');
+        if (paginEl && p.totalPages > 1) {
+          paginEl.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+              <span style="font-size:0.85rem; color:var(--text-muted);">Page ${p.page} of ${p.totalPages} (${p.total} total)</span>
+              <div style="display:flex; gap:0.35rem;">
+                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page - 1})" ${p.page <= 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
+                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page + 1})" ${p.page >= p.totalPages ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
+              </div>
+            </div>
+          `;
+        } else if (paginEl) {
+          paginEl.innerHTML = '';
+        }
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
       }
@@ -672,9 +1027,6 @@
         showToast(e.message, 'error');
       }
     }
-  </script>
-</body>
-</html>
   </script>
 </body>
 </html>

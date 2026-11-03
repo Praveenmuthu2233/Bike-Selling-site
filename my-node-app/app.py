@@ -8,7 +8,7 @@ import datetime
 import tempfile
 from functools import wraps
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, send_from_directory, g
+from flask import Flask, request, jsonify, render_template, send_from_directory, g, session
 from flask_cors import CORS
 
 # Load environment variables prioritizing my-node-app/.env, fallback to root .env
@@ -73,6 +73,12 @@ def inject_google_client_id():
 # Upload directory configuration (Windows & Linux compatible)
 UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "public", "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+ALLOWED_IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp"}
+MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024  # 5MB per image
+
+def allowed_image_file(filename):
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
 
 # -----------------------------------------------------------------------------
 # SMTP EMAIL DISPATCH & NOTIFICATION CONFIGURATION
@@ -640,13 +646,37 @@ def initialize_database():
             ("published_at", "TIMESTAMP NULL"),
             ("sold_at", "TIMESTAMP NULL"),
             ("seller_agreement_at", "TIMESTAMP NULL"),
-            ("registration_number", "VARCHAR(50) NULL")
+            ("registration_number", "VARCHAR(50) NULL"),
+            ("location", "VARCHAR(120) NULL"),
+            ("approved_by", "VARCHAR(60) NULL"),
+            ("approved_at", "TIMESTAMP NULL"),
+            ("rejected_by", "VARCHAR(60) NULL"),
+            ("rejected_at", "TIMESTAMP NULL"),
+            ("buying_price", "DECIMAL(12,2) NULL"),
+            ("expenses", "DECIMAL(12,2) DEFAULT 0"),
+            ("profit", "DECIMAL(12,2) DEFAULT 0"),
+            ("isSoldout", "TINYINT(1) DEFAULT 0")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE `bikes` ADD COLUMN `{col_name}` {col_def}")
                 conn.commit()
             except Exception:
                 pass
+
+        # 4a. bike_images table (Supports up to 6 gallery images per motorcycle)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `bike_images` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL,
+          `image_url` VARCHAR(500) NOT NULL,
+          `image_order` INT NOT NULL DEFAULT 1,
+          `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_bike_images_bike_id` (`bike_id`),
+          INDEX `idx_bike_images_primary` (`is_primary`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+        conn.commit()
 
         # Add missing columns to admins table
         for col_name, col_def in [
@@ -1160,10 +1190,11 @@ def contact_page():
 # REST API ENDPOINTS
 # -----------------------------------------------------------------------------
 
-def _normalize_bike(r, is_admin=False):
+def _normalize_bike(r, is_admin=False, admin_role=None):
     """
     Normalizes bike record keys across legacy and modern schema.
     Sanitizes internal seller payout and business margin for public callers.
+    Restricts confidential financials to Superadmin role only.
     """
     item = dict(r)
     if isinstance(item.get("images"), str):
@@ -1173,6 +1204,7 @@ def _normalize_bike(r, is_admin=False):
             item["images"] = [item["images"]]
     if not item.get("images"):
         item["images"] = ["/static/images/IMG-20251204-WA0053.jpg"]
+    
     item["listingTitle"] = item.get("title")
     item["makedFrom"] = item.get("brand")
     item["bikeModel"] = item.get("model")
@@ -1183,6 +1215,7 @@ def _normalize_bike(r, is_admin=False):
     item["sellerName"] = item.get("seller_name") or "SMR Motors"
     item["mobileNum"] = item.get("seller_phone") or "9876543210"
     item["registration_number"] = item.get("registration_number") or item.get("vehicleNumber") or "TN-XX-XXXX"
+    item["location"] = item.get("location") or "Salem, Tamil Nadu"
     item["requested_price"] = item.get("requested_price") or item.get("price")
     item["approved_price"] = item.get("public_selling_price") or item.get("price")
     item["owner_name"] = item.get("seller_name") or "SMR Motors"
@@ -1191,10 +1224,19 @@ def _normalize_bike(r, is_admin=False):
     item["listing_status"] = st
     item["isAccepted"] = 1 if st in ("approved", "published") else 0
     item["isSoldout"] = 1 if (st == "soldout" or item.get("isSoldout") == 1) else 0
-    if not is_admin:
+
+    # Determine effective admin role if not explicitly passed
+    if admin_role is None and hasattr(g, "admin") and isinstance(g.admin, dict):
+        admin_role = g.admin.get("role")
+
+    # Restrict confidential financials to Superadmin role only (Requirement 11)
+    if not is_admin or admin_role != "superadmin":
         item.pop("accepted_seller_payout", None)
         item.pop("proposed_seller_payout", None)
         item.pop("business_margin", None)
+        item.pop("buying_price", None)
+        item.pop("expenses", None)
+        item.pop("profit", None)
     return item
 
 # Bikes API (supports server-side pagination, multi-criteria filtering, and public privacy)
@@ -1439,30 +1481,62 @@ def add_bike_api():
     data = request.form.to_dict() if request.form else (request.get_json() or {})
     new_id = len(IN_MEMORY_STORE["bikes"]) + 1
     
-    # Handle uploaded photos
-    images = []
+    # Handle uploaded photos (supports up to 6 images with validation)
+    uploaded_urls = []
     if request.files:
-        files = request.files.getlist("attachments")
-        for f in files:
-            if f.filename:
+        files = request.files.getlist("images") or request.files.getlist("attachments") or request.files.getlist("photos")
+        for idx, f in enumerate(files[:6]):
+            if f and f.filename and allowed_image_file(f.filename):
                 from werkzeug.utils import secure_filename
-                sname = f"{int(datetime.datetime.utcnow().timestamp())}-{secure_filename(f.filename)}"
+                import uuid
+                ext = f.filename.rsplit(".", 1)[1].lower()
+                sname = f"bike_{int(datetime.datetime.utcnow().timestamp())}_{idx+1}_{uuid.uuid4().hex[:6]}.{ext}"
                 f.save(os.path.join(UPLOAD_DIR, sname))
-                images.append(f"/uploads/{sname}")
-    if not images:
-        images = ["/static/images/IMG-20251204-WA0053.jpg"]
+                uploaded_urls.append(f"/uploads/{sname}")
+
+    # If images were passed as JSON or array of URLs in body
+    body_images = data.get("images")
+    if body_images:
+        if isinstance(body_images, str):
+            try:
+                parsed = json.loads(body_images)
+                if isinstance(parsed, list):
+                    for item in parsed:
+                        if isinstance(item, dict) and "url" in item:
+                            uploaded_urls.append(item["url"])
+                        elif isinstance(item, str):
+                            uploaded_urls.append(item)
+                else:
+                    uploaded_urls.append(body_images)
+            except Exception:
+                uploaded_urls.append(body_images)
+        elif isinstance(body_images, list):
+            for item in body_images:
+                if isinstance(item, dict) and "url" in item:
+                    uploaded_urls.append(item["url"])
+                elif isinstance(item, str):
+                    uploaded_urls.append(item)
+
+    if not uploaded_urls:
+        uploaded_urls = ["/static/images/IMG-20251204-WA0053.jpg"]
+
+    # Cap at 6 images
+    images = uploaded_urls[:6]
 
     title = data.get("title") or data.get("listingTitle") or "Custom Motorcycle"
     brand = data.get("brand") or data.get("makedFrom") or "Other"
     model = data.get("model") or data.get("bikeModel") or "Standard"
     year = int(data.get("year") or data.get("bikeBuyingYear") or 2022)
+    reg_no = data.get("registration_number") or data.get("vehicleNumber") or ""
     price = float(data.get("price") or data.get("sellingPrice") or data.get("bikePrice") or 100000)
     kms = int(data.get("kilometers_driven") or data.get("bikeKms") or 0)
     fuel = data.get("fuel_type", "Petrol")
     trans = data.get("transmission", "Manual")
+    location = data.get("location") or data.get("city") or "Salem, Tamil Nadu"
     desc = data.get("description", "Inspected pre-owned motorcycle.")
     sname = data.get("seller_name") or data.get("sellerName") or "User"
     sphone = data.get("seller_phone") or data.get("mobileNum") or ""
+    seller_id = data.get("seller_id") or session.get("user_id") or None
     status = data.get("status", "pending")
     listing_status = "pending"
     negotiation_status = "pending"
@@ -1473,20 +1547,30 @@ def add_bike_api():
         try:
             cursor = conn.cursor()
             cursor.execute(
-                """INSERT INTO bikes (title, brand, model, year, price, requested_price, kilometers_driven, fuel_type, transmission, description, images, seller_name, seller_phone, status, listing_status, negotiation_status)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (title, brand, model, year, price, price, kms, fuel, trans, desc, json.dumps(images), sname, sphone, status, listing_status, negotiation_status)
+                """INSERT INTO bikes (title, brand, model, year, registration_number, price, requested_price, kilometers_driven, fuel_type, transmission, location, description, images, seller_id, seller_name, seller_phone, status, listing_status, negotiation_status)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (title, brand, model, year, reg_no, price, price, kms, fuel, trans, location, desc, json.dumps(images), seller_id, sname, sphone, status, listing_status, negotiation_status)
             )
+            new_id = cursor.lastrowid
+
+            # Persist each of up to 6 gallery images to bike_images table
+            for idx, img_url in enumerate(images):
+                cursor.execute(
+                    """INSERT INTO bike_images (bike_id, image_url, image_order, is_primary)
+                       VALUES (%s, %s, %s, %s)""",
+                    (new_id, img_url, idx + 1, 1 if idx == 0 else 0)
+                )
+
             cursor.execute(
-                """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (title, brand, model, str(year), str(price), str(price), str(kms), sname, sphone, desc, 1 if status == "approved" else 0, 0)
+                """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, vehicleNumber, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (title, brand, model, str(year), reg_no, str(price), str(price), str(kms), sname, sphone, desc, 1 if status == "approved" else 0, 0)
             )
             conn.commit()
-            new_id = cursor.lastrowid
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
+            print("[Database] add_bike error:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
@@ -1501,6 +1585,8 @@ def add_bike_api():
         "bikeModel": model,
         "year": year,
         "bikeBuyingYear": str(year),
+        "registration_number": reg_no,
+        "location": location,
         "price": price,
         "requested_price": price,
         "proposed_seller_payout": None,
@@ -1528,9 +1614,9 @@ def add_bike_api():
     IN_MEMORY_STORE["bikes"].append(new_bike)
     create_notification(
         f"New Listing: {title}",
-        f"{sname} submitted {title} ({year}) expecting ₹{price:,.0f}. Awaiting inspection & counteroffer.",
+        f"{sname} submitted {title} ({year}) expecting ₹{price:,.0f}. Awaiting inspection & approval.",
         target_role="admin",
-        link="/admin.html?tab=pending"
+        link="/admin.html"
     )
     return jsonify({"success": True, "message": "Bike listed successfully", "id": new_id, "data": new_bike}), 201
 
@@ -3098,11 +3184,11 @@ def admin_mark_sold(bike_id):
             cursor.execute("UPDATE bikesforsale SET isSoldout = 1 WHERE id = %s", (bike_id,))
             cursor.execute(
                 """INSERT INTO bike_transactions 
-                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, notes, sold_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, buyer_name, buyer_phone, notes, sold_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                 (bike_id, bike_row.get("seller_id") if bike_row else None, seller_payout, actual_sale_price,
                  service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit,
-                 notes, sold_at)
+                 buyer_name, buyer_phone, notes, sold_at)
             )
             conn.commit()
             cursor.close()
@@ -3440,6 +3526,13 @@ def admin_get_single_bike(bike_id):
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT * FROM bikes WHERE id = %s LIMIT 1", (bike_id,))
             bike = cursor.fetchone()
+            if bike:
+                # Fetch full gallery images from bike_images table (supports up to 6 images)
+                cursor.execute("SELECT * FROM bike_images WHERE bike_id = %s ORDER BY is_primary DESC, image_order ASC", (bike_id,))
+                gallery_rows = cursor.fetchall()
+                if gallery_rows:
+                    bike["gallery_images"] = gallery_rows
+                    bike["images"] = [img["image_url"] for img in gallery_rows]
             cursor.close()
             conn.close()
         except Exception:
@@ -3453,14 +3546,17 @@ def admin_get_single_bike(bike_id):
                 break
     if not bike:
         return jsonify({"success": False, "message": "Motorcycle not found"}), 404
-    return jsonify({"success": True, "data": _normalize_bike(bike, is_admin=True)})
+    admin_role = g.admin.get("role") if hasattr(g, "admin") and isinstance(g.admin, dict) else None
+    return jsonify({"success": True, "data": _normalize_bike(bike, is_admin=True, admin_role=admin_role)})
 
 @app.route("/api/admin/bikes/<int:bike_id>", methods=["PUT"])
 @admin_required
 def admin_update_bike(bike_id):
     """
     Updates bike details: title, brand, model, year, registration_number,
-    kilometers_driven, fuel_type, price, description, seller_name, seller_phone, status.
+    kilometers_driven, fuel_type, transmission, location, price, description, seller_name, seller_phone.
+    Superadmin-only fields: requested_price, buying_price, price (selling price), expenses, profit.
+    Preserves existing images unless new images are explicitly uploaded/provided.
     """
     data = request.get_json() or request.form.to_dict() or {}
     title = data.get("title") or data.get("listingTitle")
@@ -3468,14 +3564,62 @@ def admin_update_bike(bike_id):
     model = data.get("model") or data.get("bikeModel")
     year = data.get("year") or data.get("bikeBuyingYear")
     reg_no = data.get("registration_number") or data.get("vehicleNumber")
-    price = data.get("price") or data.get("sellingPrice")
     kms = data.get("kilometers_driven") or data.get("bikeKms")
     fuel = data.get("fuel_type")
+    transmission = data.get("transmission")
+    location = data.get("location")
     desc = data.get("description")
     sname = data.get("seller_name") or data.get("sellerName")
     sphone = data.get("seller_phone") or data.get("mobileNum")
 
     admin_username = g.admin.get("username", "admin")
+    is_superadmin = (g.admin.get("role") == "superadmin")
+
+    # Financial fields (Superadmin only)
+    requested_price = None
+    buying_price = None
+    selling_price = None
+    expenses = None
+    profit = None
+
+    if is_superadmin:
+        if "requested_price" in data and data["requested_price"] not in (None, ""):
+            try: requested_price = float(data["requested_price"])
+            except Exception: pass
+        if "buying_price" in data and data["buying_price"] not in (None, ""):
+            try: buying_price = float(data["buying_price"])
+            except Exception: pass
+        if "price" in data and data["price"] not in (None, ""):
+            try: selling_price = float(data["price"])
+            except Exception: pass
+        elif "sellingPrice" in data and data["sellingPrice"] not in (None, ""):
+            try: selling_price = float(data["sellingPrice"])
+            except Exception: pass
+        if "expenses" in data and data["expenses"] not in (None, ""):
+            try: expenses = float(data["expenses"])
+            except Exception: pass
+        if "profit" in data and data["profit"] not in (None, ""):
+            try: profit = float(data["profit"])
+            except Exception: pass
+
+    # Optional image updates (up to 6 images)
+    new_images = None
+    if "images" in data:
+        raw_imgs = data["images"]
+        if isinstance(raw_imgs, str):
+            try:
+                new_images = json.loads(raw_imgs)
+            except Exception:
+                new_images = [raw_imgs]
+        elif isinstance(raw_imgs, list):
+            new_images = []
+            for item in raw_imgs:
+                if isinstance(item, dict) and "url" in item:
+                    new_images.append(item["url"])
+                elif isinstance(item, str):
+                    new_images.append(item)
+        if new_images:
+            new_images = new_images[:6]
 
     conn = get_db()
     if conn:
@@ -3488,15 +3632,32 @@ def admin_update_bike(bike_id):
                   model = COALESCE(%s, model),
                   year = COALESCE(%s, year),
                   registration_number = COALESCE(%s, registration_number),
-                  price = COALESCE(%s, price),
-                  public_selling_price = COALESCE(%s, public_selling_price),
                   kilometers_driven = COALESCE(%s, kilometers_driven),
                   fuel_type = COALESCE(%s, fuel_type),
+                  transmission = COALESCE(%s, transmission),
+                  location = COALESCE(%s, location),
                   description = COALESCE(%s, description),
                   seller_name = COALESCE(%s, seller_name),
-                  seller_phone = COALESCE(%s, seller_phone)
+                  seller_phone = COALESCE(%s, seller_phone),
+                  requested_price = COALESCE(%s, requested_price),
+                  buying_price = COALESCE(%s, buying_price),
+                  price = COALESCE(%s, price),
+                  public_selling_price = COALESCE(%s, public_selling_price),
+                  expenses = COALESCE(%s, expenses),
+                  profit = COALESCE(%s, profit)
                 WHERE id = %s
-            """, (title, brand, model, year, reg_no, price, price, kms, fuel, desc, sname, sphone, bike_id))
+            """, (title, brand, model, year, reg_no, kms, fuel, transmission, location, desc, sname, sphone,
+                  requested_price, buying_price, selling_price, selling_price, expenses, profit, bike_id))
+
+            if new_images is not None and len(new_images) > 0:
+                cursor.execute("UPDATE bikes SET images = %s WHERE id = %s", (json.dumps(new_images), bike_id))
+                cursor.execute("DELETE FROM bike_images WHERE bike_id = %s", (bike_id,))
+                for idx, img_url in enumerate(new_images):
+                    cursor.execute(
+                        "INSERT INTO bike_images (bike_id, image_url, image_order, is_primary) VALUES (%s, %s, %s, %s)",
+                        (bike_id, img_url, idx + 1, 1 if idx == 0 else 0)
+                    )
+
             cursor.execute("""
                 UPDATE bikesforsale SET
                   listingTitle = COALESCE(%s, listingTitle),
@@ -3510,7 +3671,7 @@ def admin_update_bike(bike_id):
                   sellerName = COALESCE(%s, sellerName),
                   mobileNum = COALESCE(%s, mobileNum)
                 WHERE id = %s
-            """, (title, brand, model, str(year) if year else None, reg_no, str(price) if price else None, str(kms) if kms else None, desc, sname, sphone, bike_id))
+            """, (title, brand, model, str(year) if year else None, reg_no, str(selling_price) if selling_price else None, str(kms) if kms else None, desc, sname, sphone, bike_id))
             conn.commit()
             cursor.close()
             conn.close()
@@ -3527,14 +3688,23 @@ def admin_update_bike(bike_id):
             if model: b["model"] = model
             if year: b["year"] = int(year)
             if reg_no: b["registration_number"] = reg_no
-            if price:
-                b["price"] = float(price)
-                b["public_selling_price"] = float(price)
             if kms: b["kilometers_driven"] = int(kms)
             if fuel: b["fuel_type"] = fuel
+            if transmission: b["transmission"] = transmission
+            if location: b["location"] = location
             if desc: b["description"] = desc
             if sname: b["seller_name"] = sname
             if sphone: b["seller_phone"] = sphone
+            if is_superadmin:
+                if requested_price is not None: b["requested_price"] = requested_price
+                if buying_price is not None: b["buying_price"] = buying_price
+                if selling_price is not None:
+                    b["price"] = selling_price
+                    b["public_selling_price"] = selling_price
+                if expenses is not None: b["expenses"] = expenses
+                if profit is not None: b["profit"] = profit
+            if new_images is not None and len(new_images) > 0:
+                b["images"] = new_images
 
     log_admin_action(admin_username, "update_bike", "bike", bike_id, f"Updated motorcycle details for #{bike_id}")
 
@@ -3542,10 +3712,38 @@ def admin_update_bike(bike_id):
 
 @app.route("/api/admin/bikes/<int:bike_id>/approve", methods=["POST", "PUT"])
 @app.route("/bikes/<int:bike_id>/accept", methods=["POST", "PUT"])
+@admin_required
 def admin_approve_bike(bike_id):
-    data = request.get_json() or {}
-    approved_price = data.get("approved_price") or data.get("public_selling_price") or data.get("price")
-    admin_username = getattr(g, "admin", {}).get("username", "admin")
+    data = request.get_json(silent=True) or {}
+    admin_username = g.admin.get("username", "admin")
+
+    conn = get_db()
+    current_status = None
+    bike_title = f"Motorcycle #{bike_id}"
+    seller_id = None
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT status, title, seller_id FROM bikes WHERE id = %s", (bike_id,))
+            row = cursor.fetchone()
+            if row:
+                current_status = row.get("status")
+                bike_title = row.get("title") or bike_title
+                seller_id = row.get("seller_id")
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # Prevent duplicate approval (Requirement 4)
+    if current_status == "approved":
+        return jsonify({"success": False, "message": "Motorcycle is already approved and published."}), 400
+
+    approved_price = None
+    if g.admin.get("role") == "superadmin":
+        approved_price = data.get("approved_price") or data.get("public_selling_price") or data.get("price")
 
     conn = get_db()
     if conn:
@@ -3558,60 +3756,114 @@ def admin_approve_bike(bike_id):
                       listing_status = 'published',
                       price = %s,
                       public_selling_price = %s,
+                      approved_by = %s,
+                      approved_at = CURRENT_TIMESTAMP,
                       published_at = CURRENT_TIMESTAMP
                     WHERE id = %s
-                """, (approved_price, approved_price, bike_id))
+                """, (approved_price, approved_price, admin_username, bike_id))
                 cursor.execute("UPDATE bikesforsale SET isAccepted = 1, sellingPrice = %s WHERE id = %s", (str(approved_price), bike_id))
             else:
                 cursor.execute("""
                     UPDATE bikes SET
                       status = 'approved',
                       listing_status = 'published',
+                      approved_by = %s,
+                      approved_at = CURRENT_TIMESTAMP,
                       published_at = CURRENT_TIMESTAMP
                     WHERE id = %s
-                """, (bike_id,))
+                """, (admin_username, bike_id))
                 cursor.execute("UPDATE bikesforsale SET isAccepted = 1 WHERE id = %s", (bike_id,))
             conn.commit()
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
             if conn:
                 try: conn.close()
                 except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
 
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["status"] = "approved"
             b["listing_status"] = "published"
             b["isAccepted"] = 1
+            b["approved_by"] = admin_username
+            b["approved_at"] = datetime.datetime.utcnow().isoformat()
             if approved_price:
                 b["price"] = float(approved_price)
                 b["public_selling_price"] = float(approved_price)
 
-    log_admin_action(admin_username, "approve_bike", "bike", bike_id, f"Approved and published motorcycle #{bike_id} with selling price {approved_price or 'original'}")
+    # Notify seller (Requirement 4)
+    create_notification(
+        "Listing Approved!",
+        f"Your motorcycle '{bike_title}' has been approved and published to the live marketplace.",
+        user_id=seller_id,
+        target_role="user",
+        notif_type="success",
+        link=f"/enquiry-bike-details.html?id={bike_id}"
+    )
+
+    log_admin_action(admin_username, "approve_bike", "bike", bike_id, f"Approved and published motorcycle #{bike_id} ({bike_title})")
 
     return jsonify({"success": True, "message": "Motorcycle approved and published to live marketplace."})
 
 @app.route("/api/admin/bikes/<int:bike_id>/reject", methods=["POST", "PUT"])
 @app.route("/bikes/<int:bike_id>/reject", methods=["POST", "PUT"])
+@admin_required
 def admin_reject_bike(bike_id):
-    data = request.get_json() or {}
-    reason = data.get("reason", "Listing details do not meet quality guidelines.")
-    admin_username = getattr(g, "admin", {}).get("username", "admin")
+    data = request.get_json(silent=True) or {}
+    reason = (data.get("reason") or "").strip()
+    if not reason:
+        return jsonify({"success": False, "message": "Rejection reason is required."}), 400
+
+    admin_username = g.admin.get("username", "admin")
 
     conn = get_db()
+    current_status = None
+    bike_title = f"Motorcycle #{bike_id}"
+    seller_id = None
     if conn:
         try:
-            cursor = conn.cursor()
-            cursor.execute("UPDATE bikes SET status = 'rejected', listing_status = 'rejected', rejection_reason = %s WHERE id = %s", (reason, bike_id))
-            cursor.execute("UPDATE bikesforsale SET isAccepted = 0 WHERE id = %s", (bike_id,))
-            conn.commit()
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT status, title, seller_id FROM bikes WHERE id = %s", (bike_id,))
+            row = cursor.fetchone()
+            if row:
+                current_status = row.get("status")
+                bike_title = row.get("title") or bike_title
+                seller_id = row.get("seller_id")
             cursor.close()
             conn.close()
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
+
+    # Prevent duplicate rejection (Requirement 4)
+    if current_status == "rejected":
+        return jsonify({"success": False, "message": "Motorcycle is already rejected."}), 400
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE bikes SET
+                  status = 'rejected',
+                  listing_status = 'rejected',
+                  rejection_reason = %s,
+                  rejected_by = %s,
+                  rejected_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (reason, admin_username, bike_id))
+            cursor.execute("UPDATE bikesforsale SET isAccepted = 0 WHERE id = %s", (bike_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
 
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
@@ -3619,6 +3871,18 @@ def admin_reject_bike(bike_id):
             b["listing_status"] = "rejected"
             b["isAccepted"] = 0
             b["rejection_reason"] = reason
+            b["rejected_by"] = admin_username
+            b["rejected_at"] = datetime.datetime.utcnow().isoformat()
+
+    # Notify Seller with the reason (Requirement 4)
+    create_notification(
+        "Listing Needs Attention",
+        f"Your motorcycle listing '{bike_title}' was rejected by the inspection team. Reason: {reason}",
+        user_id=seller_id,
+        target_role="user",
+        notif_type="warning",
+        link="/profile.html"
+    )
 
     log_admin_action(admin_username, "reject_bike", "bike", bike_id, f"Rejected motorcycle #{bike_id}. Reason: {reason}")
 
@@ -4507,25 +4771,135 @@ def admin_audit_logs_api():
                 except Exception: pass
     return jsonify({"success": True, "data": IN_MEMORY_STORE["audit_logs"]})
 
-# User Dashboard endpoints
+# -----------------------------------------------------------------------------
+# 6-IMAGE GALLERY UPLOADER API (Requirement 7)
+# -----------------------------------------------------------------------------
+@app.route("/api/upload/images", methods=["POST"])
+@app.route("/api/bikes/upload-images", methods=["POST"])
+def upload_images_api():
+    """
+    Handles up to 6 gallery images per bike.
+    Validates file formats (JPG, JPEG, PNG, WEBP), file size (<= 5MB each).
+    Persists files to UPLOAD_DIR and returns public URLs with order and primary indicator.
+    """
+    files = request.files.getlist("images") or request.files.getlist("attachments") or request.files.getlist("files")
+    if not files:
+        return jsonify({"success": False, "message": "No image files provided."}), 400
+    if len(files) > 6:
+        return jsonify({"success": False, "message": "Maximum 6 images are allowed per bike."}), 400
+
+    saved_images = []
+    from werkzeug.utils import secure_filename
+    import uuid
+
+    for idx, f in enumerate(files):
+        if not f or not f.filename:
+            continue
+        if not allowed_image_file(f.filename):
+            return jsonify({
+                "success": False,
+                "message": f"Invalid format for '{f.filename}'. Allowed formats: JPG, JPEG, PNG, WEBP."
+            }), 400
+
+        f.seek(0, os.SEEK_END)
+        size = f.tell()
+        f.seek(0)
+        if size > MAX_IMAGE_FILE_SIZE:
+            return jsonify({
+                "success": False,
+                "message": f"Image '{f.filename}' exceeds 5MB size limit."
+            }), 400
+
+        ext = f.filename.rsplit(".", 1)[1].lower()
+        unique_name = f"bike_{int(datetime.datetime.utcnow().timestamp())}_{idx+1}_{uuid.uuid4().hex[:6]}.{ext}"
+        f.save(os.path.join(UPLOAD_DIR, unique_name))
+        saved_images.append({
+            "url": f"/uploads/{unique_name}",
+            "filename": unique_name,
+            "order": idx + 1,
+            "is_primary": 1 if idx == 0 else 0
+        })
+
+    return jsonify({
+        "success": True,
+        "message": f"Successfully uploaded {len(saved_images)} image(s).",
+        "images": saved_images
+    })
+
+
+# -----------------------------------------------------------------------------
+# USER DASHBOARD & PROFILE ENDPOINTS (Requirement 8)
+# -----------------------------------------------------------------------------
 @app.route("/api/users/dashboard", methods=["GET"])
 def user_dashboard_metrics():
-    bikes = IN_MEMORY_STORE["bikes"]
+    """
+    Returns real-time counts from TiDB Cloud:
+    Total, Pending, Approved, Rejected, Sold Out Listings & Pending Enquiries.
+    """
+    stats = {
+        "total_listings": 0,
+        "pending_listings": 0,
+        "approved_listings": 0,
+        "rejected_listings": 0,
+        "sold_listings": 0,
+        "pending_enquiries": 0
+    }
+    recent_bikes = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT
+                  COUNT(*) as total_listings,
+                  COUNT(CASE WHEN status = 'pending' AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as pending_listings,
+                  COUNT(CASE WHEN status IN ('approved', 'published') AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as approved_listings,
+                  COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_listings,
+                  COUNT(CASE WHEN status = 'soldout' OR isSoldout = 1 THEN 1 END) as sold_listings
+                FROM bikes
+            """)
+            row = cursor.fetchone()
+            if row:
+                for k, v in row.items():
+                    stats[k] = int(v or 0)
+
+            cursor.execute("SELECT COUNT(*) as pending_enquiries FROM enquiries WHERE status = 'pending'")
+            enq_row = cursor.fetchone()
+            if enq_row:
+                stats["pending_enquiries"] = int(enq_row.get("pending_enquiries") or 0)
+
+            cursor.execute("SELECT * FROM bikes ORDER BY id DESC LIMIT 5")
+            recent_bikes = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not recent_bikes:
+        bikes = IN_MEMORY_STORE["bikes"]
+        stats = {
+            "total_listings": len(bikes),
+            "pending_listings": len([b for b in bikes if b.get("status") == "pending"]),
+            "approved_listings": len([b for b in bikes if b.get("status") in ("approved", "published")]),
+            "rejected_listings": len([b for b in bikes if b.get("status") == "rejected"]),
+            "sold_listings": len([b for b in bikes if b.get("status") == "soldout" or b.get("isSoldout") == 1]),
+            "pending_enquiries": len(IN_MEMORY_STORE["enquiries"])
+        }
+        recent_bikes = bikes[:5]
+
     return jsonify({
         "success": True,
         "data": {
-            "stats": {
-                "total_listings": len(bikes),
-                "approved_listings": len([b for b in bikes if b.get("status") == "approved"]),
-                "pending_listings": len([b for b in bikes if b.get("status") == "pending"]),
-                "total_enquiries": len(IN_MEMORY_STORE["enquiries"])
-            },
-            "my_listings": bikes
+            "stats": stats,
+            "my_listings": [_normalize_bike(b, is_admin=False) for b in recent_bikes]
         }
     })
 
 @app.route("/api/users/listings", methods=["GET"])
 def user_my_listings():
+    status_filter = (request.args.get("status") or "").strip().lower()
     try:
         page = max(1, int(request.args.get("page", 1)))
     except (ValueError, TypeError):
@@ -4535,7 +4909,7 @@ def user_my_listings():
     except (ValueError, TypeError):
         limit = 6
 
-    bikes = IN_MEMORY_STORE["bikes"]
+    bikes = []
     conn = get_db()
     if conn:
         try:
@@ -4546,9 +4920,25 @@ def user_my_listings():
             cursor.close()
             conn.close()
         except Exception:
-            pass
+            if conn:
+                try: conn.close()
+                except Exception: pass
 
-    normalized = [_normalize_bike(b, is_admin=True) for b in bikes]
+    if not bikes:
+        bikes = IN_MEMORY_STORE["bikes"]
+
+    normalized = [_normalize_bike(b, is_admin=False) for b in bikes]
+
+    if status_filter:
+        if status_filter == "pending":
+            normalized = [b for b in normalized if b.get("status") == "pending" and b.get("isSoldout") != 1]
+        elif status_filter in ("approved", "published"):
+            normalized = [b for b in normalized if b.get("status") in ("approved", "published") and b.get("isSoldout") != 1]
+        elif status_filter == "rejected":
+            normalized = [b for b in normalized if b.get("status") == "rejected"]
+        elif status_filter in ("soldout", "sold"):
+            normalized = [b for b in normalized if b.get("status") == "soldout" or b.get("isSoldout") == 1]
+
     total = len(normalized)
     total_pages = math.ceil(total / limit) if total > 0 else 1
     start_idx = (page - 1) * limit
@@ -4573,19 +4963,138 @@ def user_my_listings():
 
 @app.route("/api/users/negotiations", methods=["GET"])
 def user_my_negotiations():
-    bikes = [_normalize_bike(b, is_admin=True) for b in IN_MEMORY_STORE["bikes"]]
+    bikes = [_normalize_bike(b, is_admin=False) for b in IN_MEMORY_STORE["bikes"]]
     negs = [b for b in bikes if b.get("listing_status") in ("price_offered", "seller_accepted", "seller_rejected")]
     return jsonify({"success": True, "data": negs})
 
 @app.route("/api/users/enquiries", methods=["GET"])
 def user_my_enquiries():
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["enquiries"]})
+    enqs = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC LIMIT 50")
+            enqs = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    if not enqs:
+        enqs = IN_MEMORY_STORE["enquiries"]
+    return jsonify({"success": True, "data": enqs, "enquiries": enqs})
 
 @app.route("/api/users/favorites", methods=["GET", "POST"])
 def user_favorites_api():
+    user_id = session.get("user_id") or 1
     if request.method == "POST":
-        return jsonify({"success": True, "message": "Favorites updated"})
-    return jsonify({"success": True, "data": [IN_MEMORY_STORE["bikes"][0]]})
+        data = request.get_json() or {}
+        bike_id = data.get("bike_id")
+        if not bike_id:
+            return jsonify({"success": False, "message": "bike_id required"}), 400
+        conn = get_db()
+        is_fav = True
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM favorites WHERE user_id = %s AND bike_id = %s", (user_id, bike_id))
+                existing = cursor.fetchone()
+                if existing:
+                    cursor.execute("DELETE FROM favorites WHERE user_id = %s AND bike_id = %s", (user_id, bike_id))
+                    is_fav = False
+                else:
+                    cursor.execute("INSERT INTO favorites (user_id, bike_id) VALUES (%s, %s)", (user_id, bike_id))
+                    is_fav = True
+                conn.commit()
+                cursor.close()
+                conn.close()
+            except Exception:
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+        return jsonify({"success": True, "favorited": is_fav, "message": "Favorites updated"})
+
+    # GET favorites
+    fav_bikes = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT b.* FROM favorites f
+                JOIN bikes b ON f.bike_id = b.id
+                WHERE f.user_id = %s
+                ORDER BY f.id DESC
+            """, (user_id,))
+            fav_bikes = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    if not fav_bikes:
+        fav_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("featured") == 1]
+    return jsonify({"success": True, "data": [_normalize_bike(b, is_admin=False) for b in fav_bikes]})
+
+@app.route("/api/users/notifications", methods=["GET"])
+def user_notifications_api():
+    conn = get_db()
+    notifs = []
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM notifications WHERE target_role = 'user' ORDER BY id DESC LIMIT 30")
+            notifs = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    if not notifs:
+        notifs = [n for n in IN_MEMORY_STORE.get("notifications", []) if n.get("target_role") == "user"]
+    return jsonify({"success": True, "data": notifs, "notifications": notifs})
+
+@app.route("/api/users/notifications/<int:notif_id>/read", methods=["PUT", "POST"])
+def user_mark_notification_read(notif_id):
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE notifications SET is_read = 1 WHERE id = %s", (notif_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    for n in IN_MEMORY_STORE.get("notifications", []):
+        if n.get("id") == notif_id:
+            n["is_read"] = 1
+    return jsonify({"success": True, "message": "Notification marked as read"})
+
+@app.route("/api/users/notifications/read-all", methods=["PUT", "POST"])
+def user_mark_all_notifications_read():
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE notifications SET is_read = 1 WHERE target_role = 'user'")
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    for n in IN_MEMORY_STORE.get("notifications", []):
+        if n.get("target_role") == "user":
+            n["is_read"] = 1
+    return jsonify({"success": True, "message": "All notifications marked as read"})
 
 @app.route("/api/users/profile", methods=["GET", "PUT"])
 def user_profile_api():

@@ -695,3 +695,109 @@
   cursor: not-allowed;
 }
 
+/* ==============================================================================
+   RESPONSIVE SHOWCASE CAROUSEL (Requirement 9)
+   One bike at a time on mobile, adjacent preview on desktop, smooth autoplay
+   ============================================================================== */
+.showcase-carousel-container {
+  position: relative;
+  width: 100%;
+  margin: 1.5rem 0 3rem;
+  overflow: hidden;
+  border-radius: var(--radius-xl);
+  padding: 0.5rem 0;
+}
+
+.carousel-viewport {
+  overflow: hidden;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  touch-action: pan-y pinch-zoom;
+}
+
+.carousel-track {
+  display: flex;
+  transition: transform 0.45s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.carousel-slide {
+  flex-shrink: 0;
+  width: 100%;
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
+
+@media (min-width: 769px) {
+  .carousel-slide {
+    width: 33.3333%;
+  }
+}
+
+.carousel-slide .bike-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(11, 19, 43, 0.88);
+  border: 1px solid var(--border-medium);
+  backdrop-filter: blur(8px);
+  color: #FFFFFF;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+
+.carousel-arrow:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 0 20px rgba(255, 107, 0, 0.5);
+}
+
+.carousel-arrow-prev {
+  left: 0.5rem;
+}
+
+.carousel-arrow-next {
+  right: 0.5rem;
+}
+
+.carousel-dots {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.carousel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  transition: all var(--transition-fast);
+}
+
+.carousel-dot.active {
+  width: 28px;
+  border-radius: 12px;
+  background: var(--accent-primary);
+  box-shadow: 0 0 10px rgba(255, 107, 0, 0.5);
+}
+

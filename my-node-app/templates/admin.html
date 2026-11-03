@@ -124,10 +124,21 @@
       </div>
     </aside>
 
+    <!-- Mobile Drawer Backdrop Overlay -->
+    <div class="admin-sidebar-backdrop" id="admin-sidebar-backdrop" onclick="toggleAdminSidebar(false)"></div>
+
     <!-- Main Content Area -->
     <main class="admin-main">
       <header class="admin-topbar">
-        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); display:flex; align-items:center; gap: 1rem;">
+        <div style="font-size: 0.95rem; font-weight: 600; color: var(--text-secondary); display:flex; align-items:center; gap: 0.75rem;">
+          <!-- Mobile Hamburger Toggle -->
+          <button class="btn btn-sm btn-outline mobile-only admin-mobile-toggle" onclick="toggleAdminSidebar()" title="Toggle Menu" style="padding: 6px 10px; font-size: 1rem;">
+            <i class="fas fa-bars"></i>
+          </button>
+          <!-- Desktop Sidebar Width Collapse Toggle -->
+          <button class="btn btn-sm btn-ghost desktop-only admin-collapse-toggle" onclick="toggleSidebarCollapse()" title="Toggle Sidebar Width" style="padding: 6px 8px;">
+            <i class="fas fa-bars" id="collapse-icon"></i>
+          </button>
           <span id="admin-breadcrumb-title">Executive Dashboard</span>
         </div>
         <div style="display: flex; align-items: center; gap: 1.25rem;">
@@ -318,7 +329,7 @@
           <!-- Bikes Table displaying complete required fields -->
           <div class="admin-card">
             <div class="table-responsive">
-              <table class="admin-table">
+              <table class="admin-table responsive-table-mobile">
                 <thead>
                   <tr>
                     <th>Bike ID</th>
@@ -377,7 +388,7 @@
           <!-- Enquiries Table -->
           <div class="admin-card">
             <div class="table-responsive">
-              <table class="admin-table">
+              <table class="admin-table responsive-table-mobile">
                 <thead>
                   <tr>
                     <th>Enquiry ID</th>
@@ -430,7 +441,7 @@
           <!-- Users Table -->
           <div class="admin-card">
             <div class="table-responsive">
-              <table class="admin-table">
+              <table class="admin-table responsive-table-mobile">
                 <thead>
                   <tr>
                     <th>User ID</th>
@@ -563,7 +574,7 @@
 
           <div class="admin-card">
             <div class="table-responsive">
-              <table class="admin-table">
+              <table class="admin-table responsive-table-mobile">
                 <thead>
                   <tr>
                     <th>Customer Name</th>
@@ -773,20 +784,76 @@
             <select id="edit-bike-fuel" class="form-control">
               <option value="Petrol">Petrol</option>
               <option value="Electric">Electric</option>
+              <option value="Diesel">Diesel</option>
             </select>
           </div>
           <div>
-            <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Selling Price (INR) *</label>
-            <input type="number" id="edit-bike-price" class="form-control">
+            <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Transmission</label>
+            <select id="edit-bike-trans" class="form-control">
+              <option value="Manual">Manual</option>
+              <option value="Automatic">Automatic</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Location (City / Branch)</label>
+            <input type="text" id="edit-bike-loc" class="form-control" placeholder="e.g. Salem, Tamil Nadu">
           </div>
           <div>
             <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Seller / Owner Name</label>
             <input type="text" id="edit-bike-seller-name" class="form-control">
           </div>
-          <div style="grid-column: span 2;">
+          <div>
             <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Seller Mobile Number</label>
             <input type="text" id="edit-bike-seller-phone" class="form-control">
           </div>
+
+          <!-- Superadmin Only Financial Section (Requirement 5 & 11) -->
+          <div class="edit-bike-fin-section" data-role-required="superadmin" style="grid-column: span 2; padding: 1rem; background: rgba(255, 107, 0, 0.05); border: 1px dashed rgba(255, 107, 0, 0.3); border-radius: 8px;">
+            <div style="font-weight: 700; color: var(--accent-primary); margin-bottom: 0.75rem; font-size: 0.9rem;">
+              <i class="fas fa-coins"></i> Confidential Financial Margins (Superadmin Only)
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem;">
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px; display:block;">Requested Price (₹)</label>
+                <input type="number" id="edit-bike-req-price" class="form-control">
+              </div>
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px; display:block;">Dealer Buying Price (₹)</label>
+                <input type="number" id="edit-bike-buying-price" class="form-control">
+              </div>
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px; display:block;">Selling Price (₹)</label>
+                <input type="number" id="edit-bike-price" class="form-control">
+              </div>
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px; display:block;">Expenses (₹)</label>
+                <input type="number" id="edit-bike-expenses" class="form-control">
+              </div>
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); margin-bottom:2px; display:block;">Projected Profit (₹)</label>
+                <input type="number" id="edit-bike-profit" class="form-control" readonly style="background: rgba(0,0,0,0.3); color:#10B981; font-weight:700;">
+              </div>
+            </div>
+          </div>
+
+          <!-- Non-Superadmin standard price input fallback -->
+          <div id="edit-bike-staff-price-wrap" style="display:none;">
+            <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Public Selling Price (₹)</label>
+            <input type="number" id="edit-bike-price-staff" class="form-control" disabled title="Selling price can only be revised by Superadmin">
+          </div>
+
+          <!-- Gallery Images (Supports up to 6 images) -->
+          <div style="grid-column: span 2;">
+            <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">
+              <i class="fas fa-images" style="color:var(--accent-primary);"></i> Gallery Photos (Up to 6 images)
+            </label>
+            <div id="edit-bike-gallery-previews" style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+              <!-- Dynamic image thumbnails -->
+            </div>
+            <input type="file" id="edit-bike-image-file" class="form-control" accept="image/jpeg,image/png,image/webp" multiple onchange="handleEditBikeFileUpload(this)" style="font-size:0.85rem;">
+            <span style="font-size:0.75rem; color:var(--text-muted);">Allowed: JPG, PNG, WEBP (Max 5MB each). First image is primary cover photo.</span>
+          </div>
+
           <div style="grid-column: span 2;">
             <label style="font-size:0.85rem; color:var(--text-secondary); margin-bottom:4px; display:block;">Vehicle Description</label>
             <textarea id="edit-bike-desc" class="form-control" rows="3"></textarea>
@@ -1328,27 +1395,42 @@
           const appPrice = Number(b.approved_price || b.public_selling_price || b.price || 0);
           const regNo = b.registration_number || 'TN-XX-XXXX';
 
+          let coverThumb = '/static/images/IMG-20251204-WA0053.jpg';
+          if (Array.isArray(b.images) && b.images.length > 0) {
+            coverThumb = b.images[0];
+          }
+
+          let rejectionNotice = '';
+          if (st === 'rejected' && b.rejection_reason) {
+            rejectionNotice = `<div style="font-size:0.75rem; color:#F87171; margin-top:3px;"><i class="fas fa-info-circle"></i> Reason: ${b.rejection_reason}</div>`;
+          }
+
           return `
             <tr>
-              <td><span style="font-family:monospace; color:var(--accent-primary); font-weight:700;">#${b.id || b.bike_id}</span></td>
-              <td>
-                <div style="font-weight:700; color:#FFF;">${b.title}</div>
-                <div style="font-size:0.78rem; color:var(--text-muted);">${b.brand} • ${b.model}</div>
+              <td data-label="Bike ID"><span style="font-family:monospace; color:var(--accent-primary); font-weight:700;">#${b.id || b.bike_id}</span></td>
+              <td data-label="Vehicle">
+                <div style="display:flex; align-items:center; gap:0.6rem;">
+                  <img src="${coverThumb}" style="width:40px; height:40px; border-radius:6px; object-fit:cover; border:1px solid var(--border-subtle); flex-shrink:0;" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+                  <div>
+                    <div style="font-weight:700; color:#FFF;">${b.title}</div>
+                    <div style="font-size:0.78rem; color:var(--text-muted);">${b.brand} • ${b.model}</div>
+                  </div>
+                </div>
               </td>
-              <td>${b.year}</td>
-              <td><span style="font-family:monospace; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">${regNo}</span></td>
-              <td>${Number(b.kilometers_driven || 0).toLocaleString()} km</td>
-              <td>${b.fuel_type || 'Petrol'}</td>
-              <td>
+              <td data-label="Year">${b.year}</td>
+              <td data-label="Reg Number"><span style="font-family:monospace; background:rgba(255,255,255,0.06); padding:2px 6px; border-radius:4px;">${regNo}</span></td>
+              <td data-label="Kilometers">${Number(b.kilometers_driven || 0).toLocaleString()} km</td>
+              <td data-label="Fuel">${b.fuel_type || 'Petrol'}</td>
+              <td data-label="Seller Contact">
                 <div>${b.seller_name || b.sellerName || 'SMR Motors'}</div>
                 <div style="font-size:0.78rem; color:var(--text-muted);">${b.seller_phone || b.mobileNum || '-'}</div>
               </td>
-              <td style="font-weight:600;">₹${reqPrice.toLocaleString('en-IN')}</td>
-              <td style="font-weight:700; color:#10B981;">₹${appPrice.toLocaleString('en-IN')}</td>
-              <td>${statusBadge}</td>
-              <td style="font-size:0.8rem; color:var(--text-muted);">${b.created_at ? new Date(b.created_at).toLocaleDateString() : '-'}</td>
-              <td>
-                <div style="display:flex; gap:0.35rem;">
+              <td data-label="Requested Price" style="font-weight:600;">₹${reqPrice.toLocaleString('en-IN')}</td>
+              <td data-label="Approved Price" style="font-weight:700; color:#10B981;">₹${appPrice.toLocaleString('en-IN')}</td>
+              <td data-label="Status">${statusBadge}${rejectionNotice}</td>
+              <td data-label="Created Date" style="font-size:0.8rem; color:var(--text-muted);">${b.created_at ? new Date(b.created_at).toLocaleDateString() : '-'}</td>
+              <td data-label="Actions">
+                <div style="display:flex; gap:0.35rem; justify-content:flex-end;">
                   <button onclick="openEditBikeModal(${b.id || b.bike_id})" class="btn btn-sm btn-outline" title="Edit Details"><i class="fas fa-edit"></i></button>
                   ${st !== 'approved' && st !== 'published' && st !== 'soldout' ? `
                     <button onclick="openApproveBikeModal(${b.id || b.bike_id})" class="btn btn-sm btn-success" title="Approve & Publish"><i class="fas fa-check"></i></button>
@@ -1372,6 +1454,86 @@
       }
     }
 
+    // Sidebar Mobile & Collapse Handlers (Requirement 1)
+    function toggleAdminSidebar(forceState) {
+      const sidebar = document.querySelector('.admin-sidebar');
+      const backdrop = document.getElementById('admin-sidebar-backdrop');
+      if (!sidebar) return;
+      const isOpen = (forceState !== undefined) ? forceState : !sidebar.classList.contains('open');
+      if (isOpen) {
+        sidebar.classList.add('open');
+        if (backdrop) backdrop.classList.add('open');
+      } else {
+        sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('open');
+      }
+    }
+
+    function toggleSidebarCollapse() {
+      const layout = document.querySelector('.admin-layout');
+      if (layout) {
+        layout.classList.toggle('sidebar-collapsed');
+        const icon = document.getElementById('collapse-icon');
+        if (icon) {
+          if (layout.classList.contains('sidebar-collapsed')) {
+            icon.className = 'fas fa-arrow-right';
+          } else {
+            icon.className = 'fas fa-bars';
+          }
+        }
+      }
+    }
+
+    // Bike Gallery Previews and Multi-Image Uploader (Requirement 7)
+    let editBikeGalleryImages = [];
+
+    function renderEditBikeGalleryPreviews() {
+      const container = document.getElementById('edit-bike-gallery-previews');
+      if (!container) return;
+      if (!editBikeGalleryImages || editBikeGalleryImages.length === 0) {
+        container.innerHTML = '<span style="font-size:0.8rem; color:var(--text-muted);">No images currently attached.</span>';
+        return;
+      }
+      container.innerHTML = editBikeGalleryImages.map((imgUrl, idx) => `
+        <div style="position:relative; width:64px; height:64px; border-radius:6px; overflow:hidden; border:1px solid var(--border-subtle); background:#000;">
+          <img src="${imgUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+          <span style="position:absolute; bottom:2px; left:2px; background:rgba(0,0,0,0.7); color:#FFF; font-size:9px; padding:1px 3px; border-radius:3px;">${idx === 0 ? 'Primary' : '#' + (idx+1)}</span>
+          <button onclick="removeEditBikeImage(${idx})" type="button" style="position:absolute; top:2px; right:2px; width:16px; height:16px; background:#EF4444; border:none; border-radius:50%; color:#FFF; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
+        </div>
+      `).join('');
+    }
+
+    function removeEditBikeImage(idx) {
+      editBikeGalleryImages.splice(idx, 1);
+      renderEditBikeGalleryPreviews();
+    }
+
+    async function handleEditBikeFileUpload(input) {
+      if (!input.files || input.files.length === 0) return;
+      const remainingSlots = 6 - editBikeGalleryImages.length;
+      if (remainingSlots <= 0) {
+        showToast('Maximum 6 images reached. Remove an image first.', 'warning');
+        input.value = '';
+        return;
+      }
+      const formData = new FormData();
+      for (let i = 0; i < Math.min(input.files.length, remainingSlots); i++) {
+        formData.append('images', input.files[i]);
+      }
+      try {
+        showToast('Uploading images...', 'info');
+        const res = await apiRequest('/api/upload/images', { method: 'POST', body: formData });
+        if (res.images && res.images.length > 0) {
+          res.images.forEach(img => editBikeGalleryImages.push(img.url));
+          renderEditBikeGalleryPreviews();
+          showToast(`Added ${res.images.length} photo(s)`, 'success');
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+      input.value = '';
+    }
+
     // Bike Modals & Handlers
     async function openEditBikeModal(id) {
       try {
@@ -1384,10 +1546,56 @@
         document.getElementById('edit-bike-reg').value = activeTargetBike.registration_number || '';
         document.getElementById('edit-bike-kms').value = activeTargetBike.kilometers_driven || 0;
         document.getElementById('edit-bike-fuel').value = activeTargetBike.fuel_type || 'Petrol';
-        document.getElementById('edit-bike-price').value = activeTargetBike.price || 0;
+        if (document.getElementById('edit-bike-trans')) {
+          document.getElementById('edit-bike-trans').value = activeTargetBike.transmission || 'Manual';
+        }
+        if (document.getElementById('edit-bike-loc')) {
+          document.getElementById('edit-bike-loc').value = activeTargetBike.location || 'Salem, Tamil Nadu';
+        }
         document.getElementById('edit-bike-seller-name').value = activeTargetBike.seller_name || '';
         document.getElementById('edit-bike-seller-phone').value = activeTargetBike.seller_phone || '';
         document.getElementById('edit-bike-desc').value = activeTargetBike.description || '';
+
+        // Financial permissions (Superadmin only)
+        const isSuperadmin = (adminUser && adminUser.role === 'superadmin');
+        const finSection = document.querySelector('.edit-bike-fin-section');
+        const staffPriceWrap = document.getElementById('edit-bike-staff-price-wrap');
+        if (isSuperadmin) {
+          if (finSection) finSection.style.display = 'block';
+          if (staffPriceWrap) staffPriceWrap.style.display = 'none';
+          document.getElementById('edit-bike-req-price').value = activeTargetBike.requested_price || activeTargetBike.price || 0;
+          document.getElementById('edit-bike-buying-price').value = activeTargetBike.buying_price || 0;
+          document.getElementById('edit-bike-price').value = activeTargetBike.public_selling_price || activeTargetBike.price || 0;
+          document.getElementById('edit-bike-expenses').value = activeTargetBike.expenses || 0;
+          const bPrice = Number(activeTargetBike.buying_price || 0);
+          const sPrice = Number(activeTargetBike.public_selling_price || activeTargetBike.price || 0);
+          const exp = Number(activeTargetBike.expenses || 0);
+          document.getElementById('edit-bike-profit').value = (sPrice - bPrice - exp);
+
+          // Profit auto-calculation listener
+          ['edit-bike-price', 'edit-bike-buying-price', 'edit-bike-expenses'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.oninput = () => {
+                const sp = parseFloat(document.getElementById('edit-bike-price').value) || 0;
+                const bp = parseFloat(document.getElementById('edit-bike-buying-price').value) || 0;
+                const ex = parseFloat(document.getElementById('edit-bike-expenses').value) || 0;
+                document.getElementById('edit-bike-profit').value = (sp - bp - ex);
+              };
+            }
+          });
+        } else {
+          if (finSection) finSection.style.display = 'none';
+          if (staffPriceWrap) {
+            staffPriceWrap.style.display = 'block';
+            document.getElementById('edit-bike-price-staff').value = activeTargetBike.public_selling_price || activeTargetBike.price || 0;
+          }
+        }
+
+        // Gallery images
+        editBikeGalleryImages = Array.isArray(activeTargetBike.images) ? [...activeTargetBike.images] : [];
+        renderEditBikeGalleryPreviews();
+
         openModal('modal-edit-bike');
       } catch (e) {
         showToast(e.message, 'error');
@@ -1396,6 +1604,7 @@
 
     async function confirmSaveBikeEdit() {
       if (!activeTargetBike) return;
+      const isSuperadmin = (adminUser && adminUser.role === 'superadmin');
       const payload = {
         title: document.getElementById('edit-bike-title').value.trim(),
         brand: document.getElementById('edit-bike-brand').value.trim(),
@@ -1404,13 +1613,37 @@
         registration_number: document.getElementById('edit-bike-reg').value.trim(),
         kilometers_driven: parseInt(document.getElementById('edit-bike-kms').value) || 0,
         fuel_type: document.getElementById('edit-bike-fuel').value,
-        price: parseFloat(document.getElementById('edit-bike-price').value) || 0,
+        transmission: document.getElementById('edit-bike-trans')?.value || 'Manual',
+        location: document.getElementById('edit-bike-loc')?.value.trim() || 'Salem, Tamil Nadu',
         seller_name: document.getElementById('edit-bike-seller-name').value.trim(),
         seller_phone: document.getElementById('edit-bike-seller-phone').value.trim(),
-        description: document.getElementById('edit-bike-desc').value.trim()
+        description: document.getElementById('edit-bike-desc').value.trim(),
+        images: editBikeGalleryImages
       };
+
+      if (isSuperadmin) {
+        const sPrice = parseFloat(document.getElementById('edit-bike-price').value) || 0;
+        const bPrice = parseFloat(document.getElementById('edit-bike-buying-price').value) || 0;
+        const reqPrice = parseFloat(document.getElementById('edit-bike-req-price').value) || 0;
+        const exp = parseFloat(document.getElementById('edit-bike-expenses').value) || 0;
+        payload.price = sPrice;
+        payload.sellingPrice = sPrice;
+        payload.public_selling_price = sPrice;
+        payload.buying_price = bPrice;
+        payload.requested_price = reqPrice;
+        payload.expenses = exp;
+        payload.profit = (sPrice - bPrice - exp);
+      }
+
       try {
         await apiRequest(`/api/admin/bikes/${activeTargetBike.id}`, { method: 'PUT', body: payload });
+        showToast('Motorcycle details saved to TiDB Cloud successfully', 'success');
+        closeModal('modal-edit-bike');
+        loadAdminBikes(currentBikeTab, 1);
+      } catch (e) {
+        showToast(e.message, 'error');
+      }
+    }
         showToast('Motorcycle details saved to TiDB Cloud successfully', 'success');
         closeModal('modal-edit-bike');
         loadAdminBikes(currentBikeTab, 1);
@@ -1463,12 +1696,17 @@
     async function confirmRejectBikeAction() {
       if (!activeTargetBike) return;
       const reason = document.getElementById('reject-bike-reason').value.trim();
+      if (!reason) {
+        showToast('Rejection reason is mandatory so the seller understands why.', 'warning');
+        document.getElementById('reject-bike-reason').focus();
+        return;
+      }
       try {
         await apiRequest(`/api/admin/bikes/${activeTargetBike.id}/reject`, {
           method: 'POST',
-          body: { reason: reason || 'Listing does not meet quality standards' }
+          body: { reason: reason }
         });
-        showToast('Motorcycle rejected successfully', 'info');
+        showToast('Motorcycle rejected and seller notified with reason', 'info');
         closeModal('modal-reject-bike');
         loadAdminBikes(currentBikeTab, 1);
         loadAdminDashboard();
