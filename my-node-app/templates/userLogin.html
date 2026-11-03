@@ -44,6 +44,9 @@
           <p class="auth-subtitle">Sign in securely with your Google account to access your vehicle dashboard.</p>
         </div>
 
+        <!-- Google OAuth Diagnostic Banner (Displayed on Error 400 origin_mismatch) -->
+        <div id="oauth-diagnostic-banner" style="display: none;"></div>
+
         <!-- Google OAuth 2.0 GIS Button Container -->
         <div id="google-signin-btn" style="display: flex; justify-content: center; min-height: 44px; margin-bottom: 1rem;">
           <!-- Rendered by Google Identity Services -->
@@ -116,7 +119,15 @@
 
     function triggerGoogleSignInPrompt() {
       if (window.google && window.google.accounts) {
-        window.google.accounts.id.prompt();
+        window.google.accounts.id.prompt((notification) => {
+          if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+            const reason = notification.getNotDisplayedReason() || notification.getSkippedReason() || '';
+            console.warn('[Google GIS Prompt Notice]:', reason);
+            if (reason.toLowerCase().includes('origin') || reason.toLowerCase().includes('mismatch')) {
+              AuthService.handleOriginMismatchError({ message: reason });
+            }
+          }
+        });
       } else {
         AuthService.demoLogin();
       }

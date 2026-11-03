@@ -28,6 +28,13 @@ app = Flask(
     template_folder="templates"
 )
 
+# Ensure proper protocol (https) and host detection behind Render reverse proxy
+try:
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+except Exception:
+    pass
+
 # Enable CORS for all routes
 CORS(app, resources={r"*": {"origins": "*"}},
      methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
@@ -429,20 +436,72 @@ def create_notification(title, message, user_id=None, target_role="user", notif_
     return new_notif
 
 
+_tidb_pool = None
+
 def get_db():
     """
-    Returns an active TLS-encrypted MySQL connection to TiDB Cloud.
+    Returns an active TLS-encrypted MySQL connection to TiDB Cloud using connection pooling.
     Handles connection errors gracefully without leaking credentials.
     """
+    global _tidb_pool
     try:
         import mysql.connector
-        conn = mysql.connector.connect(**dbconfig)
-        return conn
-    except Exception as e:
-        err_msg = str(e)
-        if DB_PASSWORD and DB_PASSWORD in err_msg:
-            err_msg = err_msg.replace(DB_PASSWORD, "[PROTECTED]")
-        return None
+        from mysql.connector import pooling
+        if _tidb_pool is None:
+            pool_cfg = dict(dbconfig)
+            pool_cfg["pool_name"] = "smr_tidb_pool"
+            pool_cfg["pool_size"] = 5
+            pool_cfg["pool_reset_session"] = True
+            _tidb_pool = pooling.MySQLConnectionPool(**pool_cfg)
+        return _tidb_pool.get_connection()
+    except Exception:
+        # Fallback to direct connection if pooling is not supported or connection pool fails
+        try:
+            import mysql.connector
+            return mysql.connector.connect(**dbconfig)
+        except Exception as e:
+            err_msg = str(e)
+            if DB_PASSWORD and DB_PASSWORD in err_msg:
+                err_msg = err_msg.replace(DB_PASSWORD, "[PROTECTED]")
+            return None
+
+def log_admin_action(admin_username, action, target_type, target_id=None, details=None):
+    """
+    Records administrative security and audit logs permanently in TiDB Cloud.
+    """
+    try:
+        ip = request.remote_addr if request else "127.0.0.1"
+    except Exception:
+        ip = "127.0.0.1"
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO admin_audit_logs (admin_username, action, target_type, target_id, details, ip_address)
+                   VALUES (%s, %s, %s, %s, %s, %s)""",
+                (admin_username or "admin", action, target_type, str(target_id) if target_id else None, details or "", ip)
+            )
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # In-memory store fallback
+    IN_MEMORY_STORE.setdefault("audit_logs", []).insert(0, {
+        "id": len(IN_MEMORY_STORE.get("audit_logs", [])) + 1,
+        "admin_username": admin_username or "admin",
+        "action": action,
+        "target_type": target_type,
+        "target_id": str(target_id) if target_id else None,
+        "details": details or "",
+        "ip_address": ip,
+        "created_at": datetime.datetime.utcnow().isoformat()
+    })
 
 def initialize_database():
     """
@@ -580,13 +639,74 @@ def initialize_database():
             ("negotiation_status", "VARCHAR(40) DEFAULT 'pending'"),
             ("published_at", "TIMESTAMP NULL"),
             ("sold_at", "TIMESTAMP NULL"),
-            ("seller_agreement_at", "TIMESTAMP NULL")
+            ("seller_agreement_at", "TIMESTAMP NULL"),
+            ("registration_number", "VARCHAR(50) NULL")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE `bikes` ADD COLUMN `{col_name}` {col_def}")
                 conn.commit()
             except Exception:
                 pass
+
+        # Add missing columns to admins table
+        for col_name, col_def in [
+            ("full_name", "VARCHAR(100) NULL"),
+            ("phone", "VARCHAR(30) NULL"),
+            ("is_active", "TINYINT(1) NOT NULL DEFAULT 1"),
+            ("updated_at", "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `admins` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # Add missing columns to users table
+        for col_name, col_def in [
+            ("last_login", "TIMESTAMP NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `users` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # Add missing columns to enquiries table
+        for col_name, col_def in [
+            ("admin_reply", "TEXT NULL"),
+            ("replied_at", "TIMESTAMP NULL"),
+            ("replied_by", "VARCHAR(60) NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `enquiries` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # Add missing columns to bike_transactions table
+        for col_name, col_def in [
+            ("buyer_name", "VARCHAR(100) NULL"),
+            ("buyer_phone", "VARCHAR(30) NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `bike_transactions` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
+
+        # Ensure enquiry_replies table exists
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `enquiry_replies` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `enquiry_id` INT NOT NULL,
+          `admin_id` INT NULL,
+          `admin_username` VARCHAR(60) NULL,
+          `reply_message` TEXT NOT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_er_enq` (`enquiry_id`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+        conn.commit()
 
         # 4b. price_negotiations table
         cursor.execute("""
@@ -791,6 +911,23 @@ def initialize_database():
                     """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
                     (b["listingTitle"], b["makedFrom"], b["bikeModel"], b["bikeBuyingYear"], b["bikePrice"], b["sellingPrice"], b["bikeKms"], b["sellerName"], b["mobileNum"], b["description"], b["isAccepted"], b["isSoldout"])
+                )
+            conn.commit()
+
+        # Seed default admins if empty
+        cursor.execute("SELECT COUNT(*) FROM admins")
+        if cursor.fetchone()[0] == 0:
+            from werkzeug.security import generate_password_hash
+            default_admins = [
+                ("admin", "Praveen Administrator", "admin@smrmotors.com", "+91 98765 43210", generate_password_hash("admin123"), "superadmin", 1),
+                ("mani", "Mani (Showroom Staff)", "mani@smrmotors.com", "+91 98765 43211", generate_password_hash("mani@22"), "admin", 1),
+                ("murugan", "Murugan (Partner)", "murugan@smrmotors.com", "+91 98765 43212", generate_password_hash("murugan@22"), "superadmin", 1),
+                ("raja", "Raja (Partner)", "raja@smrmotors.com", "+91 98765 43213", generate_password_hash("raja@22"), "superadmin", 1),
+            ]
+            for u, fn, em, ph, pw, r, act in default_admins:
+                cursor.execute(
+                    "INSERT INTO admins (username, full_name, email, phone, password_hash, role, is_active) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (u, fn, em, ph, pw, r, act)
                 )
             conn.commit()
 
@@ -1040,12 +1177,18 @@ def _normalize_bike(r, is_admin=False):
     item["makedFrom"] = item.get("brand")
     item["bikeModel"] = item.get("model")
     item["bikeBuyingYear"] = str(item.get("year", 2022))
-    item["sellingPrice"] = str(item.get("price", 100000))
+    item["sellingPrice"] = str(item.get("public_selling_price") or item.get("price", 100000))
     item["bikePrice"] = str(item.get("price", 100000))
     item["bikeKms"] = str(item.get("kilometers_driven", 0))
     item["sellerName"] = item.get("seller_name") or "SMR Motors"
     item["mobileNum"] = item.get("seller_phone") or "9876543210"
+    item["registration_number"] = item.get("registration_number") or item.get("vehicleNumber") or "TN-XX-XXXX"
+    item["requested_price"] = item.get("requested_price") or item.get("price")
+    item["approved_price"] = item.get("public_selling_price") or item.get("price")
+    item["owner_name"] = item.get("seller_name") or "SMR Motors"
     st = item.get("listing_status") or item.get("status") or "pending"
+    item["status"] = st
+    item["listing_status"] = st
     item["isAccepted"] = 1 if st in ("approved", "published") else 0
     item["isSoldout"] = 1 if (st == "soldout" or item.get("isSoldout") == 1) else 0
     if not is_admin:
@@ -1475,11 +1618,11 @@ def enquiries_api():
 
     return jsonify({"success": True, "data": IN_MEMORY_STORE["enquiries"], "enquiries": IN_MEMORY_STORE["enquiries"]})
 
-@app.route("/api/enquiries/<int:enquiry_id>/status", methods=["PUT"])
-@app.route("/enquiries/<int:enquiry_id>/status", methods=["PUT"])
+@app.route("/api/enquiries/<int:enquiry_id>/status", methods=["PUT", "POST"])
+@app.route("/enquiries/<int:enquiry_id>/status", methods=["PUT", "POST"])
 def update_enquiry_status(enquiry_id):
     data = request.get_json() or {}
-    new_status = data.get("status", "completed")
+    new_status = data.get("status", "accepted")
     conn = get_db()
     if conn:
         try:
@@ -1497,6 +1640,242 @@ def update_enquiry_status(enquiry_id):
             e["status"] = new_status
             return jsonify({"success": True, "message": f"Status updated to {new_status}"})
     return jsonify({"success": True, "message": "Status updated"})
+
+# Admin Enquiry Management (Dedicated TiDB permanent storage)
+@app.route("/api/admin/enquiries", methods=["GET"])
+@admin_required
+def admin_enquiries_api():
+    """
+    Returns enquiries with status filter ('all', 'pending', 'accepted', 'rejected'),
+    search, and pagination. Permanently reads from TiDB Cloud.
+    """
+    status_filter = (request.args.get("status") or "all").lower().strip()
+    search = (request.args.get("search") or "").lower().strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    all_enquiries = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                all_enquiries = rows
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not all_enquiries:
+        all_enquiries = IN_MEMORY_STORE["enquiries"]
+
+    filtered = []
+    for e in all_enquiries:
+        st = (e.get("status") or "pending").lower()
+        if status_filter != "all" and st != status_filter:
+            continue
+        if search:
+            combined = f"{e.get('id')} {e.get('customerName','')} {e.get('name','')} {e.get('email','')} {e.get('mobile','')} {e.get('phone','')} {e.get('listingTitle','')} {e.get('bike_title','')} {e.get('message','')}".lower()
+            if search not in combined:
+                continue
+
+        # Map display keys consistently
+        e_copy = dict(e)
+        e_copy["customer_name"] = e_copy.get("customerName") or e_copy.get("name") or "Customer"
+        e_copy["customer_phone"] = e_copy.get("mobile") or e_copy.get("phone") or ""
+        e_copy["customer_email"] = e_copy.get("email") or ""
+        e_copy["bike_id"] = e_copy.get("listingId") or e_copy.get("bike_id") or ""
+        e_copy["bike_title"] = e_copy.get("listingTitle") or e_copy.get("bike_title") or "Motorcycle"
+        filtered.append(e_copy)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "enquiries": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
+
+@app.route("/api/admin/enquiries/<int:enquiry_id>/status", methods=["POST", "PUT"])
+@admin_required
+def admin_update_enquiry_status(enquiry_id):
+    """
+    Accepts, rejects, or resets enquiry status permanently in TiDB. Never deletes records.
+    """
+    data = request.get_json() or {}
+    new_status = (data.get("status") or "accepted").lower().strip()
+    if new_status not in ("accepted", "rejected", "pending"):
+        return jsonify({"success": False, "message": "Status must be 'accepted', 'rejected', or 'pending'"}), 400
+
+    admin_username = g.admin.get("username", "admin")
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE enquiries SET status = %s WHERE id = %s", (new_status, enquiry_id))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    for e in IN_MEMORY_STORE["enquiries"]:
+        if e["id"] == enquiry_id:
+            e["status"] = new_status
+
+    log_admin_action(admin_username, f"update_enquiry_status_{new_status}", "enquiry", enquiry_id, f"Enquiry #{enquiry_id} status changed to {new_status}")
+
+    return jsonify({"success": True, "message": f"Enquiry #{enquiry_id} marked as {new_status}."})
+
+@app.route("/api/admin/enquiries/<int:enquiry_id>/reply", methods=["POST"])
+@admin_required
+def admin_reply_to_enquiry(enquiry_id):
+    """
+    Sends email reply to enquiry submitter and stores record in enquiry_replies table permanently.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    reply_text = str(data.get("reply_message") or data.get("message") or "").strip()
+
+    if len(reply_text) < 5:
+        return jsonify({"success": False, "message": "Reply message must be at least 5 characters."}), 400
+
+    admin_username = g.admin.get("username", "Showroom Manager")
+    admin_id = g.admin.get("id", 1)
+
+    enq = None
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM enquiries WHERE id = %s LIMIT 1", (enquiry_id,))
+            enq = cursor.fetchone()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not enq:
+        for e in IN_MEMORY_STORE["enquiries"]:
+            if e.get("id") == enquiry_id:
+                enq = e
+                break
+
+    if not enq:
+        return jsonify({"success": False, "message": f"Enquiry #{enquiry_id} not found"}), 404
+
+    cust_name = enq.get("customerName") or enq.get("name") or "Valued Customer"
+    cust_email = enq.get("email") or ""
+    bike_title = enq.get("listingTitle") or enq.get("bike_title") or "Motorcycle Inquiry"
+
+    subject = f"SMR Motors – Reply to your inquiry regarding {bike_title}"
+    body = f"""Dear {cust_name},
+
+Thank you for your interest in SMR Motors. This is an official reply to your inquiry regarding "{bike_title}".
+
+--------------------------------------------------
+{reply_text}
+--------------------------------------------------
+
+If you would like to arrange a test ride, inspect vehicle documentation, or have additional questions, please reply directly to this email or visit our showroom.
+
+Best regards,
+{admin_username.capitalize()}
+Sales & Customer Relations Team
+SMR Motors – Used Motorcycle Marketplace
+Auto Hub, Main Bypass Road, Chennai
+Phone: +91 98765 43210
+Email: praveenmuthu9500@gmail.com
+"""
+    dispatch_success, dispatch_status = send_email_notification(
+        to_email=cust_email,
+        subject=subject,
+        body_text=body
+    )
+
+    # Persist reply to TiDB
+    conn2 = get_db()
+    if conn2:
+        try:
+            cursor2 = conn2.cursor()
+            cursor2.execute(
+                """INSERT INTO enquiry_replies (enquiry_id, admin_id, admin_username, reply_message)
+                   VALUES (%s, %s, %s, %s)""",
+                (enquiry_id, admin_id, admin_username, reply_text)
+            )
+            cursor2.execute(
+                """UPDATE enquiries SET admin_reply = %s, replied_at = CURRENT_TIMESTAMP, replied_by = %s
+                   WHERE id = %s""",
+                (reply_text, admin_username, enquiry_id)
+            )
+            conn2.commit()
+            cursor2.close()
+            conn2.close()
+        except Exception as ex:
+            if conn2:
+                try: conn2.close()
+                except Exception: pass
+
+    for e in IN_MEMORY_STORE["enquiries"]:
+        if e.get("id") == enquiry_id:
+            e["admin_reply"] = reply_text
+            e["replied_at"] = datetime.datetime.utcnow().isoformat()
+            e["replied_by"] = admin_username
+
+    log_admin_action(admin_username, "reply_enquiry", "enquiry", enquiry_id, f"Replied to customer {cust_email} for enquiry #{enquiry_id}")
+
+    return jsonify({
+        "success": True,
+        "message": f"Reply successfully sent to {cust_email or 'customer'}.",
+        "delivery_status": dispatch_status
+    })
+
+@app.route("/api/admin/enquiries/<int:enquiry_id>/replies", methods=["GET"])
+@admin_required
+def admin_get_enquiry_replies(enquiry_id):
+    replies = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM enquiry_replies WHERE enquiry_id = %s ORDER BY id ASC", (enquiry_id,))
+            replies = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    return jsonify({"success": True, "replies": replies})
 
 # Contact API
 @app.route("/api/contact", methods=["POST"])
@@ -1686,14 +2065,33 @@ SMR Motors
 @app.route("/config", methods=["GET"])
 def public_config_api():
     """
-    Returns public client configuration.
+    Returns public client configuration and Google OAuth / TiDB Cloud diagnostics.
     Exposes GOOGLE_CLIENT_ID for Google Identity Services initialization.
     NEVER exposes GOOGLE_CLIENT_SECRET or database credentials.
     """
+    conn = get_db()
+    tidb_status = "connected" if conn else "offline"
+    if conn:
+        try: conn.close()
+        except Exception: pass
+
+    current_origin = request.headers.get("Origin") or request.host_url.rstrip("/")
+
     return jsonify({
         "success": True,
         "googleClientId": GOOGLE_CLIENT_ID,
         "apiBase": request.host_url.rstrip("/"),
+        "currentOrigin": current_origin,
+        "authorizedOrigins": [
+            "https://bike-selling-site-lco8.onrender.com",
+            "http://localhost:5000",
+            "http://127.0.0.1:5000"
+        ],
+        "authorizedRedirectUris": [
+            "https://bike-selling-site-lco8.onrender.com/api/auth/google/callback",
+            "http://localhost:5000/api/auth/google/callback"
+        ],
+        "tidbStatus": tidb_status,
         "endpoints": {
             "authGoogle": "/api/auth/google",
             "authDemo": "/api/auth/demo-google",
@@ -2055,20 +2453,28 @@ def admin_login_api():
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM admins WHERE LOWER(username) = %s LIMIT 1", (username,))
+            cursor.execute("SELECT * FROM admins WHERE LOWER(username) = %s OR LOWER(email) = %s LIMIT 1", (username, username))
             row = cursor.fetchone()
-            cursor.close()
-            conn.close()
             if row:
                 from werkzeug.security import check_password_hash
                 pwd_hash = row.get("password_hash", "")
                 if pwd_hash and (check_password_hash(pwd_hash, password) or pwd_hash == password):
+                    if row.get("is_active") == 0:
+                        cursor.close()
+                        conn.close()
+                        return jsonify({"success": False, "message": "This staff account has been deactivated. Contact Superadmin."}), 403
+
                     norm_role = normalize_admin_role(row.get("role"))
                     admin_data = {
+                        "id": row["id"],
                         "username": row["username"],
-                        "name": row.get("username", "").capitalize(),
+                        "name": row.get("full_name") or row.get("username", "").capitalize(),
                         "role": norm_role
                     }
+                    cursor.execute("UPDATE admins SET last_login = CURRENT_TIMESTAMP WHERE id = %s", (row["id"],))
+                    conn.commit()
+            cursor.close()
+            conn.close()
         except Exception:
             if conn:
                 try: conn.close()
@@ -2080,6 +2486,7 @@ def admin_login_api():
         if acc and acc["password"] == password:
             norm_role = normalize_admin_role(acc.get("role"))
             admin_data = {
+                "id": 1,
                 "username": username,
                 "name": acc["name"],
                 "role": norm_role
@@ -2088,8 +2495,11 @@ def admin_login_api():
     if not admin_data:
         return jsonify({"success": False, "message": "Invalid Administrator Credentials"}), 401
 
+    log_admin_action(admin_data["username"], "login", "admin", admin_data.get("id"), "Admin signed in successfully")
+
     import jwt
     payload = {
+        "id": admin_data.get("id", 1),
         "username": admin_data["username"],
         "name": admin_data["name"],
         "role": admin_data["role"],
@@ -2100,6 +2510,7 @@ def admin_login_api():
         "success": True,
         "token": token,
         "admin": {
+            "id": admin_data.get("id", 1),
             "username": admin_data["username"],
             "name": admin_data["name"],
             "role": admin_data["role"],
@@ -2310,7 +2721,18 @@ def admin_listings_paginated():
 
 @app.route("/api/admin/bikes", methods=["GET"])
 def admin_bikes_api():
-    bikes = [_normalize_bike(b, is_admin=True) for b in IN_MEMORY_STORE["bikes"]]
+    tab = (request.args.get("tab") or request.args.get("status") or "all").lower().strip()
+    search = (request.args.get("search") or "").lower().strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    all_bikes = []
     conn = get_db()
     if conn:
         try:
@@ -2320,10 +2742,68 @@ def admin_bikes_api():
             cursor.close()
             conn.close()
             if rows:
-                bikes = [_normalize_bike(b, is_admin=True) for b in rows]
+                all_bikes = rows
         except Exception:
-            pass
-    return jsonify({"success": True, "data": bikes, "bikes": bikes})
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not all_bikes:
+        all_bikes = IN_MEMORY_STORE["bikes"]
+
+    normalized = [_normalize_bike(b, is_admin=True) for b in all_bikes]
+    filtered = []
+    for b in normalized:
+        st = (b.get("listing_status") or b.get("status") or "pending").lower()
+        is_sold = b.get("isSoldout") == 1 or st == "soldout"
+        
+        # Filter by tab
+        if tab == "pending":
+            if st != "pending" or is_sold:
+                continue
+        elif tab in ("approved", "published"):
+            if st not in ("approved", "published") or is_sold:
+                continue
+        elif tab == "rejected":
+            if st != "rejected":
+                continue
+        elif tab in ("soldout", "sold"):
+            if not is_sold:
+                continue
+        elif tab == "negotiations":
+            if st not in ("price_offered", "seller_accepted", "seller_rejected") or is_sold:
+                continue
+
+        # Filter by search: ID, title, brand, model, registration_number, seller_name, seller_phone
+        if search:
+            combined = f"{b.get('id')} {b.get('title','')} {b.get('brand','')} {b.get('model','')} {b.get('registration_number','')} {b.get('seller_name','')} {b.get('seller_phone','')}".lower()
+            if search not in combined:
+                continue
+
+        filtered.append(b)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "tab": tab,
+        "data": page_data,
+        "bikes": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/admin/bikes/<int:bike_id>/propose-price", methods=["POST"])
 @superadmin_required
@@ -2950,15 +3430,147 @@ def mark_all_notifications_read():
         n["is_read"] = 1
     return jsonify({"success": True, "message": "All notifications marked as read"})
 
-@app.route("/api/admin/bikes/<int:bike_id>/approve", methods=["PUT"])
-@app.route("/bikes/<int:bike_id>/accept", methods=["PUT"])
-def admin_approve_bike(bike_id):
+@app.route("/api/admin/bikes/<int:bike_id>", methods=["GET"])
+@admin_required
+def admin_get_single_bike(bike_id):
+    bike = None
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM bikes WHERE id = %s LIMIT 1", (bike_id,))
+            bike = cursor.fetchone()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+    if not bike:
+        for b in IN_MEMORY_STORE["bikes"]:
+            if b.get("id") == bike_id:
+                bike = b
+                break
+    if not bike:
+        return jsonify({"success": False, "message": "Motorcycle not found"}), 404
+    return jsonify({"success": True, "data": _normalize_bike(bike, is_admin=True)})
+
+@app.route("/api/admin/bikes/<int:bike_id>", methods=["PUT"])
+@admin_required
+def admin_update_bike(bike_id):
+    """
+    Updates bike details: title, brand, model, year, registration_number,
+    kilometers_driven, fuel_type, price, description, seller_name, seller_phone, status.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    title = data.get("title") or data.get("listingTitle")
+    brand = data.get("brand") or data.get("makedFrom")
+    model = data.get("model") or data.get("bikeModel")
+    year = data.get("year") or data.get("bikeBuyingYear")
+    reg_no = data.get("registration_number") or data.get("vehicleNumber")
+    price = data.get("price") or data.get("sellingPrice")
+    kms = data.get("kilometers_driven") or data.get("bikeKms")
+    fuel = data.get("fuel_type")
+    desc = data.get("description")
+    sname = data.get("seller_name") or data.get("sellerName")
+    sphone = data.get("seller_phone") or data.get("mobileNum")
+
+    admin_username = g.admin.get("username", "admin")
+
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE bikes SET status = 'approved', listing_status = 'published' WHERE id = %s", (bike_id,))
-            cursor.execute("UPDATE bikesforsale SET isAccepted = 1 WHERE id = %s", (bike_id,))
+            cursor.execute("""
+                UPDATE bikes SET
+                  title = COALESCE(%s, title),
+                  brand = COALESCE(%s, brand),
+                  model = COALESCE(%s, model),
+                  year = COALESCE(%s, year),
+                  registration_number = COALESCE(%s, registration_number),
+                  price = COALESCE(%s, price),
+                  public_selling_price = COALESCE(%s, public_selling_price),
+                  kilometers_driven = COALESCE(%s, kilometers_driven),
+                  fuel_type = COALESCE(%s, fuel_type),
+                  description = COALESCE(%s, description),
+                  seller_name = COALESCE(%s, seller_name),
+                  seller_phone = COALESCE(%s, seller_phone)
+                WHERE id = %s
+            """, (title, brand, model, year, reg_no, price, price, kms, fuel, desc, sname, sphone, bike_id))
+            cursor.execute("""
+                UPDATE bikesforsale SET
+                  listingTitle = COALESCE(%s, listingTitle),
+                  makedFrom = COALESCE(%s, makedFrom),
+                  bikeModel = COALESCE(%s, bikeModel),
+                  bikeBuyingYear = COALESCE(%s, bikeBuyingYear),
+                  vehicleNumber = COALESCE(%s, vehicleNumber),
+                  sellingPrice = COALESCE(%s, sellingPrice),
+                  bikeKms = COALESCE(%s, bikeKms),
+                  description = COALESCE(%s, description),
+                  sellerName = COALESCE(%s, sellerName),
+                  mobileNum = COALESCE(%s, mobileNum)
+                WHERE id = %s
+            """, (title, brand, model, str(year) if year else None, reg_no, str(price) if price else None, str(kms) if kms else None, desc, sname, sphone, bike_id))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    for b in IN_MEMORY_STORE["bikes"]:
+        if b["id"] == bike_id:
+            if title: b["title"] = title
+            if brand: b["brand"] = brand
+            if model: b["model"] = model
+            if year: b["year"] = int(year)
+            if reg_no: b["registration_number"] = reg_no
+            if price:
+                b["price"] = float(price)
+                b["public_selling_price"] = float(price)
+            if kms: b["kilometers_driven"] = int(kms)
+            if fuel: b["fuel_type"] = fuel
+            if desc: b["description"] = desc
+            if sname: b["seller_name"] = sname
+            if sphone: b["seller_phone"] = sphone
+
+    log_admin_action(admin_username, "update_bike", "bike", bike_id, f"Updated motorcycle details for #{bike_id}")
+
+    return jsonify({"success": True, "message": f"Motorcycle #{bike_id} details updated successfully."})
+
+@app.route("/api/admin/bikes/<int:bike_id>/approve", methods=["POST", "PUT"])
+@app.route("/bikes/<int:bike_id>/accept", methods=["POST", "PUT"])
+def admin_approve_bike(bike_id):
+    data = request.get_json() or {}
+    approved_price = data.get("approved_price") or data.get("public_selling_price") or data.get("price")
+    admin_username = getattr(g, "admin", {}).get("username", "admin")
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            if approved_price:
+                cursor.execute("""
+                    UPDATE bikes SET
+                      status = 'approved',
+                      listing_status = 'published',
+                      price = %s,
+                      public_selling_price = %s,
+                      published_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (approved_price, approved_price, bike_id))
+                cursor.execute("UPDATE bikesforsale SET isAccepted = 1, sellingPrice = %s WHERE id = %s", (str(approved_price), bike_id))
+            else:
+                cursor.execute("""
+                    UPDATE bikes SET
+                      status = 'approved',
+                      listing_status = 'published',
+                      published_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (bike_id,))
+                cursor.execute("UPDATE bikesforsale SET isAccepted = 1 WHERE id = %s", (bike_id,))
             conn.commit()
             cursor.close()
             conn.close()
@@ -2966,19 +3578,27 @@ def admin_approve_bike(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
+
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["status"] = "approved"
             b["listing_status"] = "published"
             b["isAccepted"] = 1
-            return jsonify({"success": True, "message": "Bike approved and published successfully"})
-    return jsonify({"success": True, "message": "Bike approved"})
+            if approved_price:
+                b["price"] = float(approved_price)
+                b["public_selling_price"] = float(approved_price)
 
-@app.route("/api/admin/bikes/<int:bike_id>/reject", methods=["PUT"])
-@app.route("/bikes/<int:bike_id>/reject", methods=["PUT"])
+    log_admin_action(admin_username, "approve_bike", "bike", bike_id, f"Approved and published motorcycle #{bike_id} with selling price {approved_price or 'original'}")
+
+    return jsonify({"success": True, "message": "Motorcycle approved and published to live marketplace."})
+
+@app.route("/api/admin/bikes/<int:bike_id>/reject", methods=["POST", "PUT"])
+@app.route("/bikes/<int:bike_id>/reject", methods=["POST", "PUT"])
 def admin_reject_bike(bike_id):
     data = request.get_json() or {}
     reason = data.get("reason", "Listing details do not meet quality guidelines.")
+    admin_username = getattr(g, "admin", {}).get("username", "admin")
+
     conn = get_db()
     if conn:
         try:
@@ -2992,14 +3612,17 @@ def admin_reject_bike(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
+
     for b in IN_MEMORY_STORE["bikes"]:
         if b["id"] == bike_id:
             b["status"] = "rejected"
             b["listing_status"] = "rejected"
             b["isAccepted"] = 0
             b["rejection_reason"] = reason
-            return jsonify({"success": True, "message": "Bike rejected successfully"})
-    return jsonify({"success": True, "message": "Bike rejected"})
+
+    log_admin_action(admin_username, "reject_bike", "bike", bike_id, f"Rejected motorcycle #{bike_id}. Reason: {reason}")
+
+    return jsonify({"success": True, "message": f"Motorcycle #{bike_id} rejected successfully."})
 
 @app.route("/api/admin/bikes/<int:bike_id>/price", methods=["PUT"])
 @app.route("/bikes/<int:bike_id>/price", methods=["PUT"])
@@ -3024,11 +3647,11 @@ def admin_price_bike(bike_id):
             b["price"] = float(new_price)
             b["public_selling_price"] = float(new_price)
             b["sellingPrice"] = str(new_price)
-            return jsonify({"success": True, "message": "Price updated successfully"})
-    return jsonify({"success": True, "message": "Price updated"})
+    return jsonify({"success": True, "message": "Price updated successfully"})
 
 @app.route("/api/admin/bikes/<int:bike_id>", methods=["DELETE"])
 def admin_delete_bike(bike_id):
+    admin_username = getattr(g, "admin", {}).get("username", "admin")
     conn = get_db()
     if conn:
         try:
@@ -3043,11 +3666,275 @@ def admin_delete_bike(bike_id):
                 try: conn.close()
                 except Exception: pass
     IN_MEMORY_STORE["bikes"] = [b for b in IN_MEMORY_STORE["bikes"] if b["id"] != bike_id]
+    log_admin_action(admin_username, "delete_bike", "bike", bike_id, f"Permanently deleted motorcycle #{bike_id}")
     return jsonify({"success": True, "message": "Vehicle deleted successfully"})
 
+@app.route("/api/admin/sold-bikes", methods=["GET"])
+@admin_required
+def admin_sold_bikes_api():
+    """
+    Dedicated endpoint for sold out bike management.
+    Displays: Bike ID, Bike Name, Brand, Model, Registration Number,
+    Original Listing Date, Sold Date, Final Selling Price, Listing Status.
+    Staff Admin receives sanitized view hiding confidential profit margins;
+    Superadmin receives full financial telemetry.
+    """
+    is_superadmin = (g.admin.get("role") == "superadmin")
+    search = (request.args.get("search") or "").lower().strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    txs = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("""
+                SELECT bt.*, b.title as bike_title, b.brand, b.model, b.year,
+                       b.registration_number, b.created_at as original_listing_date,
+                       b.seller_name, b.seller_phone
+                FROM bike_transactions bt
+                LEFT JOIN bikes b ON bt.bike_id = b.id
+                ORDER BY bt.id DESC
+            """)
+            txs = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not txs:
+        txs = IN_MEMORY_STORE["bike_transactions"]
+
+    filtered = []
+    for t in txs:
+        if search:
+            combined = f"{t.get('bike_id')} {t.get('bike_title','')} {t.get('brand','')} {t.get('model','')} {t.get('registration_number','')} {t.get('buyer_name','')}".lower()
+            if search not in combined:
+                continue
+
+        rec = {
+            "id": t.get("id"),
+            "bike_id": t.get("bike_id"),
+            "title": t.get("bike_title") or f"Bike #{t.get('bike_id')}",
+            "brand": t.get("brand") or "Motorcycle",
+            "model": t.get("model") or "",
+            "year": t.get("year") or 2022,
+            "registration_number": t.get("registration_number") or "TN-05-AB-3456",
+            "original_listing_date": t.get("original_listing_date") or t.get("created_at"),
+            "sold_date": t.get("sold_at") or t.get("created_at"),
+            "final_selling_price": float(t.get("actual_sale_price") or 0),
+            "status": "soldout",
+            "listing_status": "soldout",
+            "buyer_name": t.get("buyer_name") or "Retail Customer",
+            "buyer_phone": t.get("buyer_phone") or ""
+        }
+
+        if is_superadmin:
+            rec["seller_payout"] = float(t.get("seller_payout") or 0)
+            rec["service_expense"] = float(t.get("service_expense") or 0)
+            rec["repair_expense"] = float(t.get("repair_expense") or 0)
+            rec["transport_expense"] = float(t.get("transport_expense") or 0)
+            rec["other_expense"] = float(t.get("other_expense") or 0)
+            rec["total_expenses"] = float(t.get("total_expenses") or 0)
+            rec["realized_profit"] = float(t.get("realized_profit") or 0)
+            rec["notes"] = t.get("notes") or ""
+
+        filtered.append(rec)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "is_superadmin": is_superadmin,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
+
+# -----------------------------------------------------------------------------
+# ADMIN USER MANAGEMENT (TiDB Cloud Permanent Storage & Profiles)
+# -----------------------------------------------------------------------------
 @app.route("/api/admin/users", methods=["GET"])
+@admin_required
 def admin_users_api():
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["users"]})
+    """
+    Returns registered customer users with status filter ('all', 'active', 'inactive'),
+    search by name/email, and pagination. Reads permanently from TiDB Cloud.
+    """
+    status_filter = (request.args.get("status") or "all").lower().strip()
+    search = (request.args.get("search") or "").lower().strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 10)))
+    except (ValueError, TypeError):
+        limit = 10
+
+    all_users = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT id, google_id, name, email, profile_image, phone, role, is_active, last_login, created_at FROM users ORDER BY id DESC")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                all_users = rows
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not all_users:
+        all_users = IN_MEMORY_STORE["users"]
+
+    filtered = []
+    for u in all_users:
+        is_active = int(u.get("is_active") if u.get("is_active") is not None else 1)
+        if status_filter == "active" and is_active != 1:
+            continue
+        elif status_filter == "inactive" and is_active != 0:
+            continue
+
+        if search:
+            combined = f"{u.get('id')} {u.get('name','')} {u.get('email','')} {u.get('phone','')}".lower()
+            if search not in combined:
+                continue
+
+        filtered.append({
+            "id": u.get("id"),
+            "name": u.get("name") or "User",
+            "email": u.get("email") or "",
+            "phone": u.get("phone") or "-",
+            "profile_image": u.get("profile_image") or "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
+            "role": u.get("role", "user"),
+            "is_active": is_active,
+            "last_login": u.get("last_login"),
+            "created_at": u.get("created_at")
+        })
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "users": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
+
+@app.route("/api/admin/users/<int:user_id>", methods=["GET"])
+@admin_required
+def admin_get_user_profile(user_id):
+    """
+    Returns complete user profile plus user's motorcycle listings and enquiries.
+    """
+    user = None
+    listings = []
+    enquiries = []
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT id, google_id, name, email, profile_image, phone, role, is_active, last_login, created_at FROM users WHERE id = %s LIMIT 1", (user_id,))
+            user = cursor.fetchone()
+            if user:
+                cursor.execute("SELECT * FROM bikes WHERE seller_id = %s OR seller_name = %s ORDER BY id DESC", (user_id, user.get("name")))
+                listings = cursor.fetchall()
+                cursor.execute("SELECT * FROM enquiries WHERE email = %s ORDER BY id DESC", (user.get("email"),))
+                enquiries = cursor.fetchall()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not user:
+        for u in IN_MEMORY_STORE["users"]:
+            if u.get("id") == user_id:
+                user = u
+                break
+        listings = [b for b in IN_MEMORY_STORE["bikes"] if b.get("seller_id") == user_id]
+        enquiries = [e for e in IN_MEMORY_STORE["enquiries"] if e.get("email") == user.get("email")]
+
+    if not user:
+        return jsonify({"success": False, "message": "User not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "user": user,
+        "listings": [_normalize_bike(b, is_admin=True) for b in listings],
+        "enquiries": enquiries
+    })
+
+@app.route("/api/admin/users/<int:user_id>/status", methods=["PUT"])
+@admin_required
+def admin_toggle_user_status(user_id):
+    """Activates or deactivates a customer account."""
+    data = request.get_json() or {}
+    is_active = 1 if int(data.get("is_active", 1)) == 1 else 0
+    admin_username = g.admin.get("username", "admin")
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE users SET is_active = %s WHERE id = %s", (is_active, user_id))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    for u in IN_MEMORY_STORE["users"]:
+        if u["id"] == user_id:
+            u["is_active"] = is_active
+
+    status_str = "activated" if is_active == 1 else "deactivated"
+    log_admin_action(admin_username, f"user_{status_str}", "user", user_id, f"Customer account #{user_id} {status_str}")
+
+    return jsonify({"success": True, "message": f"User account #{user_id} {status_str} successfully.", "is_active": is_active})
 
 # -----------------------------------------------------------------------------
 # ADMIN SHOWROOM CONTACT MESSAGES & CUSTOMER EMAIL REPLIES
@@ -3296,13 +4183,19 @@ def admin_delete_message(msg_id):
 @app.route("/api/admin/staff", methods=["GET"])
 @superadmin_required
 def admin_get_staff_list():
-    """Returns list of staff and administrator accounts. Superadmin owner only."""
+    """
+    Returns list of staff and administrator accounts. Superadmin owner only.
+    Supports search (name, email, phone, username) and role filtering.
+    """
+    search = (request.args.get("search") or "").lower().strip()
+    role_filter = (request.args.get("role") or "all").lower().strip()
+
     staff_list = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT id, username, email, role, last_login, created_at FROM admins ORDER BY id ASC")
+            cursor.execute("SELECT id, username, full_name, email, phone, role, is_active, last_login, created_at FROM admins ORDER BY id ASC")
             rows = cursor.fetchall()
             cursor.close()
             conn.close()
@@ -3318,22 +4211,48 @@ def admin_get_staff_list():
             staff_list.append({
                 "id": len(staff_list) + 1,
                 "username": u,
+                "full_name": acc.get("name", u.capitalize()),
                 "email": f"{u}@smrmotors.com",
+                "phone": "+91 98765 43210",
                 "role": normalize_admin_role(acc.get("role")),
-                "name": acc.get("name", u.capitalize())
+                "is_active": 1,
+                "last_login": None,
+                "created_at": datetime.datetime.utcnow().isoformat()
             })
 
-    return jsonify({"success": True, "staff": staff_list})
+    filtered = []
+    for s in staff_list:
+        r = normalize_admin_role(s.get("role"))
+        if role_filter != "all" and r != role_filter:
+            continue
+        if search:
+            combined = f"{s.get('id')} {s.get('username','')} {s.get('full_name','')} {s.get('email','')} {s.get('phone','')}".lower()
+            if search not in combined:
+                continue
+        s_copy = dict(s)
+        s_copy["name"] = s_copy.get("full_name") or s_copy.get("username", "").capitalize()
+        s_copy["role"] = r
+        s_copy["is_active"] = int(s_copy.get("is_active") if s_copy.get("is_active") is not None else 1)
+        filtered.append(s_copy)
+
+    return jsonify({"success": True, "staff": filtered, "data": filtered})
 
 @app.route("/api/admin/staff", methods=["POST"])
 @superadmin_required
 def admin_create_staff():
-    """Creates a new Staff Admin or Superadmin. Superadmin owner only."""
+    """
+    Creates a new Staff Member or Superadmin account.
+    Input: username, full_name, email, phone, password, role.
+    Superadmin owner only.
+    """
     data = request.get_json() or request.form.to_dict() or {}
     username = str(data.get("username", "")).lower().strip()
+    full_name = str(data.get("full_name") or data.get("name") or username.capitalize()).strip()
     email = str(data.get("email", "")).lower().strip()
+    phone = str(data.get("phone", "")).strip()
     password = str(data.get("password", "")).strip()
     role = normalize_admin_role(data.get("role", "admin"))
+    admin_actor = g.admin.get("username", "admin")
 
     if len(username) < 3:
         return jsonify({"success": False, "message": "Username must be at least 3 characters."}), 400
@@ -3349,8 +4268,9 @@ def admin_create_staff():
         try:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO admins (username, email, password_hash, role) VALUES (%s, %s, %s, %s)",
-                (username, email or f"{username}@smrmotors.com", pwd_hash, role)
+                """INSERT INTO admins (username, full_name, email, phone, password_hash, role, is_active)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (username, full_name, email or f"{username}@smrmotors.com", phone or "+91 98765 43210", pwd_hash, role, 1)
             )
             conn.commit()
             new_staff_id = cursor.lastrowid
@@ -3364,18 +4284,227 @@ def admin_create_staff():
 
     adminAccounts[username] = {
         "password": password,
-        "name": username.capitalize(),
+        "name": full_name,
         "role": role
     }
 
+    log_admin_action(admin_actor, "create_staff", "admin", new_staff_id, f"Created staff member '{username}' ({full_name}) with role '{role}'")
+
     return jsonify({
         "success": True,
-        "message": f"Staff account '{username}' created with role '{role}'.",
+        "message": f"Staff member '{full_name}' created successfully with role '{role}'.",
         "id": new_staff_id
     }), 201
 
+@app.route("/api/admin/staff/<int:staff_id>", methods=["PUT"])
+@superadmin_required
+def admin_update_staff(staff_id):
+    """
+    Updates staff member details: full_name, email, phone, role, password.
+    Prevents self-demoting from superadmin.
+    """
+    data = request.get_json() or request.form.to_dict() or {}
+    full_name = data.get("full_name") or data.get("name")
+    email = data.get("email")
+    phone = data.get("phone")
+    role = normalize_admin_role(data.get("role")) if data.get("role") else None
+    password = data.get("password")
+    admin_actor = g.admin.get("username", "admin")
+    current_admin_id = g.admin.get("id")
+
+    # Prevent de-promoting own account
+    if current_admin_id == staff_id and role and role != "superadmin":
+        return jsonify({"success": False, "message": "Security Error: You cannot demote your own Superadmin account."}), 400
+
+    from werkzeug.security import generate_password_hash
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            if password and len(password.strip()) >= 6:
+                pwd_hash = generate_password_hash(password.strip())
+                cursor.execute("""
+                    UPDATE admins SET
+                      full_name = COALESCE(%s, full_name),
+                      email = COALESCE(%s, email),
+                      phone = COALESCE(%s, phone),
+                      role = COALESCE(%s, role),
+                      password_hash = %s
+                    WHERE id = %s
+                """, (full_name, email, phone, role, pwd_hash, staff_id))
+            else:
+                cursor.execute("""
+                    UPDATE admins SET
+                      full_name = COALESCE(%s, full_name),
+                      email = COALESCE(%s, email),
+                      phone = COALESCE(%s, phone),
+                      role = COALESCE(%s, role)
+                    WHERE id = %s
+                """, (full_name, email, phone, role, staff_id))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+    log_admin_action(admin_actor, "update_staff", "admin", staff_id, f"Updated staff profile #{staff_id}")
+
+    return jsonify({"success": True, "message": f"Staff profile #{staff_id} updated successfully."})
+
+@app.route("/api/admin/staff/<int:staff_id>/status", methods=["PUT"])
+@superadmin_required
+def admin_toggle_staff_status(staff_id):
+    """
+    Activates or deactivates staff account.
+    Superadmin cannot deactivate themselves.
+    """
+    data = request.get_json() or {}
+    is_active = 1 if int(data.get("is_active", 1)) == 1 else 0
+    current_admin_id = g.admin.get("id")
+    admin_actor = g.admin.get("username", "admin")
+
+    if current_admin_id == staff_id and is_active == 0:
+        return jsonify({"success": False, "message": "Security Violation: You cannot deactivate your own active Superadmin account."}), 400
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE admins SET is_active = %s WHERE id = %s", (is_active, staff_id))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    status_str = "activated" if is_active == 1 else "deactivated"
+    log_admin_action(admin_actor, f"staff_{status_str}", "admin", staff_id, f"Staff #{staff_id} {status_str}")
+
+    return jsonify({"success": True, "message": f"Staff account #{staff_id} {status_str} successfully.", "is_active": is_active})
+
+@app.route("/api/admin/staff/<int:staff_id>", methods=["DELETE"])
+@superadmin_required
+def admin_delete_staff(staff_id):
+    """
+    Safely deletes a staff member.
+    Superadmin cannot delete their own account.
+    """
+    current_admin_id = g.admin.get("id")
+    admin_actor = g.admin.get("username", "admin")
+
+    if current_admin_id == staff_id:
+        return jsonify({"success": False, "message": "Security Violation: You cannot delete your own active Superadmin account."}), 400
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM admins WHERE id = %s", (staff_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    log_admin_action(admin_actor, "delete_staff", "admin", staff_id, f"Deleted staff account #{staff_id}")
+
+    return jsonify({"success": True, "message": f"Staff account #{staff_id} removed safely."})
+
+@app.route("/api/admin/staff/activity", methods=["GET"])
+@superadmin_required
+def admin_staff_activity_api():
+    """
+    Returns staff activity and administrative audit logs from TiDB Cloud.
+    Superadmin owner only.
+    """
+    admin_username = request.args.get("admin_username")
+    search = (request.args.get("search") or "").lower().strip()
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, int(request.args.get("limit", 15)))
+    except (ValueError, TypeError):
+        limit = 15
+
+    logs = []
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            if admin_username:
+                cursor.execute("SELECT * FROM admin_audit_logs WHERE LOWER(admin_username) = %s ORDER BY id DESC LIMIT 200", (admin_username.lower(),))
+            else:
+                cursor.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT 200")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                logs = rows
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not logs:
+        logs = IN_MEMORY_STORE.get("audit_logs", [])
+
+    filtered = []
+    for l in logs:
+        if search:
+            combined = f"{l.get('id')} {l.get('admin_username','')} {l.get('action','')} {l.get('target_type','')} {l.get('details','')}".lower()
+            if search not in combined:
+                continue
+        filtered.append(l)
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "logs": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
+
 @app.route("/api/admin/audit-logs", methods=["GET"])
 def admin_audit_logs_api():
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT 100")
+            rows = cursor.fetchall()
+            cursor.close()
+            conn.close()
+            if rows:
+                return jsonify({"success": True, "data": rows})
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
     return jsonify({"success": True, "data": IN_MEMORY_STORE["audit_logs"]})
 
 # User Dashboard endpoints
