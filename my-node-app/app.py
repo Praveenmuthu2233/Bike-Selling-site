@@ -6233,9 +6233,14 @@ def upload_files_legacy():
     return jsonify({"message": "Files uploaded successfully", "files": saved})
 
 # -----------------------------------------------------------------------------
-# APPLICATION ENTRYPOINT
+# APPLICATION ENTRYPOINT & DATABASE INITIALIZATION
 # -----------------------------------------------------------------------------
-if __name__ == "__main__":
+# Ensure database schema is initialized on startup across both Gunicorn WSGI and local execution
+try:
     initialize_database()
+except Exception as _startup_db_err:
+    print(f"[Database] Startup initialization notice: {_startup_db_err}")
+
+if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port, debug=True)

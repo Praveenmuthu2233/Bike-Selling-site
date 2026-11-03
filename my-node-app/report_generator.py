@@ -5,55 +5,77 @@ Produces branded, formatted reports for Inventory, Sold-Out Vehicles, and Supera
 
 import io
 import datetime
-from reportlab.lib.pagesizes import letter, A4, landscape
-from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
-)
-from reportlab.pdfgen import canvas
-import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-from openpyxl.utils import get_column_letter
 
-class NumberedCanvas(canvas.Canvas):
-    """
-    Two-pass canvas to dynamically compute and render total page count 'Page X of Y'.
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._saved_page_states = []
+# Graceful ReportLab import handling
+try:
+    from reportlab.lib.pagesizes import letter, A4, landscape
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, KeepTogether
+    )
+    from reportlab.pdfgen import canvas
+    REPORTLAB_AVAILABLE = True
+    _reportlab_err = None
+except ImportError as e:
+    REPORTLAB_AVAILABLE = False
+    _reportlab_err = str(e)
+    colors = None
+    canvas = None
 
-    def showPage(self):
-        self._saved_page_states.append(dict(self.__dict__))
-        self._startPage()
+# Graceful openpyxl import handling
+try:
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    OPENPYXL_AVAILABLE = True
+    _openpyxl_err = None
+except ImportError as e:
+    OPENPYXL_AVAILABLE = False
+    _openpyxl_err = str(e)
 
-    def save(self):
-        num_pages = len(self._saved_page_states)
-        for state in self._saved_page_states:
-            self.__dict__.update(state)
-            self.draw_page_number(num_pages)
-            canvas.Canvas.showPage(self)
-        canvas.Canvas.save(self)
+if REPORTLAB_AVAILABLE and canvas:
+    class NumberedCanvas(canvas.Canvas):
+        """
+        Two-pass canvas to dynamically compute and render total page count 'Page X of Y'.
+        """
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self._saved_page_states = []
 
-    def draw_page_number(self, page_count):
-        self.saveState()
-        self.setFont("Helvetica", 8)
-        self.setFillColor(colors.HexColor("#64748B"))
-        
-        # Header rule & mini watermark
-        page_width, page_height = self._pagesize
-        self.setStrokeColor(colors.HexColor("#E2E8F0"))
-        self.setLineWidth(0.5)
-        self.line(36, page_height - 30, page_width - 36, page_height - 30)
-        self.drawString(36, page_height - 24, "SMR MOTORS — AUTOMOTIVE INVENTORY & REPORTING SYSTEM")
-        
-        # Footer rule & text
-        self.line(36, 36, page_width - 36, 36)
-        footer_text = f"Page {self._pageNumber} of {page_count}"
-        self.drawRightString(page_width - 36, 24, footer_text)
-        self.drawString(36, 24, "CONFIDENTIAL & PROPRIETARY — SMR MOTORS INTERNAL DOCUMENT")
-        self.restoreState()
+        def showPage(self):
+            self._saved_page_states.append(dict(self.__dict__))
+            self._startPage()
+
+        def save(self):
+            num_pages = len(self._saved_page_states)
+            for state in self._saved_page_states:
+                self.__dict__.update(state)
+                self.draw_page_number(num_pages)
+                canvas.Canvas.showPage(self)
+            canvas.Canvas.save(self)
+
+        def draw_page_number(self, page_count):
+            self.saveState()
+            self.setFont("Helvetica", 8)
+            self.setFillColor(colors.HexColor("#64748B"))
+            
+            # Header rule & mini watermark
+            page_width, page_height = self._pagesize
+            self.setStrokeColor(colors.HexColor("#E2E8F0"))
+            self.setLineWidth(0.5)
+            self.line(36, page_height - 30, page_width - 36, page_height - 30)
+            self.drawString(36, page_height - 24, "SMR MOTORS — AUTOMOTIVE INVENTORY & REPORTING SYSTEM")
+            
+            # Footer rule & text
+            self.line(36, 36, page_width - 36, 36)
+            footer_text = f"Page {self._pageNumber} of {page_count}"
+            self.drawRightString(page_width - 36, 24, footer_text)
+            self.drawString(36, 24, "CONFIDENTIAL & PROPRIETARY — SMR MOTORS INTERNAL DOCUMENT")
+            self.restoreState()
+else:
+    class NumberedCanvas:
+        pass
 
 
 def format_inr(val):
@@ -72,6 +94,9 @@ def generate_pdf_report(report_type, items, filters, generated_by="Administrator
     Generates a high-quality PDF report using ReportLab.
     report_type: 'listings', 'sold', 'financial'
     """
+    if not REPORTLAB_AVAILABLE:
+        raise RuntimeError(f"ReportLab PDF engine is not available: {_reportlab_err}. Please ensure reportlab is installed via requirements.txt.")
+
     if report_type == "financial" and not is_superadmin:
         raise PermissionError("Access Forbidden: Financial reports are restricted to SUPERADMIN.")
 
@@ -354,6 +379,9 @@ def generate_excel_report(report_type, items, filters, generated_by="Administrat
     """
     Generates a beautifully styled Excel (.xlsx) report using openpyxl.
     """
+    if not OPENPYXL_AVAILABLE:
+        raise RuntimeError(f"openpyxl Excel engine is not available: {_openpyxl_err}. Please ensure openpyxl is installed via requirements.txt.")
+
     if report_type == "financial" and not is_superadmin:
         raise PermissionError("Access Forbidden: Financial reports are restricted to SUPERADMIN.")
 
