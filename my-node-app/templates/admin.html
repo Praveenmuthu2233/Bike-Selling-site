@@ -661,38 +661,78 @@
              TAB 6: DEDICATED SOLD OUT BIKES VIEW (Section 9)
              ================================================== -->
         <section class="admin-tab-pane" id="tab-soldout-bikes">
-          <div class="admin-toolbar-card">
-            <div>
-              <h3 style="font-size:1.15rem; font-weight:800; color:var(--admin-text-main); margin-bottom:0.25rem;">
-                <i class="fas fa-hand-holding-dollar" style="color:var(--admin-info); margin-right:6px;"></i> Sold Out Motorcycles Ledger
-              </h3>
-              <p style="font-size:0.82rem; color:var(--admin-text-secondary); margin:0;">
-                Completed sales ledger. Financial margin metrics are strictly accessible to Superadmin only.
-              </p>
+          <div class="admin-toolbar-card" style="flex-direction:column; align-items:stretch; gap:1rem;">
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+              <div>
+                <h3 style="font-size:1.15rem; font-weight:800; color:var(--admin-text-main); margin-bottom:0.25rem;">
+                  <i class="fas fa-hand-holding-dollar" style="color:var(--admin-info); margin-right:6px;"></i> Sold Out Motorcycles Management
+                </h3>
+                <p style="font-size:0.82rem; color:var(--admin-text-secondary); margin:0;">
+                  Permanent TiDB Cloud archive of all sold-out units with complete specifications, historical snapshots, and lead histories.
+                </p>
+              </div>
+              <div style="display:flex; gap:8px;">
+                <button class="btn-table-action" onclick="downloadReport('sold', 'pdf')" style="background:#DC2626; color:#fff; font-weight:700;">
+                  <i class="fas fa-file-pdf"></i> Export PDF
+                </button>
+                <button class="btn-table-action" onclick="downloadReport('sold', 'excel')" style="background:#16A34A; color:#fff; font-weight:700;">
+                  <i class="fas fa-file-excel"></i> Export Excel
+                </button>
+              </div>
             </div>
-            <button class="btn-table-action" onclick="downloadReport('sold', 'csv')" style="font-weight:700;">
-              <i class="fas fa-file-csv"></i> Export Sales CSV
-            </button>
+
+            <!-- Filter Controls -->
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <div class="toolbar-search-input" style="flex:1; min-width:220px;">
+                <i class="fas fa-search"></i>
+                <input type="text" id="soldBikeFilterSearch" placeholder="Search by title, brand, reg number, seller..." oninput="debounceSoldBikeSearch()">
+              </div>
+              <select id="soldBikeFilterBrand" class="form-input-modern" style="width:170px; padding:0.45rem 0.75rem;" onchange="loadSoldOutBikesView(1)">
+                <option value="all">All Brands</option>
+                <option value="Royal Enfield">Royal Enfield</option>
+                <option value="Yamaha">Yamaha</option>
+                <option value="KTM">KTM</option>
+                <option value="Bajaj">Bajaj</option>
+                <option value="Honda">Honda</option>
+                <option value="TVS">TVS</option>
+                <option value="Hero">Hero</option>
+                <option value="Suzuki">Suzuki</option>
+              </select>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.8rem; color:var(--admin-text-secondary);">From:</span>
+                <input type="date" id="soldBikeStartDate" class="form-input-modern" style="width:140px; padding:0.4rem 0.6rem;" onchange="loadSoldOutBikesView(1)">
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <span style="font-size:0.8rem; color:var(--admin-text-secondary);">To:</span>
+                <input type="date" id="soldBikeEndDate" class="form-input-modern" style="width:140px; padding:0.4rem 0.6rem;" onchange="loadSoldOutBikesView(1)">
+              </div>
+              <button class="btn-table-action" onclick="resetSoldBikeFilters()" title="Reset Filters"><i class="fas fa-rotate-left"></i></button>
+            </div>
           </div>
+
           <div class="table-responsive-wrapper">
             <table class="admin-data-table responsive-table-mobile">
               <thead>
                 <tr>
-                  <th>Motorcycle</th>
-                  <th>Sold Date</th>
-                  <th>Buyer Information</th>
-                  <th>Actual Sale Price</th>
-                  <th class="fin-col-superadmin">Seller Payout</th>
-                  <th class="fin-col-superadmin">Total Expenses</th>
-                  <th class="fin-col-superadmin">Realized Profit</th>
-                  <th style="text-align:right;">Status</th>
+                  <th>Motorcycle Details</th>
+                  <th>Brand & Model</th>
+                  <th>Registration No.</th>
+                  <th>Specs (Year/KM/Fuel)</th>
+                  <th>Seller Info</th>
+                  <th>Sold Date & Time</th>
+                  <th>Sold By</th>
+                  <th>Final Price</th>
+                  <th class="fin-col-superadmin">Net Profit</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Actions</th>
                 </tr>
               </thead>
               <tbody id="soldout-bikes-tbody">
-                <tr><td colspan="8" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading sales ledger...</td></tr>
+                <tr><td colspan="11" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading sales ledger...</td></tr>
               </tbody>
             </table>
           </div>
+          <div class="pagination-container-modern" id="soldout-bikes-pagination" style="margin-top:1.25rem;"></div>
         </section>
 
         <!-- ==================================================
@@ -1255,17 +1295,17 @@
        MODAL: MARK AS SOLD (CONFIRMATION & TELEMETRY)
        ================================================== -->
   <div class="modal-overlay" id="modal-mark-sold">
-    <div class="modal-dialog-card" style="max-width:540px;">
+    <div class="modal-dialog-card" style="max-width:560px;">
       <div class="modal-header-bar">
-        <h3 class="modal-title-text" style="color:var(--admin-info);"><i class="fas fa-hand-holding-dollar"></i> Confirm Motorcycle Sale & Archive</h3>
+        <h3 class="modal-title-text" style="color:var(--admin-info);"><i class="fas fa-handshake"></i> Mark Motorcycle as Sold Out</h3>
         <button class="modal-close-btn" onclick="closeModal('modal-mark-sold')">&times;</button>
       </div>
       <div class="modal-body-content">
         <input type="hidden" id="sold-bike-id">
         
-        <!-- Bike Identity & Seller Confirmation Summary -->
-        <div id="sold-bike-summary-card" style="display:flex; gap:14px; align-items:center; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:12px; margin-bottom:1.25rem;">
-          <img id="sold-bike-img" src="/static/images/IMG-20251204-WA0053.jpg" alt="Motorcycle Primary Photo" style="width:76px; height:58px; object-fit:cover; border-radius:6px; border:1px solid #CBD5E1; flex-shrink:0;">
+        <!-- Bike Identity & Status Confirmation Summary -->
+        <div id="sold-bike-summary-card" style="display:flex; gap:14px; align-items:center; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:12px; margin-bottom:1rem;">
+          <img id="sold-bike-img" src="/static/images/IMG-20251204-WA0053.jpg" alt="Motorcycle Primary Photo" style="width:84px; height:64px; object-fit:cover; border-radius:6px; border:1px solid #CBD5E1; flex-shrink:0;">
           <div style="flex:1; min-width:0;">
             <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
               <h4 id="sold-bike-title-text" style="font-size:0.95rem; font-weight:700; color:var(--admin-text-main); margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Motorcycle</h4>
@@ -1273,54 +1313,71 @@
             </div>
             <div style="font-size:0.8rem; color:var(--admin-text-secondary); margin-top:3px;">
               <span>ID: <strong id="sold-bike-id-display">#0</strong></span> • 
-              <span id="sold-bike-specs-display">2022 • 0 km</span>
+              <span id="sold-bike-brand-model-display">Royal Enfield • Classic 350</span>
             </div>
-            <div style="font-size:0.78rem; color:var(--admin-text-secondary); margin-top:3px;">
-              <i class="fas fa-user-tag" style="color:var(--admin-primary); margin-right:4px;"></i>
-              <span id="sold-bike-seller-info">Seller: SMR Motors (9876543210)</span>
+            <div style="font-size:0.8rem; color:var(--admin-text-secondary); margin-top:2px;">
+              <span>Reg: <strong id="sold-bike-reg-display">TN-XX-XXXX</strong></span> • 
+              <span id="sold-bike-specs-display">2022 • 0 km</span>
             </div>
           </div>
         </div>
 
-        <div class="form-grid-2col">
-          <div class="form-group-modern">
-            <label class="form-label-modern">Actual Selling Price (₹) *</label>
-            <input type="number" id="sold-sale-price" class="form-input-modern" required oninput="calculateLiveProfit()">
-          </div>
-          <div class="form-group-modern">
-            <label class="form-label-modern">Seller Payout (₹) *</label>
-            <input type="number" id="sold-seller-payout" class="form-input-modern" required oninput="calculateLiveProfit()">
-          </div>
-        </div>
-        <div class="form-grid-2col">
-          <div class="form-group-modern">
-            <label class="form-label-modern">Buyer Full Name</label>
-            <input type="text" id="sold-buyer-name" class="form-input-modern" placeholder="e.g. Karthik Raja">
-          </div>
-          <div class="form-group-modern">
-            <label class="form-label-modern">Buyer Phone Number</label>
-            <input type="text" id="sold-buyer-phone" class="form-input-modern" placeholder="+91 98765 43210">
+        <!-- Mandatory Confirmation Message -->
+        <div style="background:#FFFBEB; border:1px solid #FDE68A; border-left:4px solid var(--admin-warning); border-radius:var(--radius-md); padding:0.85rem 1rem; margin-bottom:1.25rem;">
+          <div style="display:flex; gap:10px; align-items:flex-start;">
+            <i class="fas fa-triangle-exclamation" style="color:var(--admin-warning); font-size:1.1rem; margin-top:2px;"></i>
+            <p style="margin:0; font-size:0.86rem; color:#92400E; font-weight:600; line-height:1.45;">
+              Are you sure you want to mark this motorcycle as Sold Out? It will immediately disappear from the active marketplace.
+            </p>
           </div>
         </div>
-        <div class="form-grid-2col">
-          <div class="form-group-modern">
-            <label class="form-label-modern">Service / Repair Expense (₹)</label>
-            <input type="number" id="sold-expense-service" class="form-input-modern" value="0" oninput="calculateLiveProfit()">
+
+        <details style="margin-bottom:1rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:0.6rem 0.85rem;">
+          <summary style="font-size:0.82rem; font-weight:700; color:var(--admin-primary); cursor:pointer;">
+            <i class="fas fa-sliders"></i> Optional: Record Buyer & Financial Details
+          </summary>
+          <div style="margin-top:0.85rem;">
+            <div class="form-grid-2col">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Actual Selling Price (₹)</label>
+                <input type="number" id="sold-sale-price" class="form-input-modern" oninput="calculateLiveProfit()">
+              </div>
+              <div class="form-group-modern">
+                <label class="form-label-modern">Seller Payout (₹)</label>
+                <input type="number" id="sold-seller-payout" class="form-input-modern" oninput="calculateLiveProfit()">
+              </div>
+            </div>
+            <div class="form-grid-2col">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Buyer Full Name</label>
+                <input type="text" id="sold-buyer-name" class="form-input-modern" placeholder="e.g. Karthik Raja">
+              </div>
+              <div class="form-group-modern">
+                <label class="form-label-modern">Buyer Phone Number</label>
+                <input type="text" id="sold-buyer-phone" class="form-input-modern" placeholder="+91 98765 43210">
+              </div>
+            </div>
+            <div class="form-grid-2col">
+              <div class="form-group-modern">
+                <label class="form-label-modern">Service / Repair Expense (₹)</label>
+                <input type="number" id="sold-expense-service" class="form-input-modern" value="0" oninput="calculateLiveProfit()">
+              </div>
+              <div class="form-group-modern">
+                <label class="form-label-modern">Transport / Other Expense (₹)</label>
+                <input type="number" id="sold-expense-other" class="form-input-modern" value="0" oninput="calculateLiveProfit()">
+              </div>
+            </div>
+            <div style="padding:0.65rem 0.85rem; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius-sm); display:flex; justify-content:space-between; align-items:center; margin-top:0.35rem;">
+              <span style="font-size:0.8rem; font-weight:700; color:#1E40AF;">Projected Realized Profit:</span>
+              <span style="font-size:1.05rem; font-weight:800; color:#1E40AF;" id="sold-projected-profit">₹0</span>
+            </div>
           </div>
-          <div class="form-group-modern">
-            <label class="form-label-modern">Transport / Other Expense (₹)</label>
-            <input type="number" id="sold-expense-other" class="form-input-modern" value="0" oninput="calculateLiveProfit()">
-          </div>
-        </div>
-        <div style="padding:0.85rem 1rem; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius-md); display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
-          <span style="font-size:0.85rem; font-weight:700; color:#1E40AF;">Projected Realized Profit:</span>
-          <span style="font-size:1.15rem; font-weight:800; color:#1E40AF;" id="sold-projected-profit">₹0</span>
-        </div>
+        </details>
       </div>
       <div class="modal-footer-bar">
         <button class="btn-table-action" onclick="closeModal('modal-mark-sold')">Cancel</button>
-        <button class="topbar-btn-action" onclick="confirmMarkSoldAction()">
-          <i class="fas fa-check"></i> Complete Sale & Archive
+        <button class="topbar-btn-action" style="background:var(--admin-primary); color:#FFFFFF;" onclick="confirmMarkSoldAction()">
+          <i class="fas fa-check"></i> Confirm Sold Out
         </button>
       </div>
     </div>
@@ -1880,8 +1937,8 @@
                     <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve"><i class="fas fa-check"></i></button>
                     <button class="btn-table-action danger" onclick="openRejectBikeModal(${b.id})" title="Reject"><i class="fas fa-xmark"></i></button>
                   ` : ''}
-                  ${(st === 'approved' && isSuper) ? `
-                    <button class="btn-table-action primary" onclick="openMarkSoldModal(${b.id})" title="Mark as Sold"><i class="fas fa-handshake"></i> Sold</button>
+                  ${st === 'approved' ? `
+                    <button class="btn-table-action primary" onclick="openMarkSoldModal(${b.id})" title="Mark as Sold Out"><i class="fas fa-handshake"></i> Sold Out</button>
                   ` : ''}
                   <button class="btn-table-action danger" onclick="deleteBikeAction(${b.id})" title="Delete"><i class="fas fa-trash"></i></button>
                 </div>
@@ -2084,51 +2141,101 @@
       } catch (e) { tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">${e.message}</td></tr>`; }
     }
 
-    async function loadSoldOutBikesView() {
+    let soldBikeSearchTimeout = null;
+    function debounceSoldBikeSearch() {
+      clearTimeout(soldBikeSearchTimeout);
+      soldBikeSearchTimeout = setTimeout(() => loadSoldOutBikesView(1), 350);
+    }
+
+    function resetSoldBikeFilters() {
+      const s = document.getElementById('soldBikeFilterSearch');
+      if (s) s.value = '';
+      const b = document.getElementById('soldBikeFilterBrand');
+      if (b) b.value = 'all';
+      const d1 = document.getElementById('soldBikeStartDate');
+      if (d1) d1.value = '';
+      const d2 = document.getElementById('soldBikeEndDate');
+      if (d2) d2.value = '';
+      loadSoldOutBikesView(1);
+    }
+
+    async function loadSoldOutBikesView(page = 1) {
       const tbody = document.getElementById('soldout-bikes-tbody');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading sales archive...</td></tr>';
+
+      const search = (document.getElementById('soldBikeFilterSearch')?.value || '').trim();
+      const brand = document.getElementById('soldBikeFilterBrand')?.value || 'all';
+      const startDate = document.getElementById('soldBikeStartDate')?.value || '';
+      const endDate = document.getElementById('soldBikeEndDate')?.value || '';
+
+      const params = new URLSearchParams({ page: page, limit: 10 });
+      if (search) params.set('search', search);
+      if (brand && brand !== 'all') params.set('brand', brand);
+      if (startDate) params.set('start_date', startDate);
+      if (endDate) params.set('end_date', endDate);
+
       try {
-        const res = await apiRequest('/api/admin/sold-bikes?limit=25');
-        const txs = res.data || [];
+        const res = await apiRequest(`/api/admin/sold-bikes?${params.toString()}`);
+        const list = res.data || [];
         const isSuper = res.is_superadmin;
 
-        if (txs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No completed sales transactions recorded yet.</td></tr>';
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>No sold out motorcycle records match the current filter.</td></tr>';
+          const pag = document.getElementById('soldout-bikes-pagination');
+          if (pag) pag.innerHTML = '';
           return;
         }
 
-        tbody.innerHTML = txs.map(tx => {
-          const saleP = parseFloat(tx.actual_sale_price || 0).toLocaleString('en-IN');
-          const payout = parseFloat(tx.seller_payout || 0).toLocaleString('en-IN');
-          const exp = parseFloat(tx.total_expenses || 0).toLocaleString('en-IN');
-          const prof = parseFloat(tx.realized_profit || 0).toLocaleString('en-IN');
+        tbody.innerHTML = list.map(b => {
+          const img = b.primary_image || (b.images && b.images[0]) || '/static/images/IMG-20251204-WA0053.jpg';
+          const finalPrice = parseFloat(b.final_selling_price || 0).toLocaleString('en-IN');
+          const profit = parseFloat(b.realized_profit || 0).toLocaleString('en-IN');
+          const soldDate = (b.sold_date || '').substring(0, 16).replace('T', ' ');
 
           return `
             <tr>
-              <td data-label="Motorcycle">
-                <span class="table-bike-title">${tx.bike_title || 'Motorcycle'}</span>
+              <td data-label="Motorcycle Details">
+                <div class="table-bike-item">
+                  <img src="${img}" class="table-bike-thumb" alt="${b.title}">
+                  <div class="table-bike-info">
+                    <span class="table-bike-title">#${b.bike_id} - ${b.title}</span>
+                    <span class="table-bike-meta">Listed: ${(b.original_listing_date || '').substring(0, 10)}</span>
+                  </div>
+                </div>
               </td>
-              <td data-label="Sold Date"><span style="font-size:0.82rem; color:var(--admin-text-secondary);">${(tx.sold_at || '').substring(0, 10)}</span></td>
-              <td data-label="Buyer Information">
-                <strong>${tx.buyer_name || 'Walk-in Buyer'}</strong>
-                <div style="font-size:0.75rem; color:var(--admin-text-secondary);">${tx.buyer_phone || ''}</div>
+              <td data-label="Brand & Model"><strong>${b.brand}</strong> <span style="color:var(--admin-text-secondary);">${b.model}</span></td>
+              <td data-label="Registration No."><span style="font-family:monospace; font-weight:700; background:#F1F5F9; padding:2px 6px; border-radius:4px;">${b.registration_number || 'TN-XX-XXXX'}</span></td>
+              <td data-label="Specs">${b.year} &bull; ${(b.kilometers_driven || 0).toLocaleString()} km &bull; ${b.fuel_type || 'Petrol'}</td>
+              <td data-label="Seller Info">
+                <div>${b.seller_name || 'SMR Motors'}</div>
+                <div style="font-size:0.75rem; color:var(--admin-text-secondary);">${b.seller_phone || ''}</div>
               </td>
-              <td data-label="Actual Sale Price"><strong>₹${saleP}</strong></td>
+              <td data-label="Sold Date & Time"><span style="font-size:0.82rem; color:var(--admin-text-secondary);">${soldDate}</span></td>
+              <td data-label="Sold By"><strong>${b.sold_by || 'admin'}</strong></td>
+              <td data-label="Final Price"><strong>₹${finalPrice}</strong></td>
               ${isSuper ? `
-                <td data-label="Seller Payout" class="fin-col-superadmin">₹${payout}</td>
-                <td data-label="Total Expenses" class="fin-col-superadmin">₹${exp}</td>
-                <td data-label="Realized Profit" class="fin-col-superadmin"><strong style="color:var(--admin-success);">₹${prof}</strong></td>
+                <td data-label="Net Profit" class="fin-col-superadmin"><strong style="color:var(--admin-success);">₹${profit}</strong></td>
               ` : `
                 <td class="fin-col-superadmin" style="display:none;">-</td>
-                <td class="fin-col-superadmin" style="display:none;">-</td>
-                <td class="fin-col-superadmin" style="display:none;">-</td>
               `}
-              <td data-label="Status" style="text-align:right;"><span class="badge-status badge-sold">Completed</span></td>
+              <td data-label="Status"><span class="badge-status badge-sold">SOLD OUT</span></td>
+              <td data-label="Actions" style="text-align:right;">
+                <div class="table-action-group">
+                  <a href="/admin/sold-bike-details.html?id=${b.bike_id}" class="btn-table-action" style="text-decoration:none; display:inline-flex; align-items:center; gap:4px;" title="View Complete Historical Snapshot">
+                    <i class="fas fa-eye"></i> View Details
+                  </a>
+                </div>
+              </td>
             </tr>
           `;
         }).join('');
-      } catch (e) { tbody.innerHTML = `<tr><td colspan="8" style="color:red; text-align:center;">${e.message}</td></tr>`; }
+
+        renderPagination('soldout-bikes-pagination', res.pagination, 'loadSoldOutBikesView');
+
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="11" style="color:var(--admin-danger); text-align:center; padding:2rem;">${e.message}</td></tr>`;
+      }
     }
 
     // ==================================================
@@ -2392,7 +2499,19 @@
       // Specs display
       const specsEl = document.getElementById('sold-bike-specs-display');
       if (specsEl) {
-        specsEl.textContent = `${bike?.year || 2022} • ${(bike?.kilometers_driven || 0).toLocaleString()} km • ${bike?.brand || 'Motorcycle'}`;
+        specsEl.textContent = `${bike?.year || 2022} • ${(bike?.kilometers_driven || 0).toLocaleString()} km • ${bike?.fuel_type || 'Petrol'}`;
+      }
+
+      // Brand & Model display
+      const bmEl = document.getElementById('sold-bike-brand-model-display');
+      if (bmEl) {
+        bmEl.textContent = `${bike?.brand || 'Motorcycle'} • ${bike?.model || ''}`;
+      }
+
+      // Registration Number display
+      const regEl = document.getElementById('sold-bike-reg-display');
+      if (regEl) {
+        regEl.textContent = bike?.registration_number || 'TN-XX-XXXX';
       }
 
       // Seller info
@@ -2428,27 +2547,24 @@
 
     async function confirmMarkSoldAction() {
       const id = document.getElementById('sold-bike-id').value;
-      const saleP = parseFloat(document.getElementById('sold-sale-price').value);
-      if (!saleP || saleP <= 0) {
-        showToast('Please enter a valid actual sale price.', 'error');
-        return;
-      }
+      const saleP = parseFloat(document.getElementById('sold-sale-price')?.value) || 0;
 
       const payload = {
         actual_sale_price: saleP,
-        seller_payout: parseFloat(document.getElementById('sold-seller-payout').value) || 0,
-        buyer_name: document.getElementById('sold-buyer-name').value.trim(),
-        buyer_phone: document.getElementById('sold-buyer-phone').value.trim(),
-        service_expense: parseFloat(document.getElementById('sold-expense-service').value) || 0,
-        other_expense: parseFloat(document.getElementById('sold-expense-other').value) || 0
+        seller_payout: parseFloat(document.getElementById('sold-seller-payout')?.value) || 0,
+        buyer_name: (document.getElementById('sold-buyer-name')?.value || '').trim() || 'Retail Customer',
+        buyer_phone: (document.getElementById('sold-buyer-phone')?.value || '').trim(),
+        service_expense: parseFloat(document.getElementById('sold-expense-service')?.value) || 0,
+        other_expense: parseFloat(document.getElementById('sold-expense-other')?.value) || 0
       };
 
       try {
-        await apiRequest(`/api/admin/bikes/${id}/mark-sold`, { method: 'POST', body: JSON.stringify(payload) });
-        showToast('Motorcycle marked as sold out and logged to sales ledger!', 'success');
+        await apiRequest(`/api/admin/bikes/${id}/sold`, { method: 'POST', body: JSON.stringify(payload) });
+        showToast('Motorcycle marked as Sold Out and moved to archive!', 'success');
         closeModal('modal-mark-sold');
         loadAdminBikes(currentBikeTab, 1);
         loadAdminDashboard();
+        loadSoldOutBikesView(1);
       } catch (err) {
         showToast(err.message, 'error');
       }
