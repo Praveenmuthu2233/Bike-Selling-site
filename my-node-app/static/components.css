@@ -191,6 +191,155 @@
   background: #0f1520;
 }
 
+/* Multi-Image Horizontal Slider inside Bike Cards */
+.card-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+}
+
+.card-slider-track {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.42s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
+
+.card-slider-slide {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-slider-slide .bike-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  transition: transform var(--transition-slow);
+}
+
+.bike-card:hover .card-slider-slide .bike-card-img {
+  transform: scale(1.05);
+}
+
+/* Card Slider Navigation Arrows */
+.card-slider-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(11, 15, 25, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 3;
+  opacity: 0;
+  transition: all 0.22s ease;
+  font-size: 0.78rem;
+}
+
+.bike-card:hover .card-slider-arrow {
+  opacity: 0.92;
+}
+
+.card-slider-arrow:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #FFFFFF;
+  transform: translateY(-50%) scale(1.12);
+  opacity: 1 !important;
+}
+
+.card-slider-arrow.prev {
+  left: 8px;
+}
+
+.card-slider-arrow.next {
+  right: 8px;
+}
+
+@media (hover: none) {
+  .card-slider-arrow {
+    opacity: 0.85;
+  }
+}
+
+/* Card Slider Dots Indicator */
+.card-slider-dots {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 5px;
+  z-index: 3;
+  padding: 4px 8px;
+  border-radius: 12px;
+  background: rgba(11, 15, 25, 0.65);
+  backdrop-filter: blur(6px);
+}
+
+.card-slider-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.45);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.card-slider-dot.active {
+  background: var(--accent-primary);
+  width: 18px;
+  border-radius: 4px;
+}
+
+/* Dynamic Image Counter Badge (e.g. 1 / 6) */
+.card-img-counter {
+  position: absolute;
+  top: 1rem;
+  right: 3.5rem;
+  background: rgba(11, 15, 25, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #F3F4F6;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 12px;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  pointer-events: none;
+}
+
+.card-img-counter .current-idx {
+  color: var(--accent-primary);
+  font-weight: 800;
+}
+
 .bike-card-img {
   position: absolute;
   top: 0;

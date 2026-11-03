@@ -489,6 +489,16 @@ def log_admin_action(admin_username, action, target_type, target_id=None, detail
                    VALUES (%s, %s, %s, %s, %s, %s)""",
                 (admin_username or "admin", action, target_type, str(target_id) if target_id else None, details or "", ip)
             )
+            try:
+                role = "superadmin" if (hasattr(g, "admin") and isinstance(g.admin, dict) and g.admin.get("role") == "superadmin") else "admin"
+                admin_id = g.admin.get("id") if (hasattr(g, "admin") and isinstance(g.admin, dict)) else None
+                cursor.execute(
+                    """INSERT INTO admin_activity_logs (admin_id, admin_username, role, action, target_type, target_id, details, ip_address)
+                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
+                    (admin_id, admin_username or "admin", role, action, target_type, str(target_id) if target_id else None, details or "", ip)
+                )
+            except Exception:
+                pass
             conn.commit()
             cursor.close()
             conn.close()
@@ -783,6 +793,62 @@ def initialize_database():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
+        # 4c-1. sold_bikes table (Sold Out Management permanent archive)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `sold_bikes` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL UNIQUE,
+          `title` VARCHAR(160) NOT NULL,
+          `brand` VARCHAR(60) NOT NULL,
+          `model` VARCHAR(80) NOT NULL,
+          `year` INT NOT NULL,
+          `price` DECIMAL(12,2) NOT NULL,
+          `kilometers_driven` INT NOT NULL DEFAULT 0,
+          `fuel_type` VARCHAR(30) NOT NULL DEFAULT 'Petrol',
+          `transmission` VARCHAR(30) NOT NULL DEFAULT 'Manual',
+          `seller_id` INT NULL,
+          `seller_name` VARCHAR(100) NULL,
+          `seller_phone` VARCHAR(30) NULL,
+          `seller_payout` DECIMAL(12,2) NULL,
+          `actual_sale_price` DECIMAL(12,2) NOT NULL,
+          `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `realized_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `buyer_name` VARCHAR(100) NULL,
+          `buyer_phone` VARCHAR(30) NULL,
+          `sold_by` VARCHAR(60) NULL,
+          `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_sold_bikes_bike_id` (`bike_id`),
+          INDEX `idx_sold_bikes_brand` (`brand`),
+          INDEX `idx_sold_bikes_sold_at` (`sold_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # 4c-2. financial_records table (Full Financial Telemetry Lifecycle)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `financial_records` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL,
+          `transaction_type` VARCHAR(50) NOT NULL DEFAULT 'sale',
+          `requested_price` DECIMAL(12,2) NULL,
+          `buying_price` DECIMAL(12,2) NULL,
+          `seller_payout` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `selling_price` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `service_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `repair_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `transport_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `other_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `estimated_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `actual_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+          `recorded_by` VARCHAR(60) NULL,
+          `notes` TEXT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_fin_bike` (`bike_id`),
+          INDEX `idx_fin_created` (`created_at`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
         # 4d. notifications table
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS `notifications` (
@@ -884,6 +950,25 @@ def initialize_database():
           `details` TEXT NULL,
           `ip_address` VARCHAR(45) NULL,
           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
+        # 8b. admin_activity_logs table (Admin Activity and Security Telemetry)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `admin_activity_logs` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `admin_id` INT NULL,
+          `admin_username` VARCHAR(60) NOT NULL,
+          `role` VARCHAR(20) NOT NULL DEFAULT 'admin',
+          `action` VARCHAR(60) NOT NULL,
+          `target_type` VARCHAR(40) NOT NULL,
+          `target_id` VARCHAR(60) NULL,
+          `details` TEXT NULL,
+          `ip_address` VARCHAR(45) NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_act_admin` (`admin_id`),
+          INDEX `idx_act_action` (`action`),
+          INDEX `idx_act_created` (`created_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
@@ -1443,9 +1528,10 @@ def get_bikes_api():
 @app.route("/api/bikes/sold", methods=["GET"])
 def get_sold_bikes_api():
     """
-    Public Sold Gallery Endpoint.
-    Strictly sanitizes private financials (no seller payout, expenses, or margin).
-    Supports server-side pagination.
+    Public & Admin Sold Gallery Endpoint.
+    Strictly sanitizes private financials for public and staff admin callers.
+    Reveals full telemetry only to authenticated Superadmin.
+    Supports search, brand filter, date range filter, and server-side pagination.
     """
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -1456,12 +1542,36 @@ def get_sold_bikes_api():
     except (ValueError, TypeError):
         limit = 9
 
+    search = (request.args.get("search") or "").lower().strip()
+    brand = request.args.get("brand")
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+
+    auth_header = request.headers.get("Authorization", "")
+    is_superadmin = False
+    if auth_header and "Bearer" in auth_header:
+        try:
+            import jwt
+            token = auth_header.split()[1]
+            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            if decoded.get("role") == "superadmin":
+                is_superadmin = True
+        except Exception:
+            pass
+
     all_bikes = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes WHERE status = 'soldout' OR listing_status = 'soldout' ORDER BY id DESC")
+            cursor.execute("""
+                SELECT b.*, s.actual_sale_price, s.seller_payout, s.total_expenses, s.realized_profit,
+                       s.buyer_name, s.buyer_phone, s.sold_by, s.sold_at as sold_record_date
+                FROM bikes b
+                LEFT JOIN sold_bikes s ON b.id = s.bike_id
+                WHERE b.status = 'soldout' OR b.listing_status = 'soldout' OR b.isSoldout = 1
+                ORDER BY COALESCE(s.sold_at, b.sold_at, b.updated_at) DESC
+            """)
             all_bikes = cursor.fetchall()
             cursor.close()
             conn.close()
@@ -1475,12 +1585,48 @@ def get_sold_bikes_api():
 
     sanitized = []
     for b in all_bikes:
-        item = _normalize_bike(b, is_admin=False)
+        # Filter by search
+        if search:
+            comb = f"{b.get('title','')} {b.get('brand','')} {b.get('model','')} {b.get('registration_number','')}".lower()
+            if search not in comb:
+                continue
+
+        # Filter by brand
+        if brand and brand.lower() != "all" and b.get("brand", "").lower() != brand.lower():
+            continue
+
+        # Filter by date
+        sold_time = str(b.get("sold_record_date") or b.get("sold_at") or b.get("updated_at") or "")
+        if start_date and sold_time and sold_time[:10] < start_date:
+            continue
+        if end_date and sold_time and sold_time[:10] > end_date:
+            continue
+
+        item = _normalize_bike(b, is_admin=is_superadmin, admin_role="superadmin" if is_superadmin else "user")
         item["status"] = "soldout"
+        item["listing_status"] = "soldout"
         item["isSoldout"] = 1
-        item.pop("accepted_seller_payout", None)
-        item.pop("proposed_seller_payout", None)
-        item.pop("business_margin", None)
+        item["sold_at"] = b.get("sold_record_date") or b.get("sold_at") or b.get("updated_at")
+
+        if is_superadmin:
+            item["actual_sale_price"] = float(b.get("actual_sale_price") or b.get("price") or 0)
+            item["seller_payout"] = float(b.get("seller_payout") or 0)
+            item["total_expenses"] = float(b.get("total_expenses") or 0)
+            item["realized_profit"] = float(b.get("realized_profit") or 0)
+            item["sold_by"] = b.get("sold_by") or "admin"
+        else:
+            item.pop("actual_sale_price", None)
+            item.pop("seller_payout", None)
+            item.pop("total_expenses", None)
+            item.pop("realized_profit", None)
+            item.pop("sold_by", None)
+            item.pop("buying_price", None)
+            item.pop("expenses", None)
+            item.pop("profit", None)
+            item.pop("accepted_seller_payout", None)
+            item.pop("proposed_seller_payout", None)
+            item.pop("business_margin", None)
+
         sanitized.append(item)
 
     total = len(sanitized)
@@ -3219,10 +3365,14 @@ def admin_mark_sold(bike_id):
             target_bike = b
             break
 
+    if target_bike and (target_bike.get("status") == "soldout" or target_bike.get("isSoldout") == 1 or target_bike.get("listing_status") == "soldout"):
+        return jsonify({"success": False, "message": "Motorcycle is already marked as sold out. Duplicate sale prevented."}), 400
+
     if seller_payout <= 0 and target_bike:
         seller_payout = float(target_bike.get("accepted_seller_payout") or target_bike.get("proposed_seller_payout") or target_bike.get("price") or 0)
 
     realized_profit = actual_sale_price - seller_payout - total_expenses
+    admin_uname = g.admin.get("username", "admin")
 
     conn = get_db()
     if conn:
@@ -3230,9 +3380,15 @@ def admin_mark_sold(bike_id):
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
             bike_row = cursor.fetchone()
-            if bike_row and seller_payout <= 0:
-                seller_payout = float(bike_row.get("accepted_seller_payout") or bike_row.get("proposed_seller_payout") or bike_row.get("price") or 0)
-                realized_profit = actual_sale_price - seller_payout - total_expenses
+            if bike_row:
+                if bike_row.get("status") == "soldout" or bike_row.get("isSoldout") == 1 or bike_row.get("listing_status") == "soldout":
+                    cursor.close()
+                    conn.close()
+                    return jsonify({"success": False, "message": "Motorcycle is already marked as sold out. Duplicate sale prevented."}), 400
+
+                if seller_payout <= 0:
+                    seller_payout = float(bike_row.get("accepted_seller_payout") or bike_row.get("proposed_seller_payout") or bike_row.get("price") or 0)
+                    realized_profit = actual_sale_price - seller_payout - total_expenses
 
             cursor.execute(
                 """UPDATE bikes SET 
@@ -3244,13 +3400,50 @@ def admin_mark_sold(bike_id):
                 (bike_id,)
             )
             cursor.execute("UPDATE bikesforsale SET isSoldout = 1 WHERE id = %s", (bike_id,))
+
+            # 1. Archive to sold_bikes table
+            b_title = (bike_row.get("title") if bike_row else None) or (target_bike.get("title") if target_bike else f"Bike #{bike_id}")
+            b_brand = (bike_row.get("brand") if bike_row else None) or (target_bike.get("brand") if target_bike else "Motorcycle")
+            b_model = (bike_row.get("model") if bike_row else None) or (target_bike.get("model") if target_bike else "")
+            b_year = int((bike_row.get("year") if bike_row else None) or (target_bike.get("year") if target_bike else 2022))
+            b_price = float((bike_row.get("price") if bike_row else None) or (target_bike.get("price") if target_bike else actual_sale_price))
+            b_kms = int((bike_row.get("kilometers_driven") if bike_row else None) or (target_bike.get("kilometers_driven") if target_bike else 0))
+            b_fuel = (bike_row.get("fuel_type") if bike_row else None) or (target_bike.get("fuel_type") if target_bike else "Petrol")
+            b_trans = (bike_row.get("transmission") if bike_row else None) or (target_bike.get("transmission") if target_bike else "Manual")
+            b_sname = (bike_row.get("seller_name") if bike_row else None) or (target_bike.get("seller_name") if target_bike else "Seller")
+            b_sphone = (bike_row.get("seller_phone") if bike_row else None) or (target_bike.get("seller_phone") if target_bike else "")
+            b_sid = (bike_row.get("seller_id") if bike_row else None) or (target_bike.get("seller_id") if target_bike else None)
+
+            cursor.execute(
+                """INSERT INTO sold_bikes 
+                   (bike_id, title, brand, model, year, price, kilometers_driven, fuel_type, transmission, seller_id, seller_name, seller_phone, seller_payout, actual_sale_price, total_expenses, realized_profit, buyer_name, buyer_phone, sold_by, sold_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                   ON DUPLICATE KEY UPDATE actual_sale_price = VALUES(actual_sale_price), realized_profit = VALUES(realized_profit)""",
+                (bike_id, b_title, b_brand, b_model, b_year, b_price, b_kms, b_fuel, b_trans,
+                 b_sid, b_sname, b_sphone, seller_payout, actual_sale_price, total_expenses,
+                 realized_profit, buyer_name, buyer_phone, admin_uname, sold_at)
+            )
+
+            # 2. Record full financial telemetry to financial_records
+            cursor.execute(
+                """INSERT INTO financial_records
+                   (bike_id, transaction_type, requested_price, buying_price, seller_payout, selling_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, estimated_profit, actual_profit, recorded_by, notes)
+                   VALUES (%s, 'sale', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (bike_id, bike_row.get("requested_price") if bike_row else None,
+                 bike_row.get("buying_price") if bike_row else None,
+                 seller_payout, actual_sale_price, service_expense, repair_expense,
+                 transport_expense, other_expense, total_expenses, realized_profit,
+                 realized_profit, admin_uname, notes)
+            )
+
+            # 3. Insert transaction log
             cursor.execute(
                 """INSERT INTO bike_transactions 
-                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, buyer_name, buyer_phone, notes, sold_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (bike_id, bike_row.get("seller_id") if bike_row else None, seller_payout, actual_sale_price,
+                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, buyer_name, buyer_phone, notes, sold_by, sold_at)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                (bike_id, b_sid, seller_payout, actual_sale_price,
                  service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit,
-                 buyer_name, buyer_phone, notes, sold_at)
+                 buyer_name, buyer_phone, notes, admin_uname, sold_at)
             )
             conn.commit()
             cursor.close()
@@ -3260,6 +3453,8 @@ def admin_mark_sold(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
+
+    log_admin_action(admin_uname, "mark_sold", "bike", bike_id, f"Sold motorcycle #{bike_id} for ₹{actual_sale_price:,.0f} (Realized profit: ₹{realized_profit:,.0f})")
 
     if target_bike:
         target_bike["status"] = "soldout"

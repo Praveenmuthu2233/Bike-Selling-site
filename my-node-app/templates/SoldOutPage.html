@@ -51,7 +51,7 @@
         <p class="section-subtitle">Take a look at pre-owned bikes happily handed over to their new owners with verified papers.</p>
       </div>
 
-      <div class="stats-grid" style="margin-bottom: 3.5rem;">
+      <div class="stats-grid" style="margin-bottom: 2.5rem;">
         <div class="stat-card">
           <div class="stat-icon green"><i class="fas fa-handshake"></i></div>
           <div class="stat-content">
@@ -75,6 +75,40 @@
         </div>
       </div>
 
+      <!-- Search, Brand & Date Range Filter Bar -->
+      <div class="filter-panel" style="margin-bottom: 2.5rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; box-shadow: var(--shadow-sm);">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: flex-end;">
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);"><i class="fas fa-search"></i> Search</label>
+            <input type="text" id="sold-search-input" class="form-control" placeholder="Search by model, brand..." onkeyup="if(event.key==='Enter') applySoldFilters()">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);"><i class="fas fa-tags"></i> Brand</label>
+            <select id="sold-brand-select" class="form-control" onchange="applySoldFilters()">
+              <option value="">All Brands</option>
+              <option value="Royal Enfield">Royal Enfield</option>
+              <option value="Yamaha">Yamaha</option>
+              <option value="KTM">KTM</option>
+              <option value="Bajaj">Bajaj</option>
+              <option value="Honda">Honda</option>
+              <option value="TVS">TVS</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);"><i class="fas fa-calendar-alt"></i> Sold From</label>
+            <input type="date" id="sold-start-date" class="form-control" onchange="applySoldFilters()">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label class="form-label" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted);"><i class="fas fa-calendar-alt"></i> Sold To</label>
+            <input type="date" id="sold-end-date" class="form-control" onchange="applySoldFilters()">
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button onclick="applySoldFilters()" class="btn btn-primary" style="flex: 1;"><i class="fas fa-filter"></i> Filter</button>
+            <button onclick="resetSoldFilters()" class="btn btn-outline" title="Reset Filters"><i class="fas fa-rotate-left"></i></button>
+          </div>
+        </div>
+      </div>
+
       <div id="sold-bikes-grid" class="bike-grid"></div>
       <div id="sold-pagination" class="pagination-wrapper" style="margin-top: 2.5rem;"></div>
     </div>
@@ -82,8 +116,36 @@
 
   <footer class="footer">
     <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand-col">
+          <div class="footer-brand">
+            <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
+            <span>MOTORS</span>
+          </div>
+          <p class="footer-desc">Premium pre-owned two-wheeler showroom in Salem, Tamil Nadu. Transparent pricing, thorough inspections, and immediate RC transfer assistance.</p>
+          <div class="footer-contact-item"><i class="fas fa-phone-alt"></i><span>+91 98765 43210</span></div>
+          <div class="footer-contact-item"><i class="fas fa-envelope"></i><span>praveenmuthu9500@gmail.com</span></div>
+        </div>
+        <div>
+          <h4 class="footer-heading">Inventory</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('index') }}#inventory">Verified Bikes</a></li>
+            <li><a href="{{ url_for('bike_selling') }}">Sell Your Bike</a></li>
+            <li><a href="{{ url_for('sold_out_page') }}">Sold Gallery</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer-heading">Company & Legal</h4>
+          <ul class="footer-links">
+            <li><a href="{{ url_for('about_page') }}">About Us</a></li>
+            <li><a href="{{ url_for('contact_page') }}">Showroom Location</a></li>
+            <li><a href="{{ url_for('privacy_page') }}">Privacy Policy</a></li>
+            <li><a href="{{ url_for('disclaimer_page') }}">Legal Disclaimer</a></li>
+          </ul>
+        </div>
+      </div>
       <div class="footer-bottom">
-        <div>&copy; 2026 SMR Motors. All rights reserved. Verified Delivered Motorcycles.</div>
+        <div>&copy; 2026 SMR Motors. All rights reserved. Delivered Motorcycle Archive.</div>
       </div>
     </div>
   </footer>
@@ -96,14 +158,130 @@
   <script>
     let currentSoldPage = 1;
     const soldLimit = 8;
+    window.cardSliderState = window.cardSliderState || {};
+
+    function getSuperadminToken() {
+      const adminToken = localStorage.getItem('smr_admin_token') || sessionStorage.getItem('smr_admin_token');
+      if (adminToken) {
+        try {
+          const payload = JSON.parse(atob(adminToken.split('.')[1]));
+          if (payload.role === 'superadmin') return adminToken;
+        } catch(e) {}
+      }
+      return null;
+    }
+
+    function initSoldCardSliders() {
+      const sliders = document.querySelectorAll('.card-slider');
+      sliders.forEach(sliderEl => {
+        const sliderId = sliderEl.dataset.sliderId || sliderEl.id;
+        const total = parseInt(sliderEl.dataset.total) || 1;
+        if (!sliderId || total <= 1) return;
+
+        if (window.cardSliderState[sliderId] && window.cardSliderState[sliderId].timer) {
+          clearInterval(window.cardSliderState[sliderId].timer);
+        }
+
+        const state = {
+          sliderId: sliderId,
+          currentIndex: 0,
+          total: total,
+          timer: null,
+          paused: false,
+          manuallyStopped: false
+        };
+        window.cardSliderState[sliderId] = state;
+
+        state.timer = setInterval(() => {
+          if (!state.paused && !state.manuallyStopped) {
+            navigateSoldCardSlider(sliderId, 1, false);
+          }
+        }, 3500);
+
+        sliderEl.onmouseenter = () => { state.paused = true; };
+        sliderEl.onmouseleave = () => { state.paused = false; };
+
+        let touchStartX = 0;
+        sliderEl.ontouchstart = (e) => { touchStartX = e.touches[0].clientX; };
+        sliderEl.ontouchend = (e) => {
+          const touchEndX = e.changedTouches[0].clientX;
+          const diff = touchStartX - touchEndX;
+          if (Math.abs(diff) > 35) {
+            if (diff > 0) navigateSoldCardSlider(sliderId, 1, true);
+            else navigateSoldCardSlider(sliderId, -1, true);
+          }
+        };
+      });
+    }
+
+    function navigateSoldCardSlider(sliderId, dir, isManual = false) {
+      const state = window.cardSliderState[sliderId];
+      if (!state) return;
+      const nextIdx = (state.currentIndex + dir + state.total) % state.total;
+      gotoSoldCardSlide(sliderId, nextIdx, isManual);
+    }
+
+    function gotoSoldCardSlide(sliderId, targetIdx, isManual = false) {
+      const state = window.cardSliderState[sliderId];
+      const sliderEl = document.getElementById(sliderId);
+      if (!sliderEl) return;
+
+      const total = state ? state.total : (parseInt(sliderEl.dataset.total) || 1);
+      const safeIdx = (targetIdx + total) % total;
+
+      if (state) {
+        state.currentIndex = safeIdx;
+        if (isManual) {
+          state.manuallyStopped = true;
+          if (state.timer) { clearInterval(state.timer); state.timer = null; }
+        }
+      }
+
+      const track = sliderEl.querySelector('.card-slider-track');
+      if (track) track.style.transform = `translateX(-${safeIdx * 100}%)`;
+
+      const dots = sliderEl.querySelectorAll('.card-slider-dot');
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === safeIdx));
+
+      const counterSpan = sliderEl.querySelector('.card-img-counter .current-idx');
+      if (counterSpan) counterSpan.textContent = safeIdx + 1;
+    }
+
+    function applySoldFilters() {
+      loadSoldBikes(1);
+    }
+
+    function resetSoldFilters() {
+      document.getElementById('sold-search-input').value = '';
+      document.getElementById('sold-brand-select').value = '';
+      document.getElementById('sold-start-date').value = '';
+      document.getElementById('sold-end-date').value = '';
+      loadSoldBikes(1);
+    }
 
     async function loadSoldBikes(page = 1) {
       currentSoldPage = page;
       const container = document.getElementById('sold-bikes-grid');
       container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 3rem 0;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i></div>`;
 
+      const searchVal = document.getElementById('sold-search-input')?.value.trim() || '';
+      const brandVal = document.getElementById('sold-brand-select')?.value || '';
+      const startDate = document.getElementById('sold-start-date')?.value || '';
+      const endDate = document.getElementById('sold-end-date')?.value || '';
+
+      const queryParams = new URLSearchParams({
+        page: page,
+        limit: soldLimit,
+        ...(searchVal ? { search: searchVal } : {}),
+        ...(brandVal ? { brand: brandVal } : {}),
+        ...(startDate ? { start_date: startDate } : {}),
+        ...(endDate ? { end_date: endDate } : {})
+      });
+
       try {
-        const res = await apiRequest(`/api/bikes/sold?page=${page}&limit=${soldLimit}`);
+        const superToken = getSuperadminToken();
+        const headers = superToken ? { 'Authorization': `Bearer ${superToken}` } : {};
+        const res = await apiRequest(`/api/bikes/sold?${queryParams.toString()}`, { headers });
         const soldBikes = res.data || res.bikes || [];
         const p = res.pagination || { total: soldBikes.length, page: 1, limit: soldLimit, totalPages: 1 };
 
@@ -111,8 +289,9 @@
           container.innerHTML = `
             <div class="empty-state" style="grid-column: 1/-1;">
               <i class="fas fa-motorcycle empty-state-icon"></i>
-              <h3>No sold inventory found</h3>
-              <p>Check back soon as newly delivered bikes are archived here.</p>
+              <h3>No delivered motorcycles match your criteria</h3>
+              <p>Try clearing your filters or check back later.</p>
+              <button onclick="resetSoldFilters()" class="btn btn-outline" style="margin-top: 1rem;">Reset Filters</button>
             </div>
           `;
           document.getElementById('sold-pagination').innerHTML = '';
@@ -121,31 +300,91 @@
 
         container.innerHTML = soldBikes.map(bike => {
           let imgs = [];
-          try { imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []); } catch(e){}
-          const cover = imgs[0] || '/static/images/IMG-20251204-WA0053.jpg';
+          try {
+            imgs = typeof bike.images === 'string' ? JSON.parse(bike.images) : (bike.images || []);
+          } catch(e) { imgs = []; }
+          if (!imgs || imgs.length === 0) imgs = ['/static/images/IMG-20251204-WA0053.jpg'];
+          imgs = imgs.slice(0, 6);
+
+          const sliderId = `sold-slider-${bike.id}`;
+          const trackId = `sold-track-${bike.id}`;
+          const dotsId = `sold-dots-${bike.id}`;
+          const counterId = `sold-cnt-${bike.id}`;
+          const isSuper = Boolean(bike.realized_profit !== undefined);
+          const soldDateStr = bike.sold_at ? new Date(bike.sold_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recently';
+
           return `
             <div class="bike-card">
               <div class="bike-card-img-wrapper">
-                <img src="${cover}" class="bike-card-img" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
-                <div class="bike-card-badge"><span class="badge badge-soldout">Sold Out</span></div>
+                <div class="card-slider" id="${sliderId}" data-slider-id="${sliderId}" data-total="${imgs.length}">
+                  <div class="card-slider-track" id="${trackId}">
+                    ${imgs.map((src, i) => `
+                      <div class="card-slider-slide">
+                        <img src="${src}" alt="${bike.title} - Photo ${i+1}" class="bike-card-img" loading="lazy" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+                      </div>
+                    `).join('')}
+                  </div>
+                  ${imgs.length > 1 ? `
+                    <button type="button" class="card-slider-arrow prev" onclick="event.stopPropagation(); navigateSoldCardSlider('${sliderId}', -1, true)" title="Previous photo" aria-label="Previous photo">
+                      <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button type="button" class="card-slider-arrow next" onclick="event.stopPropagation(); navigateSoldCardSlider('${sliderId}', 1, true)" title="Next photo" aria-label="Next photo">
+                      <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div class="card-slider-dots" id="${dotsId}">
+                      ${imgs.map((_, i) => `
+                        <button type="button" class="card-slider-dot ${i === 0 ? 'active' : ''}" onclick="event.stopPropagation(); gotoSoldCardSlide('${sliderId}', ${i}, true)" title="Photo ${i+1}" aria-label="Photo ${i+1}"></button>
+                      `).join('')}
+                    </div>
+                    <div class="card-img-counter" id="${counterId}">
+                      <span class="current-idx">1</span> / <span>${imgs.length}</span>
+                    </div>
+                  ` : ''}
+                  <div class="bike-card-badge">
+                    <span class="badge badge-soldout"><i class="fas fa-check-circle"></i> Sold Out</span>
+                  </div>
+                </div>
               </div>
+
               <div class="bike-card-body">
-                <div class="bike-card-brand">${bike.brand}</div>
+                <div class="bike-card-brand">${bike.brand} ${bike.model ? '• ' + bike.model : ''}</div>
                 <h3 class="bike-card-title">${bike.title}</h3>
                 <div class="bike-specs-row">
                   <div class="bike-spec-item"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
                   <div class="bike-spec-item"><i class="fas fa-tachometer-alt"></i> ${(bike.kilometers_driven||0).toLocaleString()} km</div>
                   <div class="bike-spec-item"><i class="fas fa-gas-pump"></i> ${bike.fuel_type || 'Petrol'}</div>
+                  <div class="bike-spec-item"><i class="fas fa-handshake"></i> ${soldDateStr}</div>
                 </div>
-                <div class="bike-card-footer">
-                  <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through;">₹${Number(bike.price).toLocaleString('en-IN')}</span>
-                  <span class="badge badge-approved"><i class="fas fa-check-circle"></i> Handed Over</span>
+
+                ${isSuper ? `
+                  <!-- Superadmin Confidential Financial Telemetry -->
+                  <div style="background: rgba(30, 64, 175, 0.12); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 6px; padding: 8px 10px; margin: 0.5rem 0; font-size: 0.78rem;">
+                    <div style="font-weight: 700; color: #93C5FD; margin-bottom: 3px; display:flex; justify-content:space-between;">
+                      <span>SUPERADMIN TELEMETRY</span>
+                      <span style="color:#34D399;">Profit: ₹${Number(bike.realized_profit || 0).toLocaleString('en-IN')}</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 4px; color: var(--text-secondary);">
+                      <div>Sale: ₹${Number(bike.actual_sale_price || bike.price || 0).toLocaleString('en-IN')}</div>
+                      <div>Payout: ₹${Number(bike.seller_payout || 0).toLocaleString('en-IN')}</div>
+                      <div>Expenses: ₹${Number(bike.total_expenses || 0).toLocaleString('en-IN')}</div>
+                      <div>Sold By: ${bike.sold_by || 'Admin'}</div>
+                    </div>
+                  </div>
+                ` : ''}
+
+                <div class="bike-card-footer" style="margin-top: auto; padding-top: 0.85rem; border-top: 1px solid var(--border-subtle); display:flex; justify-content:space-between; align-items:center;">
+                  <div>
+                    <span class="bike-price-value" style="color:var(--text-muted); text-decoration:line-through; font-size: 1.05rem;">₹${Number(bike.price).toLocaleString('en-IN')}</span>
+                    <span class="badge badge-approved" style="margin-left: 6px;"><i class="fas fa-check"></i> Handed Over</span>
+                  </div>
+                  <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline">Details</a>
                 </div>
               </div>
             </div>
           `;
         }).join('');
 
+        initSoldCardSliders();
         renderSoldPagination(p);
       } catch (err) {
         container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;

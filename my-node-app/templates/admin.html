@@ -1149,19 +1149,36 @@
   </div>
 
   <!-- ==================================================
-       MODAL: MARK AS SOLD (SUPERADMIN ONLY)
+       MODAL: MARK AS SOLD (CONFIRMATION & TELEMETRY)
        ================================================== -->
   <div class="modal-overlay" id="modal-mark-sold">
-    <div class="modal-dialog-card">
+    <div class="modal-dialog-card" style="max-width:540px;">
       <div class="modal-header-bar">
-        <h3 class="modal-title-text" style="color:var(--admin-info);"><i class="fas fa-hand-holding-dollar"></i> Record Motorcycle Sale</h3>
+        <h3 class="modal-title-text" style="color:var(--admin-info);"><i class="fas fa-hand-holding-dollar"></i> Confirm Motorcycle Sale & Archive</h3>
         <button class="modal-close-btn" onclick="closeModal('modal-mark-sold')">&times;</button>
       </div>
       <div class="modal-body-content">
         <input type="hidden" id="sold-bike-id">
-        <p style="font-size:0.86rem; color:var(--admin-text-secondary); margin-bottom:1.25rem;">
-          Record completed sale for <strong id="sold-bike-title-text" style="color:var(--admin-text-main);">#</strong>.
-        </p>
+        
+        <!-- Bike Identity & Seller Confirmation Summary -->
+        <div id="sold-bike-summary-card" style="display:flex; gap:14px; align-items:center; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:12px; margin-bottom:1.25rem;">
+          <img id="sold-bike-img" src="/static/images/IMG-20251204-WA0053.jpg" alt="Motorcycle Primary Photo" style="width:76px; height:58px; object-fit:cover; border-radius:6px; border:1px solid #CBD5E1; flex-shrink:0;">
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+              <h4 id="sold-bike-title-text" style="font-size:0.95rem; font-weight:700; color:var(--admin-text-main); margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Motorcycle</h4>
+              <span id="sold-bike-status-badge" class="badge-status badge-approved">APPROVED</span>
+            </div>
+            <div style="font-size:0.8rem; color:var(--admin-text-secondary); margin-top:3px;">
+              <span>ID: <strong id="sold-bike-id-display">#0</strong></span> • 
+              <span id="sold-bike-specs-display">2022 • 0 km</span>
+            </div>
+            <div style="font-size:0.78rem; color:var(--admin-text-secondary); margin-top:3px;">
+              <i class="fas fa-user-tag" style="color:var(--admin-primary); margin-right:4px;"></i>
+              <span id="sold-bike-seller-info">Seller: SMR Motors (9876543210)</span>
+            </div>
+          </div>
+        </div>
+
         <div class="form-grid-2col">
           <div class="form-group-modern">
             <label class="form-label-modern">Actual Selling Price (₹) *</label>
@@ -2225,10 +2242,51 @@
     // 7. MARK AS SOLD
     // ==================================================
     function openMarkSoldModal(id, title = '') {
+      const bike = (adminBikesList || []).find(b => b.id == id);
       document.getElementById('sold-bike-id').value = id;
-      document.getElementById('sold-bike-title-text').textContent = title ? `"${title}"` : `#${id}`;
-      document.getElementById('sold-sale-price').value = '';
-      document.getElementById('sold-seller-payout').value = '';
+      document.getElementById('sold-bike-id-display').textContent = `#${id}`;
+
+      const bTitle = bike ? (bike.title || bike.listingTitle) : (title || `Motorcycle #${id}`);
+      document.getElementById('sold-bike-title-text').textContent = bTitle;
+
+      // Primary photo thumbnail
+      let imgs = [];
+      try {
+        imgs = typeof bike?.images === 'string' ? JSON.parse(bike.images) : (bike?.images || []);
+      } catch (e) {
+        imgs = [];
+      }
+      const primaryPhoto = (imgs && imgs.length > 0) ? imgs[0] : '/static/images/IMG-20251204-WA0053.jpg';
+      const imgEl = document.getElementById('sold-bike-img');
+      if (imgEl) imgEl.src = primaryPhoto;
+
+      // Status badge
+      const curStatus = (bike?.listing_status || bike?.status || 'approved').toLowerCase();
+      const statusBadge = document.getElementById('sold-bike-status-badge');
+      if (statusBadge) {
+        statusBadge.textContent = curStatus.toUpperCase();
+        statusBadge.className = `badge-status ${curStatus === 'approved' ? 'badge-approved' : (curStatus === 'soldout' ? 'badge-sold' : 'badge-pending')}`;
+      }
+
+      // Specs display
+      const specsEl = document.getElementById('sold-bike-specs-display');
+      if (specsEl) {
+        specsEl.textContent = `${bike?.year || 2022} • ${(bike?.kilometers_driven || 0).toLocaleString()} km • ${bike?.brand || 'Motorcycle'}`;
+      }
+
+      // Seller info
+      const sName = bike?.seller_name || bike?.sellerName || bike?.owner_name || 'Direct / SMR Motors';
+      const sPhone = bike?.seller_phone || bike?.mobileNum || 'Not Specified';
+      const sellerEl = document.getElementById('sold-bike-seller-info');
+      if (sellerEl) {
+        sellerEl.textContent = `Seller: ${sName} (${sPhone})`;
+      }
+
+      // Prefill pricing
+      const prefillPrice = bike?.public_selling_price || bike?.sellingPrice || bike?.price || '';
+      document.getElementById('sold-sale-price').value = prefillPrice;
+      const prefillPayout = bike?.accepted_seller_payout || bike?.proposed_seller_payout || bike?.requested_price || '';
+      document.getElementById('sold-seller-payout').value = prefillPayout;
       document.getElementById('sold-buyer-name').value = '';
       document.getElementById('sold-buyer-phone').value = '';
       document.getElementById('sold-expense-service').value = 0;
@@ -2815,6 +2873,14 @@
           loadAdminDashboard();
         }
         loadAdminNotifications();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('modal') === 'sold') {
+          const bId = urlParams.get('bike_id') || 1;
+          setTimeout(() => {
+            openMarkSoldModal(bId);
+          }, 500);
+        }
       }
     });
   </script>

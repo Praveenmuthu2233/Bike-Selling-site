@@ -198,8 +198,19 @@ class SMRMotorsFeatureTests(unittest.TestCase):
         staff_res = self.client.post("/api/admin/login", json={"username": "mani", "password": "mani@22"})
         staff_token = staff_res.get_json()["token"]
 
+        # Create or pick an approved bike for clean test run
+        add_b = self.client.post("/api/bikes", json={
+            "title": "Yamaha R15 V4 E2E Test",
+            "brand": "Yamaha",
+            "model": "R15 V4",
+            "year": 2023,
+            "price": 175000,
+            "status": "approved"
+        })
+        bike_id = add_b.get_json()["id"]
+
         # 1. Staff cannot mark sold (403 Forbidden)
-        res = self.client.post("/api/admin/bikes/1/mark-sold", json={"actual_sale_price": 140000}, headers={"Authorization": f"Bearer {staff_token}"})
+        res = self.client.post(f"/api/admin/bikes/{bike_id}/mark-sold", json={"actual_sale_price": 140000}, headers={"Authorization": f"Bearer {staff_token}"})
         self.assertEqual(res.status_code, 403)
 
         # 2. Superadmin marks sold with buyer details & expense breakdown
@@ -214,7 +225,7 @@ class SMRMotorsFeatureTests(unittest.TestCase):
             "buyer_phone": "9840123456",
             "notes": "RC transfer scheduled"
         }
-        res = self.client.post("/api/admin/bikes/1/mark-sold", json=sold_payload, headers={"Authorization": f"Bearer {super_token}"})
+        res = self.client.post(f"/api/admin/bikes/{bike_id}/mark-sold", json=sold_payload, headers={"Authorization": f"Bearer {super_token}"})
         self.assertEqual(res.status_code, 200)
 
         # 3. Superadmin sold-bikes API includes full financials
