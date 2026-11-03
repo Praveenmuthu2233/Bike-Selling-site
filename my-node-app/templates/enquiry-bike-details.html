@@ -132,8 +132,11 @@
                 </div>
               </form>
 
-              <div style="margin-top: 1.25rem; display: flex; gap: 0.75rem;">
-                <a href="tel:+919876543210" class="btn btn-secondary" style="flex: 1;"><i class="fas fa-phone"></i> Call Showroom</a>
+              <div style="margin-top: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                <button type="button" onclick="startDirectBikeChat()" class="btn btn-lg btn-outline" style="width: 100%; border-color: #ea580c; color: #ea580c; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-weight: 700;">
+                  <i class="fab fa-whatsapp" style="font-size: 1.2rem; color: #25D366;"></i> Chat with SMR Support
+                </button>
+                <a href="tel:+919876543210" class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><i class="fas fa-phone"></i> Call Showroom</a>
               </div>
             </div>
           </div>
@@ -291,6 +294,19 @@
         thumbEl.style.borderColor = 'var(--accent-primary)';
         thumbEl.style.opacity = '1';
       }
+    }
+
+    function startDirectBikeChat() {
+      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      const bikeId = (typeof currentBike !== 'undefined' && currentBike && currentBike.id) ? currentBike.id : (new URLSearchParams(window.location.search).get('id') || 1);
+      if (!token) {
+        showToast('Please sign in to chat directly with SMR Support', 'info');
+        setTimeout(() => {
+          window.location.href = `/login.html?return=${encodeURIComponent('/profile.html?tab=messages&bike_id=' + bikeId)}`;
+        }, 800);
+        return;
+      }
+      window.location.href = `/profile.html?tab=messages&bike_id=${bikeId}`;
     }
 
     document.addEventListener('DOMContentLoaded', loadBikeDetails);

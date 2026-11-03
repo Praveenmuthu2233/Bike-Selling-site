@@ -57,7 +57,8 @@ async function apiRequest(endpoint, options = {}) {
   const headers = { ...options.headers };
 
   // Attach token if present
-  const isAdminRequest = endpoint.includes('/admin') && !endpoint.includes('/admin/login');
+  const isAdminRequest = (endpoint.includes('/admin') && !endpoint.includes('/admin/login')) ||
+    (window.location.pathname.includes('admin') && !!(localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken')));
   const token = isAdminRequest 
     ? (localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken'))
     : (localStorage.getItem('token') || sessionStorage.getItem('token'));

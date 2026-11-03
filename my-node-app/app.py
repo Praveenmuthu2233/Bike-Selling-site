@@ -6697,6 +6697,7 @@ def create_chat_conversation():
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
 @app.route("/api/chat/conversations/<int:conv_id>/messages", methods=["GET"])
+@app.route("/api/admin/chat/conversations/<int:conv_id>/messages", methods=["GET"])
 def get_conversation_messages(conv_id):
     caller_role, caller_id, caller_info = get_chat_caller()
     if not caller_role:
@@ -6811,6 +6812,7 @@ def get_conversation_messages(conv_id):
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
 @app.route("/api/chat/conversations/<int:conv_id>/messages", methods=["POST"])
+@app.route("/api/admin/chat/conversations/<int:conv_id>/messages", methods=["POST"])
 def send_chat_message(conv_id):
     caller_role, caller_id, caller_info = get_chat_caller()
     if not caller_role:
