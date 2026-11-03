@@ -390,7 +390,8 @@
 
               <div>
                 <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Expected Selling Price (₹) *</label>
-                <input type="number" id="add-bike-price" class="form-control" min="10000" placeholder="e.g. 145000" required>
+                <input type="number" id="add-bike-price" class="form-control" min="0" max="1000000" step="1" placeholder="e.g. 145000 (Max ₹10,00,000)" required>
+                <small style="font-size:0.75rem; color:var(--text-muted);">Allowed: ₹0 to ₹10,00,000</small>
               </div>
 
               <div>
@@ -582,6 +583,16 @@
       submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Listing...';
 
       const user = AuthService.getUser();
+      const rawPrice = document.getElementById('add-bike-price').value.trim();
+      const priceNum = parseFloat(rawPrice);
+      if (rawPrice === '' || isNaN(priceNum) || priceNum < 0 || priceNum > 1000000) {
+        showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Motorcycle Listing';
+        document.getElementById('add-bike-price').focus();
+        return;
+      }
+
       const payload = {
         title: document.getElementById('add-bike-title').value.trim(),
         brand: document.getElementById('add-bike-brand').value,
@@ -592,7 +603,7 @@
         fuel_type: document.getElementById('add-bike-fuel').value,
         transmission: document.getElementById('add-bike-trans').value,
         location: document.getElementById('add-bike-loc').value.trim() || 'Salem, Tamil Nadu',
-        price: parseFloat(document.getElementById('add-bike-price').value) || 100000,
+        price: priceNum,
         seller_name: user?.name || 'Rider',
         seller_phone: document.getElementById('add-bike-phone').value.trim() || user?.phone || '',
         description: document.getElementById('add-bike-desc').value.trim(),

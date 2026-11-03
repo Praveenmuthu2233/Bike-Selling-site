@@ -1819,7 +1819,16 @@ def add_bike_api():
     model = data.get("model") or data.get("bikeModel") or "Standard"
     year = int(data.get("year") or data.get("bikeBuyingYear") or 2022)
     reg_no = data.get("registration_number") or data.get("vehicleNumber") or ""
-    price = float(data.get("price") or data.get("sellingPrice") or data.get("bikePrice") or 100000)
+    raw_price = data.get("price") if "price" in data else (data.get("sellingPrice") if "sellingPrice" in data else data.get("bikePrice"))
+    if raw_price is None or str(raw_price).strip() == "":
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+    try:
+        price = float(raw_price)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+
+    if price < 0 or price > 1000000:
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
     kms = int(data.get("kilometers_driven") or data.get("bikeKms") or 0)
     fuel = data.get("fuel_type", "Petrol")
     trans = data.get("transmission", "Manual")
@@ -3527,11 +3536,17 @@ def admin_propose_price(bike_id):
     Listing transitions to price_offered (awaiting seller response).
     """
     data = request.get_json() or request.form.to_dict() or {}
-    proposed_payout = float(data.get("proposed_payout") or data.get("proposed_seller_payout") or data.get("price") or 0)
-    message = data.get("message", "SMR Motors fair market counteroffer based on vehicle inspection.")
+    raw_payout = data.get("proposed_payout") if "proposed_payout" in data else (data.get("proposed_seller_payout") if "proposed_seller_payout" in data else data.get("price"))
+    if raw_payout is None or str(raw_payout).strip() == "":
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+    try:
+        proposed_payout = float(raw_payout)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
 
-    if proposed_payout <= 0:
-        return jsonify({"success": False, "message": "Proposed payout must be greater than 0"}), 400
+    if proposed_payout < 0 or proposed_payout > 1000000:
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+    message = data.get("message", "SMR Motors fair market counteroffer based on vehicle inspection.")
 
     conn = get_db()
     if conn:
@@ -3682,10 +3697,16 @@ def admin_publish_bike(bike_id):
     Step 4: Admin sets public selling price, computes margin, and publishes listing to marketplace.
     """
     data = request.get_json() or request.form.to_dict() or {}
-    public_price = float(data.get("public_selling_price") or data.get("price") or 0)
+    raw_public_price = data.get("public_selling_price") if "public_selling_price" in data else data.get("price")
+    if raw_public_price is None or str(raw_public_price).strip() == "":
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+    try:
+        public_price = float(raw_public_price)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
 
-    if public_price <= 0:
-        return jsonify({"success": False, "message": "Public selling price must be greater than 0"}), 400
+    if public_price < 0 or public_price > 1000000:
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
 
     now_ts = datetime.datetime.utcnow().isoformat()
     seller_payout = 0
@@ -4453,17 +4474,29 @@ def admin_update_bike(bike_id):
 
     if is_superadmin:
         if "requested_price" in data and data["requested_price"] not in (None, ""):
-            try: requested_price = float(data["requested_price"])
-            except Exception: pass
+            try:
+                requested_price = float(data["requested_price"])
+                if requested_price < 0 or requested_price > 1000000:
+                    return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+            except (ValueError, TypeError):
+                return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
         if "buying_price" in data and data["buying_price"] not in (None, ""):
             try: buying_price = float(data["buying_price"])
             except Exception: pass
         if "price" in data and data["price"] not in (None, ""):
-            try: selling_price = float(data["price"])
-            except Exception: pass
+            try:
+                selling_price = float(data["price"])
+                if selling_price < 0 or selling_price > 1000000:
+                    return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+            except (ValueError, TypeError):
+                return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
         elif "sellingPrice" in data and data["sellingPrice"] not in (None, ""):
-            try: selling_price = float(data["sellingPrice"])
-            except Exception: pass
+            try:
+                selling_price = float(data["sellingPrice"])
+                if selling_price < 0 or selling_price > 1000000:
+                    return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+            except (ValueError, TypeError):
+                return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
         if "expenses" in data and data["expenses"] not in (None, ""):
             try: expenses = float(data["expenses"])
             except Exception: pass
@@ -4614,7 +4647,14 @@ def admin_approve_bike(bike_id):
 
     approved_price = None
     if g.admin.get("role") == "superadmin":
-        approved_price = data.get("approved_price") or data.get("public_selling_price") or data.get("price")
+        raw_app_price = data.get("approved_price") if "approved_price" in data else (data.get("public_selling_price") if "public_selling_price" in data else data.get("price"))
+        if raw_app_price is not None and str(raw_app_price).strip() != "":
+            try:
+                approved_price = float(raw_app_price)
+                if approved_price < 0 or approved_price > 1000000:
+                    return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+            except (ValueError, TypeError):
+                return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
 
     conn = get_db()
     if conn:
@@ -4779,7 +4819,16 @@ def admin_reject_bike(bike_id):
 @app.route("/bikes/<int:bike_id>/price", methods=["PUT"])
 def admin_price_bike(bike_id):
     data = request.get_json() or {}
-    new_price = data.get("price") or data.get("newPrice") or 0
+    raw_price = data.get("price") if "price" in data else data.get("newPrice")
+    if raw_price is None or str(raw_price).strip() == "":
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+    try:
+        new_price = float(raw_price)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+
+    if new_price < 0 or new_price > 1000000:
+        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
     conn = get_db()
     if conn:
         try:

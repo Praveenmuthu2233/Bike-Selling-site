@@ -71,7 +71,8 @@
 
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Selling Price (₹) *</label>
-              <input type="number" name="price" class="form-control" required placeholder="150000">
+              <input type="number" name="price" id="admin-add-price" class="form-control" min="0" max="1000000" step="1" required placeholder="e.g. 150000 (Max ₹10,00,000)">
+              <small style="font-size:0.75rem; color:var(--text-muted);">Allowed: ₹0 to ₹10,00,000</small>
             </div>
 
             <div>
@@ -105,6 +106,14 @@
     async function handleAdminAddBike(e) {
       e.preventDefault();
       const form = e.target;
+      const rawPrice = form.querySelector('[name="price"]')?.value?.trim();
+      const priceNum = parseFloat(rawPrice);
+      if (rawPrice === '' || isNaN(priceNum) || priceNum < 0 || priceNum > 1000000) {
+        showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
+        form.querySelector('[name="price"]')?.focus();
+        return;
+      }
+
       const formData = new FormData(form);
       formData.append('status', 'approved');
 
