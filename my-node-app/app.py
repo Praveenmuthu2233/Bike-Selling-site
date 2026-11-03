@@ -1110,6 +1110,19 @@ def initialize_database():
           INDEX `idx_crs_user` (`user_id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
+
+        # 11. Durable Persistent Images Table (Survives Render Container Restarts & Redeployments)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `durable_images` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `filename` VARCHAR(255) NOT NULL UNIQUE,
+          `mime_type` VARCHAR(100) NOT NULL DEFAULT 'image/jpeg',
+          `file_size` INT NOT NULL DEFAULT 0,
+          `image_data` LONGBLOB NOT NULL,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_di_filename` (`filename`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
         conn.commit()
 
         # Seed categories if empty
@@ -1251,6 +1264,62 @@ def user_required(f):
         return f(*args, **kwargs)
     return wrapper
 
+def get_current_user_profile():
+    """
+    Extracts current authenticated user record from JWT Authorization header,
+    session, or smr_remember_token / smr_remember_me cookie.
+    Queries TiDB Cloud MySQL `users` table for live data.
+    Returns: (user_id, user_dict) or (None, None)
+    """
+    u_id = None
+    if hasattr(g, "user") and g.user and g.user.get("id"):
+        u_id = g.user.get("id")
+    elif session.get("user_id"):
+        u_id = session.get("user_id")
+    else:
+        auth = request.headers.get("Authorization", "")
+        if auth and "bearer" in auth.lower():
+            try:
+                parts = auth.split()
+                if len(parts) == 2:
+                    import jwt
+                    decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+                    u_id = decoded.get("id") or decoded.get("user_id")
+            except Exception:
+                pass
+        if not u_id:
+            token = request.cookies.get("smr_remember_token") or request.cookies.get("smr_remember_me")
+            if token:
+                try:
+                    user_val = validate_remembered_session(token)
+                    if user_val:
+                        u_id = user_val.get("id")
+                except Exception:
+                    pass
+
+    if not u_id:
+        return None, None
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                "SELECT id, google_id, name, email, profile_image, phone, role, is_active, created_at FROM users WHERE id = %s LIMIT 1",
+                (u_id,)
+            )
+            user_row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            if user_row:
+                return user_row["id"], user_row
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    return u_id, {"id": u_id, "name": "User", "role": "user"}
+
 # -----------------------------------------------------------------------------
 # STATIC FILE SERVING ROUTES (Handles all path variants cleanly)
 # -----------------------------------------------------------------------------
@@ -1279,11 +1348,111 @@ def serve_assets(filename):
     static_dir = os.path.join(app.root_path, "static")
     return send_from_directory(static_dir, filename)
 
+def save_durable_image(filename, filepath_or_stream, mime_type=None):
+    """
+    Persists uploaded bike image directly into TiDB Cloud `durable_images` table.
+    Ensures images survive Render container restarts/redeployments permanently.
+    """
+    try:
+        if isinstance(filepath_or_stream, (bytes, bytearray)):
+            image_data = bytes(filepath_or_stream)
+        elif hasattr(filepath_or_stream, "read"):
+            pos = filepath_or_stream.tell() if hasattr(filepath_or_stream, "tell") else 0
+            image_data = filepath_or_stream.read()
+            if hasattr(filepath_or_stream, "seek"):
+                filepath_or_stream.seek(pos)
+        elif isinstance(filepath_or_stream, str) and os.path.exists(filepath_or_stream):
+            with open(filepath_or_stream, "rb") as f:
+                image_data = f.read()
+        else:
+            return False
+
+        if not mime_type:
+            import mimetypes
+            mime_type, _ = mimetypes.guess_type(filename)
+            mime_type = mime_type or "image/jpeg"
+
+        file_size = len(image_data)
+        if file_size == 0:
+            return False
+
+        conn = get_db()
+        if conn:
+            try:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO durable_images (filename, mime_type, file_size, image_data)
+                    VALUES (%s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        mime_type = VALUES(mime_type),
+                        file_size = VALUES(file_size),
+                        image_data = VALUES(image_data)
+                """, (filename, mime_type, file_size, image_data))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                return True
+            except Exception as e:
+                print(f"[Durable Image] Notice: Could not sync {filename} to TiDB Cloud:", e)
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+    except Exception as err:
+        print(f"[Durable Image] Error saving {filename}:", err)
+    return False
+
 @app.route("/uploads/<path:filename>")
 @app.route("/public/uploads/<path:filename>")
 @app.route("/my-node-app/public/uploads/<path:filename>")
 def serve_uploads(filename):
-    return send_from_directory(UPLOAD_DIR, filename)
+    clean_filename = os.path.basename(filename)
+    disk_path = os.path.join(UPLOAD_DIR, clean_filename)
+
+    # 1. If file exists on local filesystem, serve it directly
+    if os.path.isfile(disk_path):
+        return send_from_directory(UPLOAD_DIR, clean_filename)
+
+    # 2. Resilient TiDB Cloud retrieval: If disk was wiped by Render restart/redeploy,
+    # pull image data from `durable_images` table, re-cache on disk, and stream.
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                "SELECT mime_type, image_data FROM durable_images WHERE filename = %s LIMIT 1",
+                (clean_filename,)
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+
+            if row and row.get("image_data"):
+                img_bytes = row["image_data"]
+                mime_type = row.get("mime_type") or "image/jpeg"
+
+                # Re-cache to local disk for fast subsequent reads
+                try:
+                    os.makedirs(UPLOAD_DIR, exist_ok=True)
+                    with open(disk_path, "wb") as f:
+                        f.write(img_bytes)
+                except Exception:
+                    pass
+
+                import io
+                from flask import send_file
+                return send_file(io.BytesIO(img_bytes), mimetype=mime_type)
+        except Exception as e:
+            print(f"[Durable Image] Database retrieval failed for {clean_filename}:", e)
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # 3. Fallback: Check if file exists in static/images
+    alt_static = os.path.join(app.root_path, "static", "images", clean_filename)
+    if os.path.isfile(alt_static):
+        return send_from_directory(os.path.join(app.root_path, "static", "images"), clean_filename)
+
+    return jsonify({"error": f"Image {clean_filename} not found"}), 404
 
 # Direct root files route (e.g. IMG-*.jpg, config.js, favicon)
 @app.route("/<filename>")
@@ -1332,7 +1501,10 @@ def user_login():
 def user_profile():
     if request.headers.get("Authorization"):
         # API request
-        return jsonify({"success": True, "user": IN_MEMORY_STORE["users"][0]})
+        u_id, u_data = get_current_user_profile()
+        if u_data:
+            return jsonify({"success": True, "user": u_data})
+        return jsonify({"success": False, "message": "Authentication required"}), 401
     return render_template("profile.html")
 
 @app.route("/admin")
@@ -1672,6 +1844,7 @@ def get_bikes_api():
     return resp
 
 @app.route("/api/bikes/sold", methods=["GET"])
+@app.route("/api/sold-bikes", methods=["GET"])
 def get_sold_bikes_api():
     """
     Public & Admin Sold Gallery Endpoint.
@@ -1859,7 +2032,9 @@ def add_bike_api():
                 import uuid
                 ext = f.filename.rsplit(".", 1)[1].lower()
                 sname = f"bike_{int(datetime.datetime.utcnow().timestamp())}_{idx+1}_{uuid.uuid4().hex[:6]}.{ext}"
-                f.save(os.path.join(UPLOAD_DIR, sname))
+                dest_fpath = os.path.join(UPLOAD_DIR, sname)
+                f.save(dest_fpath)
+                save_durable_image(sname, dest_fpath, f.mimetype)
                 uploaded_urls.append(f"/uploads/{sname}")
 
     # If images were passed as JSON or array of URLs in body
@@ -1914,6 +2089,30 @@ def add_bike_api():
     sname = data.get("seller_name") or data.get("sellerName") or "User"
     sphone = data.get("seller_phone") or data.get("mobileNum") or ""
     seller_id = data.get("seller_id") or session.get("user_id") or None
+    if not seller_id:
+        auth_hdr = request.headers.get("Authorization", "")
+        if auth_hdr and "Bearer" in auth_hdr:
+            try:
+                dec_tok = jwt.decode(auth_hdr.split()[1], JWT_SECRET, algorithms=["HS256"])
+                seller_id = dec_tok.get("id") or dec_tok.get("user_id")
+            except Exception:
+                pass
+
+    # Ensure seller_id exists in users table to satisfy foreign key constraint
+    if seller_id:
+        conn_chk = get_db()
+        if conn_chk:
+            try:
+                cur_chk = conn_chk.cursor()
+                cur_chk.execute("SELECT id FROM users WHERE id = %s LIMIT 1", (seller_id,))
+                if not cur_chk.fetchone():
+                    seller_id = None
+                cur_chk.close()
+                conn_chk.close()
+            except Exception:
+                if conn_chk:
+                    try: conn_chk.close()
+                    except Exception: pass
     # Check caller authentication to set status and listing_status correctly
     auth_header = request.headers.get("Authorization", "")
     is_admin_caller = False
@@ -3011,7 +3210,12 @@ def auth_demo_google_api():
     remember_me = bool(data.get("remember_me", True))
 
     import jwt
-    user = IN_MEMORY_STORE["users"][0]
+    user = find_or_create_google_user({
+        "google_id": "demo-google-user-001",
+        "name": "Praveen Demo Rider",
+        "email": "rider@smrmotors.com",
+        "profile_image": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80"
+    })
     payload = {
         "id": user["id"],
         "email": user["email"],
@@ -5368,7 +5572,7 @@ def admin_users_api():
                 try: conn.close()
                 except Exception: pass
 
-    if not all_users:
+    if not all_users and not get_db():
         all_users = IN_MEMORY_STORE["users"]
 
     filtered = []
@@ -5446,7 +5650,7 @@ def admin_get_user_profile(user_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not user:
+    if not user and not get_db():
         for u in IN_MEMORY_STORE["users"]:
             if u.get("id") == user_id:
                 user = u
@@ -6050,21 +6254,23 @@ def admin_staff_activity_api():
 
 @app.route("/api/admin/audit-logs", methods=["GET"])
 def admin_audit_logs_api():
+    rows = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
             cursor.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT 100")
-            rows = cursor.fetchall()
+            rows = cursor.fetchall() or []
             cursor.close()
             conn.close()
-            if rows:
-                return jsonify({"success": True, "data": rows})
+            return jsonify({"success": True, "data": rows})
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["audit_logs"]})
+    if not get_db():
+        rows = IN_MEMORY_STORE.get("audit_logs", [])
+    return jsonify({"success": True, "data": rows})
 
 # -----------------------------------------------------------------------------
 # 6-IMAGE GALLERY UPLOADER API (Requirement 7)
@@ -6107,7 +6313,9 @@ def upload_images_api():
 
         ext = f.filename.rsplit(".", 1)[1].lower()
         unique_name = f"bike_{int(datetime.datetime.utcnow().timestamp())}_{idx+1}_{uuid.uuid4().hex[:6]}.{ext}"
-        f.save(os.path.join(UPLOAD_DIR, unique_name))
+        dest_p = os.path.join(UPLOAD_DIR, unique_name)
+        f.save(dest_p)
+        save_durable_image(unique_name, dest_p, f.mimetype)
         saved_images.append({
             "url": f"/uploads/{unique_name}",
             "filename": unique_name,
@@ -6128,8 +6336,8 @@ def upload_images_api():
 @app.route("/api/users/dashboard", methods=["GET"])
 def user_dashboard_metrics():
     """
-    Returns real-time counts from TiDB Cloud:
-    Total, Pending, Approved, Rejected, Sold Out Listings & Pending Enquiries.
+    Returns real-time dashboard counts and recent listings for the current user from TiDB Cloud.
+    Guaranteed permanent database persistence. Never falls back to mock in-memory data.
     """
     stats = {
         "total_listings": 0,
@@ -6140,49 +6348,70 @@ def user_dashboard_metrics():
         "pending_enquiries": 0
     }
     recent_bikes = []
+    u_id, u_data = get_current_user_profile()
+    u_phone = (u_data.get("phone") or "").strip() if u_data else ""
+    u_name = (u_data.get("name") or "").strip() if u_data else ""
+    u_email = (u_data.get("email") or "").strip() if u_data else ""
+
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT
-                  COUNT(*) as total_listings,
-                  COUNT(CASE WHEN status = 'pending' AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as pending_listings,
-                  COUNT(CASE WHEN status IN ('approved', 'published') AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as approved_listings,
-                  COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_listings,
-                  COUNT(CASE WHEN status = 'soldout' OR isSoldout = 1 THEN 1 END) as sold_listings
-                FROM bikes
-            """)
-            row = cursor.fetchone()
-            if row:
-                for k, v in row.items():
-                    stats[k] = int(v or 0)
+            if u_id:
+                # Metrics for this user's listings
+                cursor.execute("""
+                    SELECT
+                      COUNT(*) as total_listings,
+                      COUNT(CASE WHEN status = 'pending' AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as pending_listings,
+                      COUNT(CASE WHEN status IN ('approved', 'published') AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as approved_listings,
+                      COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_listings,
+                      COUNT(CASE WHEN status = 'soldout' OR isSoldout = 1 THEN 1 END) as sold_listings
+                    FROM bikes
+                    WHERE seller_id = %s OR (seller_phone = %s AND %s != '') OR (seller_name = %s AND %s != '')
+                """, (u_id, u_phone, u_phone, u_name, u_name))
+                row = cursor.fetchone()
+                if row:
+                    for k, v in row.items():
+                        stats[k] = int(v or 0)
 
-            cursor.execute("SELECT COUNT(*) as pending_enquiries FROM enquiries WHERE status = 'pending'")
-            enq_row = cursor.fetchone()
-            if enq_row:
-                stats["pending_enquiries"] = int(enq_row.get("pending_enquiries") or 0)
+                cursor.execute("""
+                    SELECT COUNT(*) as pending_enquiries FROM enquiries
+                    WHERE status = 'pending' AND (email = %s OR mobile = %s)
+                """, (u_email, u_phone))
+                enq_row = cursor.fetchone()
+                if enq_row:
+                    stats["pending_enquiries"] = int(enq_row.get("pending_enquiries") or 0)
 
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC LIMIT 5")
-            recent_bikes = cursor.fetchall()
+                cursor.execute("""
+                    SELECT * FROM bikes
+                    WHERE seller_id = %s OR (seller_phone = %s AND %s != '') OR (seller_name = %s AND %s != '')
+                    ORDER BY id DESC LIMIT 5
+                """, (u_id, u_phone, u_phone, u_name, u_name))
+                recent_bikes = cursor.fetchall() or []
+            else:
+                # Unauthenticated overview
+                cursor.execute("""
+                    SELECT
+                      COUNT(*) as total_listings,
+                      COUNT(CASE WHEN status = 'pending' AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as pending_listings,
+                      COUNT(CASE WHEN status IN ('approved', 'published') AND (isSoldout IS NULL OR isSoldout = 0) THEN 1 END) as approved_listings,
+                      COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected_listings,
+                      COUNT(CASE WHEN status = 'soldout' OR isSoldout = 1 THEN 1 END) as sold_listings
+                    FROM bikes
+                """)
+                row = cursor.fetchone()
+                if row:
+                    for k, v in row.items():
+                        stats[k] = int(v or 0)
+                recent_bikes = []
+
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
+            print("[Database] user_dashboard_metrics error:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
-
-    if not recent_bikes:
-        bikes = IN_MEMORY_STORE["bikes"]
-        stats = {
-            "total_listings": len(bikes),
-            "pending_listings": len([b for b in bikes if b.get("status") == "pending"]),
-            "approved_listings": len([b for b in bikes if b.get("status") in ("approved", "published")]),
-            "rejected_listings": len([b for b in bikes if b.get("status") == "rejected"]),
-            "sold_listings": len([b for b in bikes if b.get("status") == "soldout" or b.get("isSoldout") == 1]),
-            "pending_enquiries": len(IN_MEMORY_STORE["enquiries"])
-        }
-        recent_bikes = bikes[:5]
 
     return jsonify({
         "success": True,
@@ -6194,6 +6423,9 @@ def user_dashboard_metrics():
 
 @app.route("/api/users/listings", methods=["GET"])
 def user_my_listings():
+    """
+    Returns paginated motorcycle listings belonging strictly to the current user.
+    """
     status_filter = (request.args.get("status") or "").strip().lower()
     try:
         page = max(1, int(request.args.get("page", 1)))
@@ -6204,23 +6436,36 @@ def user_my_listings():
     except (ValueError, TypeError):
         limit = 6
 
+    u_id, u_data = get_current_user_profile()
+    if not u_id:
+        return jsonify({
+            "success": True,
+            "data": [],
+            "bikes": [],
+            "pagination": {"total": 0, "page": page, "limit": limit, "totalPages": 1, "hasNext": False, "hasPrev": False, "start": 0, "end": 0}
+        })
+
+    u_phone = (u_data.get("phone") or "").strip() if u_data else ""
+    u_name = (u_data.get("name") or "").strip() if u_data else ""
+
     bikes = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            rows = cursor.fetchall()
-            if rows: bikes = rows
+            cursor.execute("""
+                SELECT * FROM bikes
+                WHERE seller_id = %s OR (seller_phone = %s AND %s != '') OR (seller_name = %s AND %s != '')
+                ORDER BY id DESC
+            """, (u_id, u_phone, u_phone, u_name, u_name))
+            bikes = cursor.fetchall() or []
             cursor.close()
             conn.close()
-        except Exception:
+        except Exception as e:
+            print("[Database] user_my_listings error:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
-
-    if not bikes:
-        bikes = IN_MEMORY_STORE["bikes"]
 
     normalized = [_normalize_bike(b, is_admin=False) for b in bikes]
 
@@ -6258,32 +6503,73 @@ def user_my_listings():
 
 @app.route("/api/users/negotiations", methods=["GET"])
 def user_my_negotiations():
-    bikes = [_normalize_bike(b, is_admin=False) for b in IN_MEMORY_STORE["bikes"]]
-    negs = [b for b in bikes if b.get("listing_status") in ("price_offered", "seller_accepted", "seller_rejected")]
-    return jsonify({"success": True, "data": negs})
+    """Returns price negotiations for the current user's listings."""
+    u_id, u_data = get_current_user_profile()
+    if not u_id:
+        return jsonify({"success": True, "data": []})
 
-@app.route("/api/users/enquiries", methods=["GET"])
-def user_my_enquiries():
-    enqs = []
+    u_phone = (u_data.get("phone") or "").strip() if u_data else ""
+    u_name = (u_data.get("name") or "").strip() if u_data else ""
+
+    negs = []
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC LIMIT 50")
-            enqs = cursor.fetchall()
+            cursor.execute("""
+                SELECT * FROM bikes
+                WHERE (seller_id = %s OR (seller_phone = %s AND %s != '') OR (seller_name = %s AND %s != ''))
+                  AND listing_status IN ('price_offered', 'seller_accepted', 'seller_rejected')
+                ORDER BY id DESC
+            """, (u_id, u_phone, u_phone, u_name, u_name))
+            rows = cursor.fetchall() or []
+            negs = [_normalize_bike(b, is_admin=False) for b in rows]
             cursor.close()
             conn.close()
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-    if not enqs:
-        enqs = IN_MEMORY_STORE["enquiries"]
+
+    return jsonify({"success": True, "data": negs})
+
+@app.route("/api/users/enquiries", methods=["GET"])
+def user_my_enquiries():
+    """Returns enquiries submitted by or relating to the current user."""
+    u_id, u_data = get_current_user_profile()
+    enqs = []
+    if u_data:
+        u_email = (u_data.get("email") or "").strip()
+        u_phone = (u_data.get("phone") or "").strip()
+        conn = get_db()
+        if conn:
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("""
+                    SELECT * FROM enquiries
+                    WHERE email = %s OR (mobile = %s AND %s != '') OR customer_id = %s
+                    ORDER BY id DESC LIMIT 50
+                """, (u_email, u_phone, u_phone, u_id))
+                enqs = cursor.fetchall() or []
+                cursor.close()
+                conn.close()
+            except Exception:
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+
     return jsonify({"success": True, "data": enqs, "enquiries": enqs})
 
 @app.route("/api/users/favorites", methods=["GET", "POST"])
 def user_favorites_api():
-    user_id = session.get("user_id") or 1
+    """
+    Manages favorite bikes permanently in TiDB Cloud favorites table.
+    Never falls back to mock demo bikes when empty.
+    """
+    u_id, _ = get_current_user_profile()
+    if not u_id:
+        u_id = session.get("user_id") or 1
+
     if request.method == "POST":
         data = request.get_json() or {}
         bike_id = data.get("bike_id")
@@ -6294,13 +6580,13 @@ def user_favorites_api():
         if conn:
             try:
                 cursor = conn.cursor()
-                cursor.execute("SELECT id FROM favorites WHERE user_id = %s AND bike_id = %s", (user_id, bike_id))
+                cursor.execute("SELECT id FROM favorites WHERE user_id = %s AND bike_id = %s", (u_id, bike_id))
                 existing = cursor.fetchone()
                 if existing:
-                    cursor.execute("DELETE FROM favorites WHERE user_id = %s AND bike_id = %s", (user_id, bike_id))
+                    cursor.execute("DELETE FROM favorites WHERE user_id = %s AND bike_id = %s", (u_id, bike_id))
                     is_fav = False
                 else:
-                    cursor.execute("INSERT INTO favorites (user_id, bike_id) VALUES (%s, %s)", (user_id, bike_id))
+                    cursor.execute("INSERT INTO favorites (user_id, bike_id) VALUES (%s, %s)", (u_id, bike_id))
                     is_fav = True
                 conn.commit()
                 cursor.close()
@@ -6322,35 +6608,42 @@ def user_favorites_api():
                 JOIN bikes b ON f.bike_id = b.id
                 WHERE f.user_id = %s
                 ORDER BY f.id DESC
-            """, (user_id,))
-            fav_bikes = cursor.fetchall()
+            """, (u_id,))
+            fav_bikes = cursor.fetchall() or []
             cursor.close()
             conn.close()
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-    if not fav_bikes:
-        fav_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("featured") == 1]
+
     return jsonify({"success": True, "data": [_normalize_bike(b, is_admin=False) for b in fav_bikes]})
 
 @app.route("/api/users/notifications", methods=["GET"])
 def user_notifications_api():
+    """Returns persistent notifications for the current user from TiDB Cloud."""
+    u_id, _ = get_current_user_profile()
     conn = get_db()
     notifs = []
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM notifications WHERE target_role = 'user' ORDER BY id DESC LIMIT 30")
-            notifs = cursor.fetchall()
+            if u_id:
+                cursor.execute("""
+                    SELECT * FROM notifications
+                    WHERE target_role = 'user' AND (user_id IS NULL OR user_id = %s)
+                    ORDER BY id DESC LIMIT 30
+                """, (u_id,))
+            else:
+                cursor.execute("SELECT * FROM notifications WHERE target_role = 'user' ORDER BY id DESC LIMIT 30")
+            notifs = cursor.fetchall() or []
             cursor.close()
             conn.close()
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-    if not notifs:
-        notifs = [n for n in IN_MEMORY_STORE.get("notifications", []) if n.get("target_role") == "user"]
+
     return jsonify({"success": True, "data": notifs, "notifications": notifs})
 
 @app.route("/api/users/notifications/<int:notif_id>/read", methods=["PUT", "POST"])
@@ -6367,18 +6660,19 @@ def user_mark_notification_read(notif_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
-    for n in IN_MEMORY_STORE.get("notifications", []):
-        if n.get("id") == notif_id:
-            n["is_read"] = 1
     return jsonify({"success": True, "message": "Notification marked as read"})
 
 @app.route("/api/users/notifications/read-all", methods=["PUT", "POST"])
 def user_mark_all_notifications_read():
+    u_id, _ = get_current_user_profile()
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor()
-            cursor.execute("UPDATE notifications SET is_read = 1 WHERE target_role = 'user'")
+            if u_id:
+                cursor.execute("UPDATE notifications SET is_read = 1 WHERE target_role = 'user' AND (user_id IS NULL OR user_id = %s)", (u_id,))
+            else:
+                cursor.execute("UPDATE notifications SET is_read = 1 WHERE target_role = 'user'")
             conn.commit()
             cursor.close()
             conn.close()
@@ -6386,20 +6680,52 @@ def user_mark_all_notifications_read():
             if conn:
                 try: conn.close()
                 except Exception: pass
-    for n in IN_MEMORY_STORE.get("notifications", []):
-        if n.get("target_role") == "user":
-            n["is_read"] = 1
     return jsonify({"success": True, "message": "All notifications marked as read"})
 
 @app.route("/api/users/profile", methods=["GET", "PUT"])
 def user_profile_api():
+    """
+    Manages user profile permanently in TiDB Cloud MySQL users table.
+    Updates name and phone, commits to database, and returns fresh record.
+    """
+    u_id, u_data = get_current_user_profile()
+    if not u_id or not u_data:
+        return jsonify({"success": False, "message": "Authentication required. Please sign in."}), 401
+
     if request.method == "PUT":
         data = request.get_json() or {}
-        user = IN_MEMORY_STORE["users"][0]
-        if "name" in data: user["name"] = data["name"]
-        if "phone" in data: user["phone"] = data["phone"]
-        return jsonify({"success": True, "message": "Profile updated successfully", "user": user})
-    return jsonify({"success": True, "user": IN_MEMORY_STORE["users"][0]})
+        new_name = (data.get("name") or "").strip()
+        new_phone = (data.get("phone") or "").strip()
+
+        conn = get_db()
+        if conn:
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("""
+                    UPDATE users
+                    SET name = CASE WHEN %s != '' THEN %s ELSE name END,
+                        phone = CASE WHEN %s != '' THEN %s ELSE phone END,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                """, (new_name, new_name, new_phone, new_phone, u_id))
+                conn.commit()
+
+                cursor.execute("SELECT id, google_id, name, email, profile_image, phone, role, is_active, created_at FROM users WHERE id = %s LIMIT 1", (u_id,))
+                fresh_user = cursor.fetchone()
+                cursor.close()
+                conn.close()
+                if fresh_user:
+                    u_data = fresh_user
+            except Exception as e:
+                print("[Database] Profile update error:", e)
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+                return jsonify({"success": False, "message": f"Database update error: {str(e)}"}), 500
+
+        return jsonify({"success": True, "message": "Profile updated successfully", "user": u_data})
+
+    return jsonify({"success": True, "user": u_data})
 
 
 # Legacy Gallery & Attachments Uploads
@@ -6414,7 +6740,9 @@ def upload_files_legacy():
         if f.filename:
             from werkzeug.utils import secure_filename
             fn = f"{int(datetime.datetime.utcnow().timestamp())}-{secure_filename(f.filename)}"
-            f.save(os.path.join(UPLOAD_DIR, fn))
+            dest_leg = os.path.join(UPLOAD_DIR, fn)
+            f.save(dest_leg)
+            save_durable_image(fn, dest_leg, f.mimetype)
             saved.append([fn, f"/uploads/{fn}"])
     return jsonify({"message": "Files uploaded successfully", "files": saved})
 
@@ -6646,6 +6974,7 @@ def create_chat_conversation():
                 return jsonify({
                     "success": True,
                     "conversation_id": conv_id,
+                    "conversation": {"id": conv_id, "subject": subject},
                     "message_id": new_msg_id,
                     "reused_existing": True,
                     "message": "Message sent successfully"
@@ -6686,6 +7015,7 @@ def create_chat_conversation():
         return jsonify({
             "success": True,
             "conversation_id": conv_id,
+            "conversation": {"id": conv_id, "subject": subject},
             "message_id": new_msg_id,
             "message": "Conversation started successfully"
         }), 201

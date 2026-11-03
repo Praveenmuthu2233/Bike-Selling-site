@@ -258,3 +258,14 @@ CREATE TABLE IF NOT EXISTS `chat_read_status` (
   INDEX `idx_crs_conv` (`conversation_id`),
   INDEX `idx_crs_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 12. Durable Persistent Images Table (Survives Render Container Restarts & Redeployments)
+CREATE TABLE IF NOT EXISTS `durable_images` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `filename` VARCHAR(255) NOT NULL UNIQUE,
+  `mime_type` VARCHAR(100) NOT NULL DEFAULT 'image/jpeg',
+  `file_size` INT NOT NULL DEFAULT 0,
+  `image_data` LONGBLOB NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_di_filename` (`filename`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
