@@ -64,6 +64,15 @@
   <script src="{{ url_for('static', filename='config.js') }}"></script>
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token');
+      if (!token) {
+        window.location.href = "{{ url_for('admin_login_page') }}";
+        return;
+      }
+      loadAllBikeListings();
+    });
+
     async function loadAllBikeListings() {
       const tbody = document.getElementById('sellingBikeDetailsAdmin');
       try {

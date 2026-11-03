@@ -28,26 +28,49 @@ const AuthService = {
     }
   },
 
-  async verifySession() {
-    const token = this.getToken();
-    if (!token) return null;
+  async checkRememberedSession() {
     try {
-      const res = await apiRequest('/api/auth/me', { skipAuthRedirect: true });
-      if (res.success && res.user) {
-        localStorage.setItem('user', JSON.stringify(res.user));
-        return res.user;
+      const res = await fetch('/api/auth/remembered-session');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.user && data.token) {
+          this.setSession(data.token, data.user);
+          return data.user;
+        }
       }
     } catch (e) {
-      this.clearSession();
+      console.warn('[Remembered Session Check]:', e);
     }
     return null;
   },
 
-  async handleGoogleCredential(credential) {
+  async verifySession() {
+    const token = this.getToken();
+    if (token) {
+      try {
+        const res = await apiRequest('/api/auth/me', { skipAuthRedirect: true });
+        if (res.success && res.user) {
+          localStorage.setItem('user', JSON.stringify(res.user));
+          return res.user;
+        }
+      } catch (e) {
+        // Token might have expired, try persistent 7-day cookie next
+      }
+    }
+
+    // Try auto-restoring from 7-day persistent session cookie
+    const restored = await this.checkRememberedSession();
+    if (restored) return restored;
+
+    this.clearSession();
+    return null;
+  },
+
+  async handleGoogleCredential(credential, rememberMe = true) {
     try {
       const res = await apiRequest('/api/auth/google', {
         method: 'POST',
-        body: { credential }
+        body: { credential, remember_me: rememberMe }
       });
 
       if (res.success) {
@@ -64,9 +87,12 @@ const AuthService = {
     }
   },
 
-  async demoLogin() {
+  async demoLogin(rememberMe = true) {
     try {
-      const res = await apiRequest('/api/auth/demo-google', { method: 'POST' });
+      const res = await apiRequest('/api/auth/demo-google', {
+        method: 'POST',
+        body: { remember_me: rememberMe }
+      });
       if (res.success) {
         this.setSession(res.token, res.user);
         showToast('Demo account activated!', 'success');
@@ -81,7 +107,10 @@ const AuthService = {
     }
   },
 
-  logout() {
+  async logout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {}
     this.clearSession();
     showToast('Signed out safely', 'info');
     setTimeout(() => {
@@ -157,7 +186,8 @@ async function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
         client_id: clientId,
         callback: (response) => {
           if (response && response.credential) {
-            AuthService.handleGoogleCredential(response.credential);
+            const rememberMe = document.getElementById('remember-me-checkbox') ? document.getElementById('remember-me-checkbox').checked : (localStorage.getItem('smr_remember_me_pref') !== '0');
+            AuthService.handleGoogleCredential(response.credential, rememberMe);
           }
         },
         error_callback: (err) => {

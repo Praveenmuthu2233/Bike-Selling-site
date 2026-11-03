@@ -47,6 +47,15 @@
         <!-- Google OAuth Diagnostic Banner (Displayed on Error 400 origin_mismatch) -->
         <div id="oauth-diagnostic-banner" style="display: none;"></div>
 
+        <!-- Remember Me Checkbox (7-Day Persistent Session) -->
+        <div class="auth-remember-row" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; font-size:0.88rem; background:rgba(255,255,255,0.04); padding:0.6rem 0.85rem; border-radius:8px; border:1px solid var(--border-subtle);">
+          <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer; color:var(--text-primary); user-select:none;">
+            <input type="checkbox" id="remember-me-checkbox" checked style="accent-color:var(--accent-primary); width:16px; height:16px; cursor:pointer;">
+            <span>Remember me for 7 days</span>
+          </label>
+          <span style="font-size:0.78rem; color:var(--text-muted);"><i class="fas fa-shield-alt"></i> HttpOnly Cookie</span>
+        </div>
+
         <!-- Google OAuth 2.0 GIS Button Container -->
         <div id="google-signin-btn" style="display: flex; justify-content: center; min-height: 44px; margin-bottom: 1rem;">
           <!-- Rendered by Google Identity Services -->
@@ -108,16 +117,41 @@
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const user = AuthService.getUser();
-      if (user) {
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Check if redirected here with expired session flag
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('expired') === '1' || params.get('session_expired') === '1') {
+        showToast('Your session has expired. Please sign in to continue.', 'info');
+      }
+
+      // Check for active session or 7-day remembered persistent cookie
+      const existingUser = AuthService.getUser();
+      if (existingUser) {
         window.location.href = "{{ url_for('user_profile') }}";
         return;
       }
+
+      // Attempt to auto-restore from 7-day remembered persistent cookie
+      try {
+        const restored = await AuthService.checkRememberedSession();
+        if (restored) {
+          showToast('Welcome back! Restoring your session...', 'success');
+          setTimeout(() => {
+            window.location.href = "{{ url_for('user_profile') }}";
+          }, 400);
+          return;
+        }
+      } catch (e) {
+        console.warn('Remembered session check note:', e);
+      }
+
       setTimeout(() => initGoogleAuth('google-signin-btn'), 300);
     });
 
     function triggerGoogleSignInPrompt() {
+      const rememberMe = document.getElementById('remember-me-checkbox') ? document.getElementById('remember-me-checkbox').checked : true;
+      localStorage.setItem('smr_remember_me_pref', rememberMe ? '1' : '0');
+
       if (window.google && window.google.accounts) {
         window.google.accounts.id.prompt((notification) => {
           if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
@@ -129,7 +163,7 @@
           }
         });
       } else {
-        AuthService.demoLogin();
+        AuthService.demoLogin(rememberMe);
       }
     }
   </script>

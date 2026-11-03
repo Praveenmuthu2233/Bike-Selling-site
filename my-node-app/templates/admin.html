@@ -875,41 +875,144 @@
              TAB 11: REPORTS & EXPORTS
              ================================================== -->
         <section class="admin-tab-pane" id="tab-reports">
-          <div class="dashboard-split-grid">
+          <div class="dashboard-split-grid" style="grid-template-columns: 2fr 1fr;">
+            <!-- Report Generator Box -->
             <div class="content-card">
-              <div class="content-card-header">
-                <div class="content-card-title"><i class="fas fa-file-export"></i> Data Export Center</div>
+              <div class="content-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <div class="content-card-title"><i class="fas fa-file-invoice" style="color:var(--admin-primary);"></i> Professional Report & Export Generator</div>
+                <span class="badge badge-approved" id="reports-role-badge">SUPERADMIN FULL ACCESS</span>
               </div>
               <div class="content-card-body">
-                <p style="font-size:0.85rem; color:var(--admin-text-secondary); margin-bottom:1.25rem;">
-                  Export comprehensive dealership inventory, completed transactions, and audit reports to CSV spreadsheets.
+                <p style="font-size:0.88rem; color:var(--admin-text-secondary); margin-bottom:1.5rem;">
+                  Generate branded PDF dossiers and formatted Excel spreadsheets with active filters, currency formatting, and executive totals.
                 </p>
-                <div style="display:flex; flex-direction:column; gap:0.75rem;">
-                  <button class="btn-table-action" onclick="downloadReport('bikes', 'csv')" style="height:44px; justify-content:center; font-weight:700;">
-                    <i class="fas fa-download" style="color:var(--admin-primary);"></i> Export Complete Motorcycle Inventory (CSV)
+
+                <!-- Filter Controls Grid -->
+                <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:1rem; margin-bottom:1.5rem; background:#F8FAFC; padding:1.25rem; border-radius:var(--radius-md); border:1px solid var(--admin-card-border);">
+                  <!-- 1. Report Type -->
+                  <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--admin-text-primary); margin-bottom:0.4rem;">
+                      <i class="fas fa-layer-group" style="color:var(--admin-primary);"></i> Select Report Type
+                    </label>
+                    <select id="report-type-select" class="form-control" onchange="handleReportTypeChange()" style="height:42px; font-weight:600;">
+                      <option value="listings">Vehicle Inventory & Listings Report</option>
+                      <option value="sold">Sold Out Motorcycles Report</option>
+                      <option value="financial" id="report-opt-financial">Executive Financial & Profit Ledger (Superadmin)</option>
+                    </select>
+                  </div>
+
+                  <!-- 2. Date Filter Preset -->
+                  <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--admin-text-primary); margin-bottom:0.4rem;">
+                      <i class="fas fa-calendar-alt" style="color:var(--admin-primary);"></i> Time Period Filter
+                    </label>
+                    <select id="report-preset-select" class="form-control" onchange="handleReportPresetChange()" style="height:42px;">
+                      <option value="all">All Available Records</option>
+                      <option value="today">Today</option>
+                      <option value="yesterday">Yesterday</option>
+                      <option value="last_7_days">Last 7 Days</option>
+                      <option value="last_30_days">Last 30 Days</option>
+                      <option value="last_month">Last Month</option>
+                      <option value="custom">Custom Date Range...</option>
+                    </select>
+                  </div>
+
+                  <!-- 3. Status Filter -->
+                  <div id="report-status-group">
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--admin-text-primary); margin-bottom:0.4rem;">
+                      <i class="fas fa-filter" style="color:var(--admin-primary);"></i> Listing Status
+                    </label>
+                    <select id="report-status-select" class="form-control" style="height:42px;">
+                      <option value="all">All Statuses</option>
+                      <option value="approved">Approved & Published</option>
+                      <option value="pending">Pending Approval</option>
+                      <option value="sold">Sold Out</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  <!-- 4. Brand Filter -->
+                  <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--admin-text-primary); margin-bottom:0.4rem;">
+                      <i class="fas fa-tags" style="color:var(--admin-primary);"></i> Brand
+                    </label>
+                    <select id="report-brand-select" class="form-control" style="height:42px;">
+                      <option value="all">All Brands</option>
+                      <option value="Yamaha">Yamaha</option>
+                      <option value="Honda">Honda</option>
+                      <option value="Royal Enfield">Royal Enfield</option>
+                      <option value="Bajaj">Bajaj</option>
+                      <option value="KTM">KTM</option>
+                      <option value="TVS">TVS</option>
+                      <option value="Hero">Hero</option>
+                      <option value="Suzuki">Suzuki</option>
+                      <option value="Kawasaki">Kawasaki</option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- Custom Date Range Row (Hidden unless 'custom' selected) -->
+                <div id="report-custom-dates" style="display:none; grid-template-columns: 1fr 1fr; gap:1rem; margin-bottom:1.5rem; background:#FFF; padding:1rem; border-radius:var(--radius-md); border:1px solid #CBD5E1;">
+                  <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--admin-text-secondary); margin-bottom:0.25rem;">Start Date</label>
+                    <input type="date" id="report-start-date" class="form-control" style="height:38px;">
+                  </div>
+                  <div>
+                    <label style="display:block; font-size:0.8rem; font-weight:600; color:var(--admin-text-secondary); margin-bottom:0.25rem;">End Date</label>
+                    <input type="date" id="report-end-date" class="form-control" style="height:38px;">
+                  </div>
+                </div>
+
+                <!-- Search Query Input -->
+                <div style="margin-bottom:1.5rem;">
+                  <label style="display:block; font-size:0.8rem; font-weight:700; color:var(--admin-text-primary); margin-bottom:0.4rem;">
+                    <i class="fas fa-search" style="color:var(--admin-primary);"></i> Keyword Search (Optional)
+                  </label>
+                  <input type="text" id="report-search-input" class="form-control" placeholder="Search by model, brand, seller name, or mobile number..." style="height:42px;">
+                </div>
+
+                <!-- Action Download Buttons -->
+                <div style="display:flex; flex-wrap:wrap; gap:1rem; padding-top:1rem; border-top:1px solid var(--admin-card-border);">
+                  <button id="btn-export-pdf" onclick="triggerReportDownload('pdf')" class="btn-primary" style="flex:1; min-width:180px; height:46px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                    <i class="fas fa-file-pdf"></i> Download PDF Report
                   </button>
-                  <button class="btn-table-action" onclick="downloadReport('sold', 'csv')" style="height:44px; justify-content:center; font-weight:700;">
-                    <i class="fas fa-file-invoice-dollar" style="color:var(--admin-success);"></i> Export Completed Sales & Financials (CSV)
+                  <button id="btn-export-excel" onclick="triggerReportDownload('xlsx')" class="btn-secondary" style="flex:1; min-width:180px; height:46px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:0.5rem; background:#10B981; color:#FFF; border-color:#10B981;">
+                    <i class="fas fa-file-excel"></i> Download Excel (.xlsx)
                   </button>
-                  <button class="btn-table-action" onclick="downloadReport('enquiries', 'csv')" style="height:44px; justify-content:center; font-weight:700;">
-                    <i class="fas fa-comments" style="color:var(--admin-info);"></i> Export Customer Enquiries Report (CSV)
+                  <button id="btn-export-csv" onclick="triggerReportDownload('csv')" class="btn-secondary" style="flex:1; min-width:140px; height:46px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:0.5rem;">
+                    <i class="fas fa-file-csv"></i> Download CSV
                   </button>
                 </div>
               </div>
             </div>
 
-            <div class="content-card">
-              <div class="content-card-header">
-                <div class="content-card-title"><i class="fas fa-shield-halved"></i> Audit Verification</div>
-              </div>
-              <div class="content-card-body">
-                <p style="font-size:0.85rem; color:var(--admin-text-secondary); margin-bottom:1.25rem;">
-                  All administrative actions (pricing updates, approvals, rejections, user toggles) are permanently logged in TiDB Cloud.
-                </p>
-                <div id="reports-audit-preview" style="display:flex; flex-direction:column; gap:0.6rem; font-size:0.82rem;">
-                  <div style="padding:0.75rem; background:#F8FAFC; border-radius:var(--radius-md); border:1px solid var(--admin-card-border);">
-                    <i class="fas fa-check-double" style="color:var(--admin-success); margin-right:4px;"></i> TiDB Audit Log System Active & Resilient.
+            <!-- Report Details & RBAC Info Sidebar -->
+            <div style="display:flex; flex-direction:column; gap:1rem;">
+              <div class="content-card">
+                <div class="content-card-header">
+                  <div class="content-card-title"><i class="fas fa-shield-alt"></i> Access & Security Rules</div>
+                </div>
+                <div class="content-card-body" style="font-size:0.84rem; line-height:1.6; color:var(--admin-text-secondary);">
+                  <div style="margin-bottom:0.75rem;">
+                    <strong style="color:var(--admin-text-primary);">Role-Based Export Access:</strong>
                   </div>
+                  <ul style="padding-left:1.2rem; margin-bottom:1rem;">
+                    <li><strong>Staff Admins:</strong> Can export Inventory &amp; Sold-Out lists. Payouts and realized profits are strictly redacted.</li>
+                    <li><strong>Superadmins:</strong> Full access to executive Financial &amp; Profit Audit ledgers, payout totals, and profit margins.</li>
+                  </ul>
+                  <div style="padding:0.75rem; background:#FFFBEB; border-left:4px solid #F59E0B; border-radius:4px; font-size:0.8rem; color:#92400E;">
+                    <i class="fas fa-lock"></i> Financial reports enforce strict HTTP 403 Forbidden validation on backend APIs.
+                  </div>
+                </div>
+              </div>
+
+              <div class="content-card">
+                <div class="content-card-header">
+                  <div class="content-card-title"><i class="fas fa-check-circle" style="color:var(--admin-success);"></i> Report Specifications</div>
+                </div>
+                <div class="content-card-body" style="font-size:0.82rem; color:var(--admin-text-secondary); line-height:1.5;">
+                  <div>&bull; <strong>PDF Layout:</strong> Landscape A4, branded SMR MOTORS headers, Page X of Y numbering, Indian currency formatting (₹).</div>
+                  <div style="margin-top:0.4rem;">&bull; <strong>Excel Workbook:</strong> Header frozen panes, zebra striping, bold summary totals, auto-fitted column widths.</div>
                 </div>
               </div>
             </div>
@@ -1542,14 +1645,14 @@
     async function loadAdminDashboard() {
       try {
         const res = await apiRequest('/api/admin/dashboard');
-        const s = res.stats || {};
+        const s = res.stats || res.counts || (res.data && (res.data.stats || res.data.counts)) || {};
 
-        document.getElementById('stat-total-bikes').textContent = s.total_bikes || 0;
-        document.getElementById('stat-pending-bikes').textContent = s.pending_bikes || 0;
-        document.getElementById('stat-approved-bikes').textContent = s.approved_bikes || 0;
-        document.getElementById('stat-sold-bikes').textContent = s.sold_bikes || 0;
-        document.getElementById('stat-total-users').textContent = s.total_users || 0;
-        document.getElementById('stat-total-enquiries').textContent = s.total_enquiries || 0;
+        document.getElementById('stat-total-bikes').textContent = (s.total_bikes != null ? s.total_bikes : 0);
+        document.getElementById('stat-pending-bikes').textContent = (s.pending_bikes != null ? s.pending_bikes : 0);
+        document.getElementById('stat-approved-bikes').textContent = (s.approved_bikes != null ? s.approved_bikes : 0);
+        document.getElementById('stat-sold-bikes').textContent = (s.sold_bikes != null ? s.sold_bikes : 0);
+        document.getElementById('stat-total-users').textContent = (s.total_users != null ? s.total_users : 0);
+        document.getElementById('stat-total-enquiries').textContent = (s.total_enquiries != null ? s.total_enquiries : 0);
 
         // Pending badge in sidebar
         const pendBadge = document.getElementById('nav-badge-pending');
@@ -1564,6 +1667,24 @@
           const prof = s.total_profit || 0;
           document.getElementById('fin-stat-revenue').textContent = `₹${rev.toLocaleString('en-IN')}`;
           document.getElementById('fin-stat-profit').textContent = `₹${prof.toLocaleString('en-IN')}`;
+          const rBadge = document.getElementById('reports-role-badge');
+          if (rBadge) {
+            rBadge.textContent = 'SUPERADMIN FULL ACCESS';
+            rBadge.className = 'badge badge-approved';
+          }
+          const finOpt = document.getElementById('report-opt-financial');
+          if (finOpt) finOpt.disabled = false;
+        } else {
+          const rBadge = document.getElementById('reports-role-badge');
+          if (rBadge) {
+            rBadge.textContent = 'STAFF ADMIN LIMITED ACCESS';
+            rBadge.className = 'badge badge-pending';
+          }
+          const finOpt = document.getElementById('report-opt-financial');
+          if (finOpt) {
+            finOpt.disabled = true;
+            finOpt.textContent = 'Executive Financial & Profit Ledger (Superadmin Only)';
+          }
         }
 
         // Inventory Distribution Progress Bars
@@ -2745,11 +2866,105 @@
       }
     }
 
-    // Reports Download
+    // Reports Download & Generator Handlers
+    function handleReportTypeChange() {
+      const type = document.getElementById('report-type-select').value;
+      const statusGroup = document.getElementById('report-status-group');
+      if (statusGroup) {
+        statusGroup.style.display = (type === 'listings') ? 'block' : 'none';
+      }
+    }
+
+    function handleReportPresetChange() {
+      const preset = document.getElementById('report-preset-select').value;
+      const customDates = document.getElementById('report-custom-dates');
+      if (customDates) {
+        customDates.style.display = (preset === 'custom') ? 'grid' : 'none';
+      }
+    }
+
+    async function triggerReportDownload(format = 'pdf') {
+      const typeEl = document.getElementById('report-type-select');
+      const type = typeEl ? typeEl.value : 'listings';
+      const presetEl = document.getElementById('report-preset-select');
+      const preset = presetEl ? presetEl.value : 'all';
+      const statusEl = document.getElementById('report-status-select');
+      const status = statusEl ? statusEl.value : 'all';
+      const brandEl = document.getElementById('report-brand-select');
+      const brand = brandEl ? brandEl.value : 'all';
+      const searchEl = document.getElementById('report-search-input');
+      const search = searchEl ? searchEl.value.trim() : '';
+      const startDate = document.getElementById('report-start-date') ? document.getElementById('report-start-date').value : '';
+      const endDate = document.getElementById('report-end-date') ? document.getElementById('report-end-date').value : '';
+
+      const btnId = format === 'pdf' ? 'btn-export-pdf' : (format === 'xlsx' ? 'btn-export-excel' : 'btn-export-csv');
+      const btn = document.getElementById(btnId);
+      const originalText = btn ? btn.innerHTML : '';
+
+      try {
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Generating ${format.toUpperCase()}...`;
+        }
+
+        const params = new URLSearchParams({
+          type,
+          format,
+          preset,
+          status,
+          brand,
+          search,
+          start_date: startDate,
+          end_date: endDate
+        });
+
+        const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token');
+        if (token) params.set('token', token);
+
+        const res = await fetch(`/api/admin/reports/export?${params.toString()}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+
+        if (res.status === 403) {
+          showToast('Access Forbidden: Financial reports are restricted strictly to Superadmin.', 'error');
+          return;
+        }
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({ message: 'Download failed' }));
+          throw new Error(errData.message || 'Report download failed');
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        const ext = format === 'xlsx' ? 'xlsx' : (format === 'pdf' ? 'pdf' : 'csv');
+        a.download = `smr_${type}_report_${Date.now()}.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(blobUrl);
+
+        showToast(`${format.toUpperCase()} Report downloaded successfully!`, 'success');
+      } catch (err) {
+        showToast(err.message || 'Report generation error', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = originalText;
+        }
+      }
+    }
+
     function downloadReport(reportType, format = 'csv') {
-      const token = localStorage.getItem('admin_token');
-      const endpoint = reportType === 'sold' ? '/api/admin/export/sold' : '/api/admin/export/bikes';
-      window.location.href = `${endpoint}?format=${format}&token=${encodeURIComponent(token || '')}`;
+      const typeMap = { 'bikes': 'listings', 'sold': 'sold', 'financial': 'financial' };
+      const select = document.getElementById('report-type-select');
+      if (select) {
+        select.value = typeMap[reportType] || 'listings';
+        handleReportTypeChange();
+      }
+      triggerReportDownload(format);
     }
 
     // Global Search Handler

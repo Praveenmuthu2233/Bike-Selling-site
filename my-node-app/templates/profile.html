@@ -258,6 +258,15 @@
           <button onclick="switchUserTab('user-tab-add-bike', document.querySelectorAll('.user-nav-link')[2])" class="btn btn-primary"><i class="fas fa-plus"></i> List Another Bike</button>
         </div>
 
+        <!-- Status Filters (Pending Review, Approved, Rejected, Sold Out) -->
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; flex-wrap: wrap;">
+          <button onclick="filterUserListings('all', this)" class="btn btn-sm btn-primary user-listing-filter active">All Listings</button>
+          <button onclick="filterUserListings('pending', this)" class="btn btn-sm btn-outline user-listing-filter"><i class="fas fa-clock" style="color:#F59E0B;"></i> Pending Review</button>
+          <button onclick="filterUserListings('approved', this)" class="btn btn-sm btn-outline user-listing-filter"><i class="fas fa-check-circle" style="color:#10B981;"></i> Approved &amp; Live</button>
+          <button onclick="filterUserListings('rejected', this)" class="btn btn-sm btn-outline user-listing-filter"><i class="fas fa-times-circle" style="color:#EF4444;"></i> Rejected</button>
+          <button onclick="filterUserListings('sold', this)" class="btn btn-sm btn-outline user-listing-filter"><i class="fas fa-tag" style="color:#8B5CF6;"></i> Sold Out</button>
+        </div>
+
         <div class="table-card">
           <div class="table-responsive">
             <table class="data-table responsive-table-mobile">
@@ -632,7 +641,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
       const user = await AuthService.verifySession();
       if (!user) {
-        window.location.href = "{{ url_for('user_login') }}";
+        window.location.href = "{{ url_for('user_login') }}?expired=1";
         return;
       }
 
@@ -725,10 +734,26 @@
       }
     }
 
-    async function loadUserListings(page = 1) {
+    let currentUserListingFilter = 'all';
+
+    function filterUserListings(status, btn) {
+      currentUserListingFilter = status;
+      document.querySelectorAll('.user-listing-filter').forEach(b => {
+        b.classList.remove('btn-primary', 'active');
+        b.classList.add('btn-outline');
+      });
+      if (btn) {
+        btn.classList.remove('btn-outline');
+        btn.classList.add('btn-primary', 'active');
+      }
+      loadUserListings(1, status);
+    }
+
+    async function loadUserListings(page = 1, status = currentUserListingFilter) {
       const tbody = document.getElementById('my-listings-table-body');
       try {
-        const res = await apiRequest(`/api/users/listings?page=${page}&limit=6`);
+        const queryStatus = (status && status !== 'all') ? `&status=${encodeURIComponent(status)}` : '';
+        const res = await apiRequest(`/api/users/listings?page=${page}&limit=6${queryStatus}`);
         const listings = res.data || [];
         const p = res.pagination || { total: listings.length, page: 1, limit: 6, totalPages: 1 };
         if (listings.length === 0) {
@@ -808,8 +833,8 @@
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
               <span style="font-size:0.85rem; color:var(--text-muted);">Page ${p.page} of ${p.totalPages} (${p.total} total)</span>
               <div style="display:flex; gap:0.35rem;">
-                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page - 1})" ${p.page <= 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
-                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page + 1})" ${p.page >= p.totalPages ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
+                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page - 1}, currentUserListingFilter)" ${p.page <= 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
+                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page + 1}, currentUserListingFilter)" ${p.page >= p.totalPages ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
               </div>
             </div>
           `;

@@ -6,10 +6,13 @@ import csv
 import io
 import datetime
 import tempfile
+import secrets
+import hashlib
 from functools import wraps
 from dotenv import load_dotenv
 from flask import Flask, request, jsonify, render_template, send_from_directory, g, session
 from flask_cors import CORS
+from report_generator import generate_pdf_report, generate_excel_report
 
 # Load environment variables prioritizing my-node-app/.env, fallback to root .env
 app_dir = os.path.dirname(os.path.abspath(__file__))
@@ -684,6 +687,24 @@ def initialize_database():
           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX `idx_bike_images_bike_id` (`bike_id`),
           INDEX `idx_bike_images_primary` (`is_primary`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+        conn.commit()
+
+        # 4b. user_sessions table (7-day persistent login sessions)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `user_sessions` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `user_id` INT NOT NULL,
+          `token_hash` VARCHAR(64) NOT NULL,
+          `ip_address` VARCHAR(45) NULL,
+          `user_agent` VARCHAR(255) NULL,
+          `expires_at` TIMESTAMP NOT NULL,
+          `is_revoked` TINYINT(1) NOT NULL DEFAULT 0,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_us_token_hash` (`token_hash`),
+          INDEX `idx_us_user_id` (`user_id`),
+          INDEX `idx_us_expires` (`expires_at`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
         conn.commit()
@@ -2579,17 +2600,157 @@ def find_or_create_google_user(profile):
     return new_user
 
 # -----------------------------------------------------------------------------
-# AUTHENTICATION ENDPOINTS
+# AUTHENTICATION & 7-DAY REMEMBERED SESSIONS
 # -----------------------------------------------------------------------------
+def create_remembered_session(user_id, req):
+    """
+    Creates a secure 7-day persistent session token, hashes it,
+    records it in TiDB user_sessions (and fallback store), and returns (token_cookie_val, expiry_dt).
+    """
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    expires_at = datetime.datetime.utcnow() + datetime.timedelta(days=7)
+
+    ip = req.headers.get("X-Forwarded-For", req.remote_addr or "")
+    if "," in ip:
+        ip = ip.split(",")[0].strip()
+    user_agent = (req.headers.get("User-Agent") or "")[:250]
+
+    session_id = None
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                """INSERT INTO user_sessions (user_id, token_hash, ip_address, user_agent, expires_at, is_revoked)
+                   VALUES (%s, %s, %s, %s, %s, 0)""",
+                (user_id, token_hash, ip, user_agent, expires_at)
+            )
+            conn.commit()
+            session_id = cursor.lastrowid
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    if not session_id:
+        store = IN_MEMORY_STORE.setdefault("user_sessions", [])
+        session_id = len(store) + 1
+        store.append({
+            "id": session_id,
+            "user_id": user_id,
+            "token_hash": token_hash,
+            "ip_address": ip,
+            "user_agent": user_agent,
+            "expires_at": expires_at,
+            "is_revoked": 0,
+            "created_at": datetime.datetime.utcnow()
+        })
+
+    cookie_val = f"{session_id}:{raw_token}"
+    return cookie_val, expires_at
+
+def validate_remembered_session(cookie_val):
+    """
+    Validates a 7-day persistent cookie. Returns user dict if valid, else None.
+    """
+    if not cookie_val or ":" not in cookie_val:
+        return None
+    try:
+        session_id_str, raw_token = cookie_val.split(":", 1)
+        session_id = int(session_id_str)
+        token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+    except Exception:
+        return None
+
+    # Check MySQL
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute(
+                """SELECT s.id, s.user_id, s.token_hash, s.expires_at, s.is_revoked,
+                          u.id as u_id, u.google_id, u.name, u.email, u.profile_image, u.phone, u.role
+                   FROM user_sessions s
+                   JOIN users u ON s.user_id = u.id
+                   WHERE s.id = %s AND s.is_revoked = 0
+                   LIMIT 1""",
+                (session_id,)
+            )
+            row = cursor.fetchone()
+            cursor.close()
+            conn.close()
+            if row:
+                if row["token_hash"] == token_hash and row["expires_at"] > datetime.datetime.utcnow():
+                    return {
+                        "id": row["u_id"],
+                        "google_id": row["google_id"],
+                        "name": row["name"],
+                        "email": row["email"],
+                        "profile_image": row["profile_image"],
+                        "phone": row["phone"],
+                        "role": row["role"] or "user"
+                    }
+                else:
+                    return None
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    # Check In-Memory fallback
+    for s in IN_MEMORY_STORE.get("user_sessions", []):
+        if s.get("id") == session_id and s.get("is_revoked") == 0:
+            if s.get("token_hash") == token_hash and s.get("expires_at") > datetime.datetime.utcnow():
+                u_id = s.get("user_id")
+                for u in IN_MEMORY_STORE.get("users", []):
+                    if u.get("id") == u_id:
+                        return u
+    return None
+
+def revoke_remembered_session(cookie_val):
+    """
+    Revokes the persistent session in MySQL and memory store.
+    """
+    if not cookie_val or ":" not in cookie_val:
+        return
+    try:
+        session_id_str, raw_token = cookie_val.split(":", 1)
+        session_id = int(session_id_str)
+    except Exception:
+        return
+
+    conn = get_db()
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE user_sessions SET is_revoked = 1 WHERE id = %s", (session_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
+
+    for s in IN_MEMORY_STORE.get("user_sessions", []):
+        if s.get("id") == session_id:
+            s["is_revoked"] = 1
+
 @app.route("/api/auth/google", methods=["POST"])
 @app.route("/auth/google", methods=["POST"])
 def auth_google_api():
     """
     Handles Google OAuth 2.0 Sign-In via Google Identity Services ID Token.
     Verifies token cryptographically, syncs user with TiDB Cloud, and returns JWT.
+    Supports 7-day remembered session.
     """
     data = request.get_json() or request.form.to_dict() or {}
     credential = data.get("credential") or data.get("id_token") or data.get("token")
+    remember_me = bool(data.get("remember_me", True))
+
     if not credential:
         return jsonify({
             "success": False,
@@ -2614,19 +2775,36 @@ def auth_google_api():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-    return jsonify({
+    resp = jsonify({
         "success": True,
         "message": "Successfully signed in with Google",
         "token": token,
         "user": user
     })
 
+    if remember_me:
+        cookie_val, _ = create_remembered_session(user["id"], request)
+        resp.set_cookie(
+            "smr_remember_token",
+            cookie_val,
+            max_age=7 * 24 * 3600,
+            httponly=True,
+            samesite="Lax",
+            secure=request.is_secure,
+            path="/"
+        )
+    return resp
+
 @app.route("/api/auth/demo-google", methods=["POST"])
 @app.route("/auth/demo-google", methods=["POST"])
 def auth_demo_google_api():
     """
     Instant demo sign-in for testing without a live Google Cloud Console OAuth Client.
+    Supports 7-day remembered session.
     """
+    data = request.get_json(silent=True) or {}
+    remember_me = bool(data.get("remember_me", True))
+
     import jwt
     user = IN_MEMORY_STORE["users"][0]
     payload = {
@@ -2637,12 +2815,25 @@ def auth_demo_google_api():
         "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
     }
     token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-    return jsonify({
+    resp = jsonify({
         "success": True,
         "message": "Authenticated with Demo Rider account",
         "token": token,
         "user": user
     })
+
+    if remember_me:
+        cookie_val, _ = create_remembered_session(user["id"], request)
+        resp.set_cookie(
+            "smr_remember_token",
+            cookie_val,
+            max_age=7 * 24 * 3600,
+            httponly=True,
+            samesite="Lax",
+            secure=request.is_secure,
+            path="/"
+        )
+    return resp
 
 @app.route("/api/auth/google/callback", methods=["GET", "POST"])
 @app.route("/auth/google/callback", methods=["GET", "POST"])
@@ -2698,15 +2889,64 @@ def auth_google_callback():
                 "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
             }
             app_token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
-            return jsonify({"success": True, "token": app_token, "user": user})
+            res_obj = jsonify({"success": True, "token": app_token, "user": user})
+            cookie_val, _ = create_remembered_session(user["id"], request)
+            res_obj.set_cookie(
+                "smr_remember_token",
+                cookie_val,
+                max_age=7 * 24 * 3600,
+                httponly=True,
+                samesite="Lax",
+                secure=request.is_secure,
+                path="/"
+            )
+            return res_obj
     except Exception as e:
         return jsonify({"success": False, "message": f"OAuth exchange failed: {str(e)}"}), 500
+
+@app.route("/api/auth/remembered-session", methods=["GET"])
+@app.route("/auth/remembered-session", methods=["GET"])
+def auth_remembered_session_api():
+    """
+    Restores an active user session from the 7-day secure HttpOnly cookie.
+    """
+    cookie_val = request.cookies.get("smr_remember_token")
+    if not cookie_val:
+        return jsonify({"success": False, "message": "No remembered session cookie found."}), 401
+
+    user = validate_remembered_session(cookie_val)
+    if not user:
+        resp = jsonify({"success": False, "message": "Remembered session has expired or been revoked."})
+        resp.set_cookie("smr_remember_token", "", max_age=0, path="/")
+        return resp, 401
+
+    # Issue fresh 7-day JWT token
+    import jwt
+    payload = {
+        "id": user["id"],
+        "email": user["email"],
+        "name": user["name"],
+        "role": user.get("role", "user"),
+        "exp": datetime.datetime.utcnow() + datetime.timedelta(days=7)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm="HS256")
+    return jsonify({
+        "success": True,
+        "restored": True,
+        "token": token,
+        "user": user
+    })
 
 @app.route("/api/auth/logout", methods=["GET", "POST"])
 @app.route("/logout", methods=["GET", "POST"])
 def auth_logout_api():
-    """Stateless sign-out endpoint"""
-    return jsonify({"success": True, "message": "Signed out successfully"})
+    """Revokes persistent 7-day session and clears cookies."""
+    cookie_val = request.cookies.get("smr_remember_token")
+    if cookie_val:
+        revoke_remembered_session(cookie_val)
+    resp = jsonify({"success": True, "message": "Signed out successfully"})
+    resp.set_cookie("smr_remember_token", "", max_age=0, path="/")
+    return resp
 
 @app.route("/api/auth/me", methods=["GET"])
 @app.route("/auth/me", methods=["GET"])
@@ -2826,82 +3066,173 @@ def admin_login_api():
 @app.route("/adminProfile", methods=["GET"])
 @admin_required
 def admin_dashboard_api():
-    # Detect caller role from verified admin token (Requirement 1 & RBAC)
+    """
+    Direct SQL accurate dashboard counts retrieved from TiDB Cloud:
+    - Total Motorcycles
+    - Pending Review
+    - Active / Published
+    - Sold Out Units
+    - Registered Customers
+    - Customer Enquiries
+    Includes RBAC protection: confidential financial metrics redacted for Staff Admin.
+    """
     is_superadmin = (g.admin.get("role") == "superadmin")
     user_role = g.admin.get("role", "admin")
 
-    bikes = IN_MEMORY_STORE["bikes"]
-    users = IN_MEMORY_STORE["users"]
-    enquiries = IN_MEMORY_STORE["enquiries"]
-    txs = IN_MEMORY_STORE["bike_transactions"]
+    # Defaults
+    counts = {
+        "total_bikes": 0,
+        "pending_bikes": 0,
+        "negotiating_bikes": 0,
+        "approved_bikes": 0,
+        "rejected_bikes": 0,
+        "sold_bikes": 0,
+        "total_users": 0,
+        "total_enquiries": 0,
+        "total_sold_count": 0,
+        "total_revenue": None,
+        "total_seller_payout": None,
+        "total_expenses": None,
+        "total_realized_profit": None
+    }
+    recent_bikes_list = []
+    recent_users_list = []
+    txs = []
 
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            db_bikes = cursor.fetchall()
-            if db_bikes: bikes = db_bikes
-            cursor.execute("SELECT * FROM users ORDER BY id DESC")
-            db_users = cursor.fetchall()
-            if db_users: users = db_users
-            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
-            db_enq = cursor.fetchall()
-            if db_enq: enquiries = db_enq
-            cursor.execute("SELECT * FROM bike_transactions ORDER BY id DESC")
-            db_txs = cursor.fetchall()
-            if db_txs: txs = db_txs
+            # 1. Accurate direct SQL bike count query (Strictly mutually exclusive, zero duplicates)
+            cursor.execute("""
+                SELECT
+                    COUNT(*) as total_bikes,
+                    SUM(CASE WHEN (isSoldout = 1 OR status IN ('sold', 'soldout') OR listing_status IN ('sold', 'soldout'))
+                        THEN 1 ELSE 0 END) as sold_bikes,
+                    SUM(CASE WHEN (isSoldout IS NULL OR isSoldout = 0) AND status NOT IN ('sold', 'soldout') AND listing_status NOT IN ('sold', 'soldout')
+                                  AND (status = 'rejected' OR listing_status = 'rejected')
+                        THEN 1 ELSE 0 END) as rejected_bikes,
+                    SUM(CASE WHEN (isSoldout IS NULL OR isSoldout = 0) AND status NOT IN ('sold', 'soldout') AND listing_status NOT IN ('sold', 'soldout')
+                                  AND (status != 'rejected' AND listing_status != 'rejected')
+                                  AND (status = 'pending' OR listing_status = 'pending')
+                        THEN 1 ELSE 0 END) as pending_bikes,
+                    SUM(CASE WHEN (isSoldout IS NULL OR isSoldout = 0) AND status NOT IN ('sold', 'soldout') AND listing_status NOT IN ('sold', 'soldout')
+                                  AND (status != 'rejected' AND listing_status != 'rejected')
+                                  AND (status != 'pending' AND listing_status != 'pending')
+                                  AND (status IN ('approved', 'published') OR listing_status IN ('approved', 'published'))
+                        THEN 1 ELSE 0 END) as approved_bikes
+                FROM bikes
+                WHERE COALESCE(status, '') != 'archived' AND COALESCE(listing_status, '') != 'archived'
+            """)
+            b_row = cursor.fetchone()
+            if b_row:
+                counts["total_bikes"] = int(b_row.get("total_bikes") or 0)
+                counts["pending_bikes"] = int(b_row.get("pending_bikes") or 0)
+                counts["approved_bikes"] = int(b_row.get("approved_bikes") or 0)
+                counts["rejected_bikes"] = int(b_row.get("rejected_bikes") or 0)
+                counts["sold_bikes"] = int(b_row.get("sold_bikes") or 0)
+
+            # 2. Total registered customers count (excluding internal superadmins)
+            cursor.execute("SELECT COUNT(*) as total_users FROM users WHERE COALESCE(role, 'user') NOT IN ('superadmin')")
+            u_row = cursor.fetchone()
+            if u_row:
+                counts["total_users"] = int(u_row.get("total_users") or 0)
+
+            # 3. Total customer enquiries count
+            cursor.execute("SELECT COUNT(*) as total_enquiries FROM enquiries")
+            e_row = cursor.fetchone()
+            if e_row:
+                counts["total_enquiries"] = int(e_row.get("total_enquiries") or 0)
+
+            # 4. Negotiating bikes
+            try:
+                cursor.execute("SELECT COUNT(*) as negotiating_bikes FROM bikes WHERE listing_status IN ('price_offered', 'seller_accepted', 'seller_rejected')")
+                n_row = cursor.fetchone()
+                if n_row:
+                    counts["negotiating_bikes"] = int(n_row.get("negotiating_bikes") or 0)
+            except Exception:
+                pass
+
+            # 5. Recent bikes
+            cursor.execute("SELECT * FROM bikes WHERE COALESCE(status, '') != 'archived' ORDER BY id DESC LIMIT 10")
+            recent_bikes_list = cursor.fetchall() or []
+
+            # 6. Recent users
+            cursor.execute("SELECT id, name, email, phone, role, created_at FROM users ORDER BY id DESC LIMIT 10")
+            recent_users_list = cursor.fetchall() or []
+
+            # 7. Completed Transactions
+            cursor.execute("""
+                SELECT bt.*, b.title as bike_title, b.brand, b.model, b.year
+                FROM bike_transactions bt
+                LEFT JOIN bikes b ON bt.bike_id = b.id
+                ORDER BY bt.id DESC
+            """)
+            txs = cursor.fetchall() or []
+
             cursor.close()
             conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            if conn:
+                try: conn.close()
+                except Exception: pass
 
-    # Financial sums
-    tot_sold = len(txs)
+    # In-memory fallback if DB unreachable or empty
+    if counts["total_bikes"] == 0 and IN_MEMORY_STORE.get("bikes"):
+        mem_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("status") != "archived"]
+        counts["total_bikes"] = len(mem_bikes)
+        counts["pending_bikes"] = len([b for b in mem_bikes if (b.get("listing_status") == "pending" or b.get("status") == "pending") and not b.get("isSoldout") and b.get("status") not in ("sold", "soldout", "rejected")])
+        counts["approved_bikes"] = len([b for b in mem_bikes if (b.get("listing_status") == "published" or b.get("status") == "approved") and not b.get("isSoldout") and b.get("status") not in ("sold", "soldout", "rejected")])
+        counts["rejected_bikes"] = len([b for b in mem_bikes if b.get("status") == "rejected" or b.get("listing_status") == "rejected"])
+        counts["sold_bikes"] = len([b for b in mem_bikes if b.get("status") in ("sold", "soldout") or b.get("isSoldout") == 1])
+        counts["total_users"] = len(IN_MEMORY_STORE.get("users", []))
+        counts["total_enquiries"] = len(IN_MEMORY_STORE.get("enquiries", []))
+        if not recent_bikes_list:
+            recent_bikes_list = mem_bikes[:10]
+        if not recent_users_list:
+            recent_users_list = IN_MEMORY_STORE.get("users", [])[:10]
+        if not txs:
+            txs = IN_MEMORY_STORE.get("bike_transactions", [])
+
+    # Financial aggregations
+    tot_sold = len(txs) or counts["sold_bikes"]
+    counts["total_sold_count"] = tot_sold
     tot_revenue = sum(float(t.get("actual_sale_price") or 0) for t in txs)
     tot_payouts = sum(float(t.get("seller_payout") or 0) for t in txs)
-    tot_expenses = sum(float(t.get("total_expenses") or 0) for t in txs)
+    tot_expenses = sum(float(t.get("total_expenses") or (float(t.get("service_expense") or 0) + float(t.get("repair_expense") or 0))) for t in txs)
     tot_profit = sum(float(t.get("realized_profit") or 0) for t in txs)
 
+    if is_superadmin:
+        counts["total_revenue"] = tot_revenue
+        counts["total_seller_payout"] = tot_payouts
+        counts["total_expenses"] = tot_expenses
+        counts["total_realized_profit"] = tot_profit
+
     # Monthly Trends (Superadmin only)
-    import collections
-    monthly_data = collections.defaultdict(lambda: {"revenue": 0.0, "payout": 0.0, "expenses": 0.0, "profit": 0.0, "count": 0})
-    for t in txs:
-        dt_str = str(t.get("sold_at") or t.get("created_at") or "")
-        key = dt_str[:7] if len(dt_str) >= 7 else "2025-01"
-        monthly_data[key]["revenue"] += float(t.get("actual_sale_price") or 0)
-        monthly_data[key]["payout"] += float(t.get("seller_payout") or 0)
-        monthly_data[key]["expenses"] += float(t.get("total_expenses") or 0)
-        monthly_data[key]["profit"] += float(t.get("realized_profit") or 0)
-        monthly_data[key]["count"] += 1
-
     sorted_trends = []
-    for k in sorted(monthly_data.keys()):
-        sorted_trends.append({
-            "month": k,
-            **monthly_data[k]
-        })
-    if not sorted_trends:
-        sorted_trends = [
-            {"month": "2025-01", "revenue": 105000.0, "payout": 92000.0, "expenses": 5000.0, "profit": 8000.0, "count": 1}
-        ]
+    if is_superadmin:
+        import collections
+        monthly_data = collections.defaultdict(lambda: {"revenue": 0.0, "payout": 0.0, "expenses": 0.0, "profit": 0.0, "count": 0})
+        for t in txs:
+            dt_str = str(t.get("sold_at") or t.get("created_at") or "")
+            key = dt_str[:7] if len(dt_str) >= 7 else "2025-01"
+            monthly_data[key]["revenue"] += float(t.get("actual_sale_price") or 0)
+            monthly_data[key]["payout"] += float(t.get("seller_payout") or 0)
+            monthly_data[key]["expenses"] += float(t.get("total_expenses") or 0)
+            monthly_data[key]["profit"] += float(t.get("realized_profit") or 0)
+            monthly_data[key]["count"] += 1
 
-    counts = {
-        "total_bikes": len(bikes),
-        "pending_bikes": len([b for b in bikes if (b.get("listing_status") == "pending" or b.get("status") == "pending") and not b.get("isSoldout")]),
-        "negotiating_bikes": len([b for b in bikes if b.get("listing_status") in ("price_offered", "seller_accepted", "seller_rejected")]),
-        "approved_bikes": len([b for b in bikes if (b.get("listing_status") == "published" or b.get("status") == "approved") and not b.get("isSoldout")]),
-        "sold_bikes": len([b for b in bikes if b.get("listing_status") == "soldout" or b.get("status") == "soldout" or b.get("isSoldout") == 1]) or tot_sold,
-        "total_users": len(users),
-        "total_enquiries": len(enquiries),
-        "total_sold_count": tot_sold,
-        "total_revenue": tot_revenue if is_superadmin else None,
-        "total_seller_payout": tot_payouts if is_superadmin else None,
-        "total_expenses": tot_expenses if is_superadmin else None,
-        "total_realized_profit": tot_profit if is_superadmin else None
-    }
+        for k in sorted(monthly_data.keys()):
+            sorted_trends.append({
+                "month": k,
+                **monthly_data[k]
+            })
+        if not sorted_trends:
+            sorted_trends = [
+                {"month": "2025-01", "revenue": 105000.0, "payout": 92000.0, "expenses": 5000.0, "profit": 8000.0, "count": 1}
+            ]
 
-    # Redact confidential financial details if Staff Admin
+    # Redact sensitive financials if Staff Admin
     if not is_superadmin:
         sanitized_txs = [
             {
@@ -2912,38 +3243,40 @@ def admin_dashboard_api():
                 "sold_at": t.get("sold_at")
             } for t in txs[:10]
         ]
-        return jsonify({
-            "success": True,
-            "role": "admin",
-            "is_superadmin": False,
-            "data": {
-                "counts": counts,
-                "financials": None,
-                "recentUsers": users[:10],
-                "pendingApprovals": [b for b in bikes if b.get("listing_status") == "pending" or (b.get("status") == "pending" and not b.get("listing_status"))],
-                "recentTransactions": sanitized_txs
-            }
-        })
+        financials_payload = None
+        transactions_payload = sanitized_txs
+    else:
+        financials_payload = {
+            "total_sold": tot_sold,
+            "total_revenue": tot_revenue,
+            "total_payouts": tot_payouts,
+            "total_expenses": tot_expenses,
+            "total_profit": tot_profit,
+            "monthly_trends": sorted_trends
+        }
+        transactions_payload = txs[:10]
 
-    return jsonify({
+    normalized_recent = [_normalize_bike(b, is_admin=True) for b in recent_bikes_list]
+    pending_approvals = [b for b in normalized_recent if b.get("status") == "pending" or b.get("listing_status") == "pending"]
+
+    response_payload = {
         "success": True,
-        "role": "superadmin",
-        "is_superadmin": True,
+        "role": user_role,
+        "is_superadmin": is_superadmin,
+        "stats": counts,
+        "counts": counts,
+        "recent_bikes": normalized_recent,
         "data": {
             "counts": counts,
-            "financials": {
-                "total_sold": tot_sold,
-                "total_revenue": tot_revenue,
-                "total_payouts": tot_payouts,
-                "total_expenses": tot_expenses,
-                "total_profit": tot_profit,
-                "monthly_trends": sorted_trends
-            },
-            "recentUsers": users[:10],
-            "pendingApprovals": [b for b in bikes if b.get("listing_status") == "pending" or (b.get("status") == "pending" and not b.get("listing_status"))],
-            "recentTransactions": txs[:10]
+            "stats": counts,
+            "recent_bikes": normalized_recent,
+            "recentUsers": recent_users_list[:10],
+            "pendingApprovals": pending_approvals,
+            "recentTransactions": transactions_payload,
+            "financials": financials_payload
         }
-    })
+    }
+    return jsonify(response_payload)
 
 @app.route("/api/admin/listings", methods=["GET"])
 def admin_listings_paginated():
@@ -3495,221 +3828,293 @@ def admin_mark_sold(bike_id):
         "transaction": tx_record
     })
 
-# Export Endpoints (Excel & CSV with date range and status filters)
+# -----------------------------------------------------------------------------
+# REPORT GENERATION & DATA EXPORTS (PDF & EXCEL WITH RBAC)
+# -----------------------------------------------------------------------------
+def resolve_export_admin():
+    """Extracts and verifies admin credentials for report download (Header or query string token)."""
+    token = None
+    header = request.headers.get("Authorization")
+    if header and header.lower().startswith("bearer "):
+        token = header.split()[1]
+    if not token:
+        token = request.args.get("token") or request.cookies.get("admin_token")
+    if not token:
+        return None, "Missing admin credentials for report download."
+    try:
+        import jwt
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        role = normalize_admin_role(decoded.get("role"))
+        if not role:
+            return None, "Access Forbidden: Administrative privileges required."
+        decoded["role"] = role
+        return decoded, None
+    except Exception:
+        return None, "Expired or invalid session token."
+
+def resolve_report_date_range(preset, start_date_str=None, end_date_str=None):
+    today = datetime.date.today()
+    preset = (preset or "all").lower().strip()
+    if preset == "today":
+        return today.isoformat(), today.isoformat()
+    elif preset == "yesterday":
+        yest = today - datetime.timedelta(days=1)
+        return yest.isoformat(), yest.isoformat()
+    elif preset in ("last_7_days", "7days", "week"):
+        start = today - datetime.timedelta(days=7)
+        return start.isoformat(), today.isoformat()
+    elif preset in ("last_30_days", "30days", "month"):
+        start = today - datetime.timedelta(days=30)
+        return start.isoformat(), today.isoformat()
+    elif preset == "last_month":
+        first_this_month = today.replace(day=1)
+        last_prev_month = first_this_month - datetime.timedelta(days=1)
+        first_prev_month = last_prev_month.replace(day=1)
+        return first_prev_month.isoformat(), last_prev_month.isoformat()
+    elif preset == "custom" or start_date_str or end_date_str:
+        return (start_date_str or "").strip(), (end_date_str or "").strip()
+    return "", ""
+
+@app.route("/api/admin/reports/export", methods=["GET", "POST"])
+def admin_reports_export_api():
+    """
+    Unified PDF, Excel, and CSV download endpoint with Date, Status, Brand, and Keyword filters.
+    Strictly forbids financial reports for Staff Admins (HTTP 403).
+    """
+    admin, err = resolve_export_admin()
+    if not admin:
+        return jsonify({"success": False, "message": err or "Authentication required"}), 401 if "Missing" in (err or "") else 403
+
+    is_superadmin = (admin.get("role") == "superadmin")
+    report_type = (request.args.get("type") or "listings").lower().strip()
+    export_format = (request.args.get("format") or "pdf").lower().strip()
+    if export_format in ("excel", "xlsx"):
+        export_format = "xlsx"
+
+    # Enforce strict RBAC: Financial reports are restricted to SUPERADMIN
+    if report_type == "financial" and not is_superadmin:
+        return jsonify({
+            "success": False,
+            "message": "Access Forbidden: Financial reports are restricted strictly to SUPERADMIN."
+        }), 403
+
+    preset = request.args.get("preset") or request.args.get("date_filter") or "all"
+    start_date, end_date = resolve_report_date_range(preset, request.args.get("start_date"), request.args.get("end_date"))
+    status_filter = (request.args.get("status") or "all").lower().strip()
+    brand_filter = (request.args.get("brand") or "all").strip()
+    search_query = (request.args.get("search") or request.args.get("q") or "").strip().lower()
+
+    filters_dict = {
+        "preset": preset,
+        "start_date": start_date,
+        "end_date": end_date,
+        "status": status_filter,
+        "brand": brand_filter,
+        "search": search_query
+    }
+
+    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+
+    # 1. LISTING REPORT
+    if report_type in ("listings", "inventory", "bikes"):
+        bikes = []
+        conn = get_db()
+        if conn:
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM bikes WHERE COALESCE(status, '') != 'archived' ORDER BY id DESC")
+                bikes = cursor.fetchall() or []
+                cursor.close()
+                conn.close()
+            except Exception:
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+        if not bikes:
+            bikes = [b for b in IN_MEMORY_STORE.get("bikes", []) if b.get("status") != "archived"]
+
+        filtered = []
+        for b in bikes:
+            # Date filter
+            b_date = str(b.get("created_at") or "")[:10]
+            if start_date and b_date and b_date < start_date:
+                continue
+            if end_date and b_date and b_date > end_date:
+                continue
+
+            # Status filter
+            st = str(b.get("listing_status") or b.get("status") or "").lower()
+            is_sold = b.get("isSoldout") == 1 or st in ("sold", "soldout")
+            if status_filter != "all":
+                if status_filter == "pending" and (st != "pending" or is_sold):
+                    continue
+                elif status_filter in ("approved", "published") and (st not in ("approved", "published") or is_sold):
+                    continue
+                elif status_filter == "rejected" and st != "rejected":
+                    continue
+                elif status_filter in ("sold", "soldout") and not is_sold:
+                    continue
+
+            # Brand filter
+            b_brand = str(b.get("brand") or "").strip()
+            if brand_filter != "all" and b_brand.lower() != brand_filter.lower():
+                continue
+
+            # Search keyword filter
+            if search_query:
+                haystack = f"{b.get('title','')} {b.get('brand','')} {b.get('model','')} {b.get('seller_name','')} {b.get('seller_phone','')}".lower()
+                if search_query not in haystack:
+                    continue
+
+            filtered.append(b)
+
+        if export_format == "pdf":
+            pdf_bytes = generate_pdf_report("listings", filtered, filters_dict, generated_by=admin.get("name", "Admin"), is_superadmin=is_superadmin)
+            return app.response_class(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=smr_inventory_report_{timestamp}.pdf"}
+            )
+        elif export_format == "xlsx":
+            xlsx_bytes = generate_excel_report("listings", filtered, filters_dict, generated_by=admin.get("name", "Admin"), is_superadmin=is_superadmin)
+            return app.response_class(
+                xlsx_bytes,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=smr_inventory_report_{timestamp}.xlsx"}
+            )
+        else:
+            # CSV format
+            headers = ["Bike ID", "Title", "Brand", "Model", "Year", "Listed Price (INR)", "Status", "Seller Name", "Seller Mobile", "Kilometers", "Fuel Type", "Transmission", "Created At"]
+            rows_data = []
+            for b in filtered:
+                rows_data.append([
+                    b.get("id"),
+                    b.get("title"),
+                    b.get("brand"),
+                    b.get("model"),
+                    b.get("year"),
+                    b.get("price"),
+                    b.get("listing_status") or b.get("status"),
+                    b.get("seller_name") or b.get("sellerName"),
+                    b.get("seller_phone") or b.get("mobileNum"),
+                    b.get("kilometers_driven") or b.get("bikeKms"),
+                    b.get("fuel_type"),
+                    b.get("transmission"),
+                    str(b.get("created_at", ""))
+                ])
+            out = io.StringIO()
+            w = csv.writer(out)
+            w.writerow(headers)
+            for r in rows_data:
+                w.writerow(r)
+            return app.response_class(
+                out.getvalue().encode("utf-8-sig"),
+                mimetype="text/csv; charset=utf-8",
+                headers={"Content-Disposition": f"attachment; filename=smr_inventory_report_{timestamp}.csv"}
+            )
+
+    # 2. SOLD & FINANCIAL REPORTS
+    elif report_type in ("sold", "soldout", "financial"):
+        txs = []
+        conn = get_db()
+        if conn:
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("""
+                    SELECT bt.*, b.title as bike_title, b.brand, b.model, b.year, b.seller_name, b.seller_phone
+                    FROM bike_transactions bt
+                    LEFT JOIN bikes b ON bt.bike_id = b.id
+                    ORDER BY bt.id DESC
+                """)
+                txs = cursor.fetchall() or []
+                cursor.close()
+                conn.close()
+            except Exception:
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
+        if not txs:
+            txs = IN_MEMORY_STORE.get("bike_transactions", [])
+
+        filtered_txs = []
+        for t in txs:
+            s_date = str(t.get("sold_at") or t.get("created_at") or "")[:10]
+            if start_date and s_date and s_date < start_date:
+                continue
+            if end_date and s_date and s_date > end_date:
+                continue
+
+            t_brand = str(t.get("brand") or "").strip()
+            if brand_filter != "all" and t_brand.lower() != brand_filter.lower():
+                continue
+
+            if search_query:
+                haystack = f"{t.get('bike_title','')} {t.get('brand','')} {t.get('buyer_name','')} {t.get('seller_name','')} {t.get('seller_phone','')}".lower()
+                if search_query not in haystack:
+                    continue
+
+            filtered_txs.append(t)
+
+        if export_format == "pdf":
+            pdf_bytes = generate_pdf_report(report_type, filtered_txs, filters_dict, generated_by=admin.get("name", "Admin"), is_superadmin=is_superadmin)
+            return app.response_class(
+                pdf_bytes,
+                mimetype="application/pdf",
+                headers={"Content-Disposition": f"attachment; filename=smr_{report_type}_report_{timestamp}.pdf"}
+            )
+        elif export_format == "xlsx":
+            xlsx_bytes = generate_excel_report(report_type, filtered_txs, filters_dict, generated_by=admin.get("name", "Admin"), is_superadmin=is_superadmin)
+            return app.response_class(
+                xlsx_bytes,
+                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f"attachment; filename=smr_{report_type}_report_{timestamp}.xlsx"}
+            )
+        else:
+            headers = [
+                "Bike ID", "Vehicle Title", "Brand", "Model", "Year",
+                "Seller Name", "Seller Mobile", "Seller Agreed Payout (INR)",
+                "Actual Sale Price (INR)", "Total Expenses (INR)", "Realized Net Profit (INR)", "Sold Date"
+            ]
+            rows_data = []
+            for t in filtered_txs:
+                payout = float(t.get("seller_payout") or 0)
+                sale_p = float(t.get("actual_sale_price") or 0)
+                exp = float(t.get("total_expenses") or 0)
+                profit = float(t.get("realized_profit") or (sale_p - payout - exp))
+                rows_data.append([
+                    t.get("bike_id") or t.get("id"),
+                    t.get("bike_title") or t.get("title"),
+                    t.get("brand", "SMR"),
+                    t.get("model", ""),
+                    t.get("year", ""),
+                    t.get("seller_name", ""),
+                    t.get("seller_phone", ""),
+                    payout if is_superadmin else "[RESTRICTED]",
+                    sale_p,
+                    exp if is_superadmin else "[RESTRICTED]",
+                    profit if is_superadmin else "[RESTRICTED]",
+                    str(t.get("sold_at") or t.get("created_at") or "")[:10]
+                ])
+            out = io.StringIO()
+            w = csv.writer(out)
+            w.writerow(headers)
+            for r in rows_data:
+                w.writerow(r)
+            return app.response_class(
+                out.getvalue().encode("utf-8-sig"),
+                mimetype="text/csv; charset=utf-8",
+                headers={"Content-Disposition": f"attachment; filename=smr_{report_type}_report_{timestamp}.csv"}
+            )
+
+    return jsonify({"success": False, "message": f"Unsupported report type: {report_type}"}), 400
+
 @app.route("/api/admin/export/bikes", methods=["GET"])
 def admin_export_bikes():
-    export_format = request.args.get("format", "csv").lower()
-    status_filter = request.args.get("status")
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-
-    bikes = IN_MEMORY_STORE["bikes"]
-    conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                bikes = rows
-        except Exception:
-            pass
-
-    filtered = []
-    for b in bikes:
-        if status_filter and status_filter != "all":
-            if b.get("listing_status") != status_filter and b.get("status") != status_filter:
-                continue
-        if start_date:
-            b_date = str(b.get("created_at", ""))[:10]
-            if b_date and b_date < start_date:
-                continue
-        if end_date:
-            b_date = str(b.get("created_at", ""))[:10]
-            if b_date and b_date > end_date:
-                continue
-        filtered.append(b)
-
-    headers = [
-        "Bike ID", "Title", "Brand", "Model", "Year", "Listed Price (INR)",
-        "Listing Status", "Approval Status", "Seller Name", "Seller Mobile",
-        "Kilometers", "Fuel Type", "Transmission", "Created At"
-    ]
-    rows_data = []
-    for b in filtered:
-        rows_data.append([
-            b.get("id"),
-            b.get("title"),
-            b.get("brand"),
-            b.get("model"),
-            b.get("year"),
-            b.get("price"),
-            b.get("listing_status") or b.get("status"),
-            b.get("status"),
-            b.get("seller_name") or b.get("sellerName"),
-            b.get("seller_phone") or b.get("mobileNum"),
-            b.get("kilometers_driven") or b.get("bikeKms"),
-            b.get("fuel_type"),
-            b.get("transmission"),
-            str(b.get("created_at", ""))
-        ])
-
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-
-    if export_format == "xlsx":
-        try:
-            import openpyxl
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "Motorcycle Inventory"
-            ws.append(headers)
-            for r in rows_data:
-                ws.append(r)
-            output = io.BytesIO()
-            wb.save(output)
-            output.seek(0)
-            return app.response_class(
-                output.getvalue(),
-                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": f"attachment; filename=smr_bikes_export_{timestamp}.xlsx"}
-            )
-        except Exception as e:
-            print("[Export] XLSX generation notice, falling back to CSV:", e)
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(headers)
-    for r in rows_data:
-        writer.writerow(r)
-    csv_bytes = output.getvalue().encode("utf-8-sig")
-    return app.response_class(
-        csv_bytes,
-        mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename=smr_bikes_export_{timestamp}.csv"}
-    )
+    return admin_reports_export_api()
 
 @app.route("/api/admin/export/sold", methods=["GET"])
-@superadmin_required
 def admin_export_sold():
-    export_format = request.args.get("format", "csv").lower()
-    start_date = request.args.get("start_date")
-    end_date = request.args.get("end_date")
-
-    txs = IN_MEMORY_STORE["bike_transactions"]
-    conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT bt.*, b.title as bike_title, b.brand, b.model, b.year, b.seller_name, b.seller_phone
-                FROM bike_transactions bt
-                LEFT JOIN bikes b ON bt.bike_id = b.id
-                ORDER BY bt.id DESC
-            """)
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                txs = rows
-        except Exception:
-            pass
-
-    headers = [
-        "Bike ID", "Vehicle Title", "Brand", "Model", "Year",
-        "Seller Name", "Seller Mobile", "Seller Agreed Payout (INR)",
-        "Actual Sale Price (INR)", "Service Expense (INR)", "Repair Expense (INR)",
-        "Transport Expense (INR)", "Other Expense (INR)", "Total Expenses (INR)",
-        "Realized Net Profit (INR)", "Sold Date", "Notes"
-    ]
-
-    filtered_txs = []
-    tot_payout = 0
-    tot_revenue = 0
-    tot_expenses = 0
-    tot_profit = 0
-
-    for t in txs:
-        s_date = str(t.get("sold_at") or t.get("created_at") or "")[:10]
-        if start_date and s_date and s_date < start_date:
-            continue
-        if end_date and s_date and s_date > end_date:
-            continue
-
-        payout = float(t.get("seller_payout") or 0)
-        sale_price = float(t.get("actual_sale_price") or 0)
-        tot_exp = float(t.get("total_expenses") or 0)
-        profit = float(t.get("realized_profit") or (sale_price - payout - tot_exp))
-
-        tot_payout += payout
-        tot_revenue += sale_price
-        tot_expenses += tot_exp
-        tot_profit += profit
-
-        filtered_txs.append([
-            t.get("bike_id"),
-            t.get("bike_title") or f"Bike #{t.get('bike_id')}",
-            t.get("brand", "SMR"),
-            t.get("model", ""),
-            t.get("year", ""),
-            t.get("seller_name", "Seller"),
-            t.get("seller_phone", ""),
-            payout,
-            sale_price,
-            float(t.get("service_expense") or 0),
-            float(t.get("repair_expense") or 0),
-            float(t.get("transport_expense") or 0),
-            float(t.get("other_expense") or 0),
-            tot_exp,
-            profit,
-            s_date,
-            t.get("notes", "")
-        ])
-
-    summary_row = [
-        "TOTALS", f"{len(filtered_txs)} Bikes Sold", "", "", "",
-        "", "", tot_payout, tot_revenue, "", "", "", "",
-        tot_expenses, tot_profit, "", "FINANCIAL SUMMARY"
-    ]
-
-    timestamp = datetime.datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-
-    if export_format == "xlsx":
-        try:
-            import openpyxl
-            wb = openpyxl.Workbook()
-            ws = wb.active
-            ws.title = "Sold Bikes Financials"
-            ws.append(headers)
-            for r in filtered_txs:
-                ws.append(r)
-            ws.append([])
-            ws.append(summary_row)
-            output = io.BytesIO()
-            wb.save(output)
-            output.seek(0)
-            return app.response_class(
-                output.getvalue(),
-                mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                headers={"Content-Disposition": f"attachment; filename=smr_sold_financials_{timestamp}.xlsx"}
-            )
-        except Exception as e:
-            print("[Export] XLSX sold generation notice:", e)
-
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(headers)
-    for r in filtered_txs:
-        writer.writerow(r)
-    writer.writerow([])
-    writer.writerow(summary_row)
-    csv_bytes = output.getvalue().encode("utf-8-sig")
-    return app.response_class(
-        csv_bytes,
-        mimetype="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f"attachment; filename=smr_sold_financials_{timestamp}.csv"}
-    )
+    return admin_reports_export_api()
 
 # Notification Endpoints
 @app.route("/api/notifications", methods=["GET"])
