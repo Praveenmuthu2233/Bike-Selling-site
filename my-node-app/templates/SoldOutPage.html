@@ -387,7 +387,16 @@
         initSoldCardSliders();
         renderSoldPagination(p);
       } catch (err) {
-        container.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;
+        container.innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 3rem 1.5rem;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 2.5rem; color: #f59e0b; margin-bottom: 1rem;"></i>
+            <h3 style="font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">Unable to load delivered motorcycles</h3>
+            <p style="color: var(--text-muted); margin-bottom: 1.25rem;">${err.message || 'Database connection unavailable.'}</p>
+            <button onclick="loadSoldBikes(1)" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-sync-alt"></i> Try Again
+            </button>
+          </div>
+        `;
       }
     }
 

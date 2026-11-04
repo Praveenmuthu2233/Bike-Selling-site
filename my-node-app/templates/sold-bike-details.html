@@ -367,7 +367,12 @@
       <i class="fas fa-circle-exclamation" style="font-size:3rem; color:var(--danger); margin-bottom:1rem;"></i>
       <h3 style="font-size:1.3rem; font-weight:800; color:var(--text-main);" id="error-title">Motorcycle Not Found</h3>
       <p style="color:var(--text-muted);" id="error-desc">The requested motorcycle record or sale snapshot does not exist.</p>
-      <a href="/admin.html" class="back-btn" style="margin-top:1rem;">Return to Dashboard</a>
+      <div style="display:flex; justify-content:center; gap:0.75rem; margin-top:1.25rem;">
+        <button onclick="document.getElementById('error-state').style.display='none'; document.getElementById('loading-state').style.display='block'; loadSoldBikeDetails();" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem; padding:0.6rem 1.2rem; cursor:pointer;">
+          <i class="fas fa-sync-alt"></i> Try Again
+        </button>
+        <a href="/admin.html" class="back-btn" style="margin-top:0;">Return to Dashboard</a>
+      </div>
     </div>
 
     <!-- Main Content Container -->
