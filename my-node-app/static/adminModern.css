@@ -1440,10 +1440,20 @@ body.admin-body {
   padding: 1rem 0;
   flex-wrap: wrap;
   gap: 1rem;
+  width: 100%;
+}
+
+.pagination-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .pagination-info {
-  font-size: 0.82rem;
+  font-size: 0.84rem;
   color: var(--admin-text-secondary);
 }
 
@@ -1451,18 +1461,38 @@ body.admin-body {
   display: flex;
   align-items: center;
   gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.pagination-limit-select {
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--admin-card-border);
+  background: #FFFFFF;
+  color: var(--admin-text-main);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.page-ellipsis {
+  padding: 0 4px;
+  color: var(--admin-text-secondary);
+  line-height: 36px;
+  font-weight: 700;
 }
 
 .btn-page {
-  width: 36px;
+  min-width: 36px;
   height: 36px;
+  padding: 0 0.5rem;
   border-radius: var(--radius-sm);
   border: 1px solid var(--admin-card-border);
   background-color: #FFFFFF;
   color: var(--admin-text-main);
   font-weight: 700;
   font-size: 0.84rem;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
@@ -1484,6 +1514,22 @@ body.admin-body {
 .btn-page:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .pagination-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .pagination-controls {
+    justify-content: center;
+  }
+
+  .pagination-info {
+    text-align: center;
+  }
 }
 
 /* ==================================================

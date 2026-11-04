@@ -5512,7 +5512,37 @@ def admin_get_staff_list():
         s_copy["is_active"] = int(s_copy.get("is_active") if s_copy.get("is_active") is not None else 1)
         filtered.append(s_copy)
 
-    return jsonify({"success": True, "staff": filtered, "data": filtered})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = filtered[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "staff": page_data,
+        "data": page_data,
+        "all_staff": filtered,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/admin/staff", methods=["POST"])
 @superadmin_required
@@ -5768,21 +5798,51 @@ def admin_staff_activity_api():
 
 @app.route("/api/admin/audit-logs", methods=["GET"])
 def admin_audit_logs_api():
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    offset = (page - 1) * limit
     rows = []
+    total = 0
     conn = get_db()
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT 100")
+            cursor.execute("SELECT COUNT(*) as cnt FROM admin_audit_logs")
+            cnt_row = cursor.fetchone()
+            total = cnt_row.get("cnt", 0) if cnt_row else 0
+
+            cursor.execute("SELECT * FROM admin_audit_logs ORDER BY id DESC LIMIT %s OFFSET %s", (limit, offset))
             rows = cursor.fetchall() or []
             cursor.close()
             conn.close()
-            return jsonify({"success": True, "data": rows})
         except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-    return jsonify({"success": True, "data": rows})
+
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    end_idx = min(offset + limit, total)
+    return jsonify({
+        "success": True,
+        "data": rows,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": offset + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 # -----------------------------------------------------------------------------
 # 6-IMAGE GALLERY UPLOADER API (Requirement 7)
@@ -6043,7 +6103,35 @@ def user_my_negotiations():
                 try: conn.close()
                 except Exception: pass
 
-    return jsonify({"success": True, "data": negs})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    total = len(negs)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = negs[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/users/enquiries", methods=["GET"])
 def user_my_enquiries():
@@ -6070,7 +6158,36 @@ def user_my_enquiries():
                     try: conn.close()
                     except Exception: pass
 
-    return jsonify({"success": True, "data": enqs, "enquiries": enqs})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    total = len(enqs)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = enqs[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "enquiries": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/users/favorites", methods=["GET", "POST"])
 def user_favorites_api():
@@ -6129,7 +6246,36 @@ def user_favorites_api():
                 try: conn.close()
                 except Exception: pass
 
-    return jsonify({"success": True, "data": [_normalize_bike(b, is_admin=False) for b in fav_bikes]})
+    normalized_favs = [_normalize_bike(b, is_admin=False) for b in fav_bikes]
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    total = len(normalized_favs)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = normalized_favs[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/users/notifications", methods=["GET"])
 def user_notifications_api():
@@ -6156,7 +6302,36 @@ def user_notifications_api():
                 try: conn.close()
                 except Exception: pass
 
-    return jsonify({"success": True, "data": notifs, "notifications": notifs})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
+    except (ValueError, TypeError):
+        limit = 10
+
+    total = len(notifs)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = notifs[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "data": page_data,
+        "notifications": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/users/notifications/<int:notif_id>/read", methods=["PUT", "POST"])
 def user_mark_notification_read(notif_id):
@@ -6416,7 +6591,36 @@ def get_user_chat_conversations():
             print("[Chat DB Error] list conversations:", e)
             return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
-    return jsonify({"success": True, "conversations": conversations})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 15))))
+    except (ValueError, TypeError):
+        limit = 15
+
+    total = len(conversations)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = conversations[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "conversations": page_data,
+        "data": page_data,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/chat/conversations", methods=["POST"])
 def create_chat_conversation():
@@ -6782,7 +6986,7 @@ def admin_get_chat_conversations():
 
     conn = get_db()
     if not conn:
-        return jsonify({"success": False, "message": "Database connection unavailable."}), 500
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
 
     conversations = []
     try:
@@ -6875,7 +7079,38 @@ def admin_get_chat_conversations():
         print("[Chat DB Error] admin get conversations:", e)
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
-    return jsonify({"success": True, "conversations": conversations, "total": len(conversations)})
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (ValueError, TypeError):
+        page = 1
+    try:
+        limit = max(1, min(100, int(request.args.get("limit", 15))))
+    except (ValueError, TypeError):
+        limit = 15
+
+    total = len(conversations)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
+    start_idx = (page - 1) * limit
+    end_idx = min(start_idx + limit, total)
+    page_data = conversations[start_idx:end_idx]
+
+    return jsonify({
+        "success": True,
+        "conversations": page_data,
+        "data": page_data,
+        "all_conversations": conversations,
+        "total": total,
+        "pagination": {
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "totalPages": total_pages,
+            "hasNext": page < total_pages,
+            "hasPrev": page > 1,
+            "start": start_idx + 1 if total > 0 else 0,
+            "end": end_idx
+        }
+    })
 
 @app.route("/api/admin/chat/conversations/<int:conv_id>/status", methods=["PUT"])
 @admin_required
