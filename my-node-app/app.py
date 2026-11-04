@@ -1707,6 +1707,8 @@ def _normalize_bike(r, is_admin=False, admin_role=None):
 def get_bikes_api():
     status = request.args.get("status")
     brand = request.args.get("brand")
+    model = request.args.get("model")
+    category = request.args.get("category")
     min_price = request.args.get("min_price")
     max_price = request.args.get("max_price")
     year = request.args.get("year")
@@ -1782,24 +1784,38 @@ def get_bikes_api():
             if b_status not in ("published", "approved") or is_sold:
                 continue
 
-        if brand and brand.lower() != "all" and b.get("brand", "").lower() != brand.lower():
-            continue
+        # Explicit user-selected filter matching (no default filters applied)
+        if brand and str(brand).strip() and str(brand).strip().lower() not in ("all", ""):
+            if b.get("brand", "").lower() != str(brand).strip().lower():
+                continue
+
+        if model and str(model).strip() and str(model).strip().lower() not in ("all", ""):
+            if str(model).strip().lower() not in (b.get("model") or "").lower():
+                continue
+
+        if category and str(category).strip() and str(category).strip().lower() not in ("all", ""):
+            b_cat = str(b.get("category_id") or b.get("category") or "").lower()
+            if b_cat != str(category).strip().lower():
+                continue
 
         try:
             b_price = float(b.get("price", 0))
-            if min_price and b_price < float(min_price):
-                continue
-            if max_price and b_price > float(max_price):
-                continue
+            if min_price and str(min_price).strip() and str(min_price).strip().lower() not in ("all", "", "0"):
+                if b_price < float(min_price):
+                    continue
+            if max_price and str(max_price).strip() and str(max_price).strip().lower() not in ("all", ""):
+                if b_price > float(max_price):
+                    continue
         except (ValueError, TypeError):
             pass
 
-        if year and str(b.get("year", "")) != str(year):
-            continue
+        if year and str(year).strip() and str(year).strip().lower() not in ("all", ""):
+            if str(b.get("year", "")) != str(year).strip():
+                continue
 
-        if search:
+        if search and str(search).strip():
             match_txt = f"{b.get('title', '')} {b.get('brand', '')} {b.get('model', '')} {b.get('description', '')}".lower()
-            if search not in match_txt:
+            if str(search).strip().lower() not in match_txt:
                 continue
 
         filtered.append(b)

@@ -187,9 +187,9 @@
             <div style="display: flex; flex-direction: column; gap: 0.25rem;">
               <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: var(--text-secondary);">
                 <span>Max Budget</span>
-                <span id="price-val-display" style="color: var(--accent-primary); font-weight: 700;">Up to ₹5,00,000</span>
+                <span id="price-val-display" style="color: var(--accent-primary); font-weight: 700;">All Budgets</span>
               </div>
-              <input type="range" id="filter-price" min="20000" max="600000" step="10000" value="600000" style="accent-color: var(--accent-primary); cursor: pointer;">
+              <input type="range" id="filter-price" min="20000" max="1000000" step="10000" value="1000000" style="accent-color: var(--accent-primary); cursor: pointer;">
             </div>
 
             <div class="input-group">
@@ -201,7 +201,7 @@
               </select>
             </div>
 
-            <button onclick="document.getElementById('search-input').value=''; document.getElementById('filter-brand').value=''; document.getElementById('filter-price').value=600000; document.getElementById('price-val-display').innerText='Up to ₹6,00,000'; applyFilters();" class="btn btn-outline" title="Reset Filters">
+            <button type="button" onclick="resetMarketplaceFilters()" class="btn btn-outline" title="Reset Filters" id="reset-filters-btn">
               <i class="fas fa-redo"></i> Reset
             </button>
           </div>

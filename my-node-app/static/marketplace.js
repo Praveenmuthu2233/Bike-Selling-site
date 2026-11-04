@@ -9,6 +9,14 @@ let currentLimit = window.innerWidth <= 768 ? 6 : 9;
 let currentPagination = null;
 let brandsLoaded = false;
 
+// Explicit filter state: filters are ONLY applied when explicitly chosen by the user
+let activeFilterState = {
+  search: '',
+  brand: '',
+  maxPrice: null, // null indicates user has not modified the price filter; all budgets shown
+  sort: 'newest'
+};
+
 // Adjust limit on resize
 window.addEventListener('resize', () => {
   const newLimit = window.innerWidth <= 768 ? 6 : 9;
@@ -31,16 +39,11 @@ async function loadMarketplaceBikes(page = 1) {
     </div>
   `;
 
-  // Build query string based on active filters
-  const searchTerm = (document.getElementById('search-input')?.value || '').trim();
-  const selectedBrand = document.getElementById('filter-brand')?.value || '';
-  const maxPrice = document.getElementById('filter-price')?.value;
-  const sortOrder = document.getElementById('filter-sort')?.value || 'newest';
-
+  // Build query string: apply filters ONLY when explicitly selected/modified by user
   let sortParam = 'newest';
-  if (sortOrder === 'price-low') sortParam = 'price_asc';
-  else if (sortOrder === 'price-high') sortParam = 'price_desc';
-  else if (sortOrder === 'year-new') sortParam = 'year_desc';
+  if (activeFilterState.sort === 'price-low') sortParam = 'price_asc';
+  else if (activeFilterState.sort === 'price-high') sortParam = 'price_desc';
+  else if (activeFilterState.sort === 'year-new') sortParam = 'year_desc';
 
   const params = new URLSearchParams({
     page: currentPage,
@@ -48,9 +51,15 @@ async function loadMarketplaceBikes(page = 1) {
     sort: sortParam
   });
 
-  if (searchTerm) params.set('search', searchTerm);
-  if (selectedBrand) params.set('brand', selectedBrand);
-  if (maxPrice && Number(maxPrice) < 600000) params.set('max_price', maxPrice);
+  if (activeFilterState.search) {
+    params.set('search', activeFilterState.search);
+  }
+  if (activeFilterState.brand && activeFilterState.brand.toLowerCase() !== 'all') {
+    params.set('brand', activeFilterState.brand);
+  }
+  if (activeFilterState.maxPrice !== null && activeFilterState.maxPrice !== undefined) {
+    params.set('max_price', activeFilterState.maxPrice);
+  }
 
   try {
     const res = await apiRequest(`/api/bikes?${params.toString()}`);
@@ -95,19 +104,13 @@ async function loadBrandFilterOptions() {
     const bikes = res.data || res.bikes || [];
     const brands = [...new Set(bikes.map(b => b.brand).filter(Boolean))].sort();
     if (brands.length > 0) {
-      brandSelect.innerHTML = `<option value="">All Brands</option>` + brands.map(b => `<option value="${b}">${b}</option>`).join('');
+      const currentSelected = activeFilterState.brand || brandSelect.value || '';
+      brandSelect.innerHTML = `<option value="">All Brands</option>` + brands.map(b => `<option value="${b}" ${b.toLowerCase() === currentSelected.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('');
     }
   } catch (e) {
-    // Fallback standard brands
-    brandSelect.innerHTML = `
-      <option value="">All Brands</option>
-      <option value="Royal Enfield">Royal Enfield</option>
-      <option value="Yamaha">Yamaha</option>
-      <option value="KTM">KTM</option>
-      <option value="Bajaj">Bajaj</option>
-      <option value="Honda">Honda</option>
-      <option value="TVS">TVS</option>
-    `;
+    const currentSelected = activeFilterState.brand || brandSelect.value || '';
+    const fallbackBrands = ['Royal Enfield', 'Yamaha', 'KTM', 'Bajaj', 'Honda', 'TVS', 'BMW'];
+    brandSelect.innerHTML = `<option value="">All Brands</option>` + fallbackBrands.map(b => `<option value="${b}" ${b.toLowerCase() === currentSelected.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('');
   }
 }
 
@@ -375,20 +378,40 @@ function renderPaginationControls(p) {
 }
 
 function applyFilters() {
+  const searchInput = document.getElementById('search-input');
+  const brandSelect = document.getElementById('filter-brand');
+  const sortSelect = document.getElementById('filter-sort');
+
+  activeFilterState.search = (searchInput?.value || '').trim();
+  const selBrand = (brandSelect?.value || '').trim();
+  activeFilterState.brand = (selBrand && selBrand.toLowerCase() !== 'all') ? selBrand : '';
+  activeFilterState.sort = sortSelect?.value || 'newest';
+
   loadMarketplaceBikes(1);
 }
 
 function resetMarketplaceFilters() {
+  // Clear all explicit filters
+  activeFilterState.search = '';
+  activeFilterState.brand = '';
+  activeFilterState.maxPrice = null;
+  activeFilterState.sort = 'newest';
+
   const searchInput = document.getElementById('search-input');
   const brandSelect = document.getElementById('filter-brand');
   const priceSlider = document.getElementById('filter-price');
   const valDisplay = document.getElementById('price-val-display');
+  const sortSelect = document.getElementById('filter-sort');
 
   if (searchInput) searchInput.value = '';
   if (brandSelect) brandSelect.value = '';
-  if (priceSlider) priceSlider.value = 600000;
-  if (valDisplay) valDisplay.innerText = 'Up to ₹6,00,000';
+  if (priceSlider) {
+    priceSlider.value = priceSlider.max || 1000000;
+  }
+  if (valDisplay) valDisplay.innerText = 'All Budgets';
+  if (sortSelect) sortSelect.value = 'newest';
 
+  // Load all available approved bikes
   loadMarketplaceBikes(1);
 }
 
@@ -475,22 +498,46 @@ async function submitEnquiry(event) {
 
 document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('marketplace-bikes-grid')) {
-    loadMarketplaceBikes();
+    // Initial page load: display all available approved bikes without default filters
+    loadMarketplaceBikes(1);
 
     const searchInput = document.getElementById('search-input');
     const brandSelect = document.getElementById('filter-brand');
     const priceSlider = document.getElementById('filter-price');
     const sortSelect = document.getElementById('filter-sort');
 
-    if (searchInput) searchInput.addEventListener('input', applyFilters);
-    if (brandSelect) brandSelect.addEventListener('change', applyFilters);
-    if (priceSlider) {
-      priceSlider.addEventListener('input', (e) => {
-        const valDisplay = document.getElementById('price-val-display');
-        if (valDisplay) valDisplay.innerText = `Up to ₹${Number(e.target.value).toLocaleString('en-IN')}`;
-        applyFilters();
+    if (searchInput) {
+      searchInput.addEventListener('input', () => {
+        activeFilterState.search = searchInput.value.trim();
+        loadMarketplaceBikes(1);
       });
     }
-    if (sortSelect) sortSelect.addEventListener('change', applyFilters);
+
+    if (brandSelect) {
+      brandSelect.addEventListener('change', () => {
+        const val = brandSelect.value.trim();
+        activeFilterState.brand = (val && val.toLowerCase() !== 'all') ? val : '';
+        loadMarketplaceBikes(1);
+      });
+    }
+
+    if (priceSlider) {
+      priceSlider.addEventListener('input', (e) => {
+        const val = Number(e.target.value);
+        activeFilterState.maxPrice = val;
+        const valDisplay = document.getElementById('price-val-display');
+        if (valDisplay) {
+          valDisplay.innerText = `Up to ₹${val.toLocaleString('en-IN')}`;
+        }
+        loadMarketplaceBikes(1);
+      });
+    }
+
+    if (sortSelect) {
+      sortSelect.addEventListener('change', () => {
+        activeFilterState.sort = sortSelect.value || 'newest';
+        loadMarketplaceBikes(1);
+      });
+    }
   }
 });
