@@ -39,7 +39,7 @@
             <label style="display: block; font-size: 0.85rem; color: #C5D1E0; margin-bottom: 0.45rem; font-weight: 600;">Admin Username *</label>
             <div class="input-group" style="position: relative;">
               <i class="fas fa-user input-icon" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #8F9CAE;"></i>
-              <input type="text" id="admin-username" name="username" class="form-control" required placeholder="admin" value="admin" style="padding-left: 2.75rem; width: 100%; height: 46px; background: #0A0E18; border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; border-radius: 8px;">
+              <input type="text" id="admin-username" name="username" class="form-control" required placeholder="Enter admin username" autocomplete="username" value="" style="padding-left: 2.75rem; width: 100%; height: 46px; background: #0A0E18; border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; border-radius: 8px;">
             </div>
           </div>
 
@@ -47,7 +47,7 @@
             <label style="display: block; font-size: 0.85rem; color: #C5D1E0; margin-bottom: 0.45rem; font-weight: 600;">Secure Password *</label>
             <div class="input-group" style="position: relative;">
               <i class="fas fa-key input-icon" style="position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #8F9CAE;"></i>
-              <input type="password" id="admin-password" name="password" class="form-control" required placeholder="••••••••••••" value="admin123" style="padding-left: 2.75rem; width: 100%; height: 46px; background: #0A0E18; border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; border-radius: 8px;">
+              <input type="password" id="admin-password" name="password" class="form-control" required placeholder="Enter admin password" autocomplete="current-password" value="" style="padding-left: 2.75rem; width: 100%; height: 46px; background: #0A0E18; border: 1px solid rgba(255, 255, 255, 0.12); color: #fff; border-radius: 8px;">
             </div>
           </div>
 
@@ -78,24 +78,24 @@
   <script src="{{ url_for('static', filename='config.js') }}"></script>
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script>
-    // Prevent redirect loops: only redirect if a valid session already exists
+    // Guarantee credentials fields are always empty on page load
     document.addEventListener('DOMContentLoaded', () => {
-      const token = localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken');
-      if (token) {
-        // Quick verify session without loop
-        fetch('/api/admin/dashboard', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(res => {
-          if (res.ok) {
-            window.location.href = "{{ url_for('admin_page') }}";
-          } else {
-            // Expired token: clear and stay on login page
-            localStorage.removeItem('adminToken');
-            sessionStorage.removeItem('adminToken');
-          }
-        }).catch(() => {
-          // If offline/error, stay on login page
-        });
+      const uInput = document.getElementById('admin-username');
+      const pInput = document.getElementById('admin-password');
+      if (uInput) uInput.value = '';
+      if (pInput) pInput.value = '';
+
+      // Purge session tokens if explicit logout requested
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('logout') === 'true') {
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('admin_user');
+        localStorage.removeItem('adminUser');
+        sessionStorage.removeItem('admin_token');
+        sessionStorage.removeItem('adminToken');
+        sessionStorage.removeItem('admin_user');
+        sessionStorage.removeItem('adminUser');
       }
     });
 

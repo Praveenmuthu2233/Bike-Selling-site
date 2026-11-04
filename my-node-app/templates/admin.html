@@ -2512,18 +2512,6 @@
 
     // Authentication Guard
     function checkAdminAuth() {
-      // Support URL token parameter for development & verification sessions
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('token')) {
-        localStorage.setItem('admin_token', urlParams.get('token'));
-        localStorage.setItem('admin_user', JSON.stringify({
-          id: 1,
-          username: urlParams.get('username') || 'admin',
-          full_name: 'SMR Administrator',
-          role: urlParams.get('role') || 'superadmin'
-        }));
-      }
-
       const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken');
       const userStr = localStorage.getItem('admin_user') || localStorage.getItem('adminUser') || sessionStorage.getItem('admin_user') || sessionStorage.getItem('adminUser');
       
@@ -2586,7 +2574,9 @@
       localStorage.removeItem('adminUser');
       sessionStorage.removeItem('admin_token');
       sessionStorage.removeItem('adminToken');
-      window.location.href = '/admin/login.html';
+      sessionStorage.removeItem('admin_user');
+      sessionStorage.removeItem('adminUser');
+      window.location.href = '/admin/login.html?logout=true';
     }
 
     // Authenticated API Fetcher

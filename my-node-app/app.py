@@ -893,12 +893,9 @@ def initialize_database():
 # -----------------------------------------------------------------------------
 # AUTHENTICATION & ROLE-BASED ACCESS CONTROL HELPERS (RBAC: SUPERADMIN, ADMIN, USER)
 # -----------------------------------------------------------------------------
-adminAccounts = {
-    "admin":   {"password": "admin123",  "name": "Administrator", "role": "superadmin"},
-    "mani":    {"password": "mani@22",    "name": "Mani (Staff)",   "role": "admin"},
-    "murugan": {"password": "murugan@22", "name": "Murugan (Owner)", "role": "superadmin"},
-    "raja":    {"password": "raja@22",    "name": "Raja (Owner)",    "role": "superadmin"},
-}
+# In-memory dictionary no longer holds static plaintext passwords.
+# Authentication is strictly database-driven via TiDB Cloud admins table.
+adminAccounts = {}
 
 def normalize_admin_role(raw_role):
     r = str(raw_role or "").lower().strip()
@@ -3123,18 +3120,7 @@ def admin_login_api():
                 try: conn.close()
                 except Exception: pass
 
-    # 2. Fall back to configured adminAccounts
-    if not admin_data:
-        acc = adminAccounts.get(username)
-        if acc and acc["password"] == password:
-            norm_role = normalize_admin_role(acc.get("role"))
-            admin_data = {
-                "id": 1,
-                "username": username,
-                "name": acc["name"],
-                "role": norm_role
-            }
-
+    # 2. Strict Database Authentication: Reject if no database record found
     if not admin_data:
         return jsonify({"success": False, "message": "Invalid Administrator Credentials"}), 401
 
