@@ -132,9 +132,7 @@ async function loadBrandFilterOptions() {
       brandSelect.innerHTML = `<option value="">All Brands</option>` + brands.map(b => `<option value="${b}" ${b.toLowerCase() === currentSelected.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('');
     }
   } catch (e) {
-    const currentSelected = activeFilterState.brand || brandSelect.value || '';
-    const fallbackBrands = ['Royal Enfield', 'Yamaha', 'KTM', 'Bajaj', 'Honda', 'TVS', 'BMW'];
-    brandSelect.innerHTML = `<option value="">All Brands</option>` + fallbackBrands.map(b => `<option value="${b}" ${b.toLowerCase() === currentSelected.toLowerCase() ? 'selected' : ''}>${b}</option>`).join('');
+    brandSelect.innerHTML = `<option value="">All Brands</option>`;
   }
 }
 
@@ -337,12 +335,19 @@ function renderBikes(bikes) {
   if (!container) return;
 
   if (!bikes || bikes.length === 0) {
+    const hasFilter = isAnyFilterActive();
     container.innerHTML = `
-      <div class="empty-state" style="grid-column: 1/-1;">
-        <i class="fas fa-motorcycle empty-state-icon"></i>
-        <h3>No motorcycles found</h3>
-        <p>Try adjusting your search criteria or price filters.</p>
-        <button onclick="resetMarketplaceFilters()" class="btn btn-outline" style="margin-top: 1rem;">Reset Filters</button>
+      <div class="empty-state" style="grid-column: 1/-1; text-align: center; padding: 4rem 1.5rem;">
+        <i class="fas fa-motorcycle empty-state-icon" style="font-size: 3rem; color: var(--text-muted); margin-bottom: 1rem;"></i>
+        <h3 style="font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.5rem;">
+          ${hasFilter ? 'No matching motorcycles found' : 'No motorcycles currently listed in inventory'}
+        </h3>
+        <p style="color: var(--text-muted); max-width: 480px; margin: 0 auto 1.5rem auto;">
+          ${hasFilter ? 'Try adjusting your search keyword, category, or price range filters.' : 'Our verified showroom inventory is being updated. Please check back soon or submit your motorcycle for evaluation.'}
+        </p>
+        ${hasFilter 
+          ? '<button onclick="resetMarketplaceFilters()" class="btn btn-outline"><i class="fas fa-undo"></i> Reset Filters</button>' 
+          : '<a href="/sell-bike.html" class="btn btn-primary" style="display:inline-flex; align-items:center; gap:0.5rem;"><i class="fas fa-plus"></i> Sell Your Motorcycle</a>'}
       </div>
     `;
     return;

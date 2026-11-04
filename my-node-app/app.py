@@ -2895,8 +2895,10 @@ def auth_google_api():
 @app.route("/api/auth/demo-google", methods=["POST"])
 @app.route("/auth/demo-google", methods=["POST"])
 def auth_demo_google_api():
-    return jsonify({"success": False, "message": "Demo sign-in disabled. Please sign in with Google."}), 403
+    return jsonify({"success": False, "message": "Demo sign-in permanently disabled in production. Please sign in with Google."}), 403
 def _unused_auth_demo_google_api():
+    return jsonify({"success": False, "message": "Disabled"}), 403
+def _disabled_auth_demo_legacy():
     data = request.get_json(silent=True) or {}
     remember_me = bool(data.get("remember_me", True))
 

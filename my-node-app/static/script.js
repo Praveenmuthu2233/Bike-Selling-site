@@ -75,13 +75,8 @@ async function loadCategories() {
     }
 
     if (categories.length === 0) {
-      // Fallback to category.json
-      const localRes = await fetch("/category.json");
-      const localData = await localRes.json();
-      categories = localData.map(c => ({
-        category_name: c.bikeName,
-        image_url: c.imageUrl
-      }));
+      container.innerHTML = '<div class="col-12 text-center text-muted py-3">No categories currently configured.</div>';
+      return;
     }
 
     let html = "";

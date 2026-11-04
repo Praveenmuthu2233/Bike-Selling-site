@@ -105,7 +105,7 @@
       if (window.google && window.google.accounts) {
         window.google.accounts.id.prompt();
       } else {
-        AuthService.demoLogin();
+        alert('Google Identity service is initializing. Please ensure popups/cookies are allowed and try again.');
       }
     }
   </script>
