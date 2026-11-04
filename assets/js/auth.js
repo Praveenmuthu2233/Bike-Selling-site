@@ -110,7 +110,7 @@ const AuthService = {
             </ol>
           </div>
           <div style="margin-top: 8px; color: #FDE047;">
-            <i class="fas fa-lightbulb"></i> In the meantime, click <strong>Sign In as Demo Rider</strong> below for instant full access without Google configuration.
+            <i class="fas fa-info-circle"></i> Please ensure authorized JavaScript origins match in Google Cloud Console.
           </div>
         </div>
       `;
@@ -146,7 +146,7 @@ async function initGoogleAuth(buttonContainerId = 'google-signin-btn') {
   if (!clientId || clientId.startsWith('your_')) {
     console.info('[Google Auth] GOOGLE_CLIENT_ID not configured in .env. Interactive Google button hidden.');
     if (btnContainer) {
-      btnContainer.innerHTML = '<div style="font-size: 0.85rem; padding: 10px 14px; background: rgba(255, 165, 0, 0.12); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 8px; color: #ffb74d; text-align: center;"><i class="fas fa-info-circle"></i> Google OAuth requires Client ID setup in .env. Click <strong>Sign In as Demo Rider</strong> below for instant access.</div>';
+      btnContainer.innerHTML = '<div style="font-size: 0.85rem; padding: 10px 14px; background: rgba(255, 165, 0, 0.12); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 8px; color: #ffb74d; text-align: center;"><i class="fas fa-info-circle"></i> Google OAuth setup required in environment configuration.</div>';
     }
     return;
   }

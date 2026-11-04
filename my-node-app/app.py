@@ -201,228 +201,19 @@ print(f"[Database Config] TiDB Target: {DB_HOST}:{DB_PORT} (db: {DB_NAME}, user:
 if ssl_ca_path:
     print(f"[Database Config] TLS certificate verification active using CA: {os.path.basename(ssl_ca_path)}")
 
-# Seed In-Memory Store (Active fallback when MySQL is unreachable)
+# In-Memory Store (Empty placeholder structure; no fake demo records)
 IN_MEMORY_STORE = {
-    "bikes": [
-        {
-            "id": 1,
-            "title": "Royal Enfield Hunter 350 Dapper Ash",
-            "listingTitle": "Royal Enfield Hunter 350 Dapper Ash",
-            "brand": "Royal Enfield",
-            "makedFrom": "Royal Enfield",
-            "model": "Hunter 350",
-            "bikeModel": "Hunter 350",
-            "year": 2023,
-            "bikeBuyingYear": "2023",
-            "price": 145000,
-            "sellingPrice": "145000",
-            "bikePrice": "155000",
-            "kilometers_driven": 8400,
-            "bikeKms": "8400",
-            "fuel_type": "Petrol",
-            "transmission": "Manual",
-            "description": "Mint condition, single owner, company serviced with clean insurance.",
-            "images": ["/static/images/IMG-20251204-WA0053.jpg", "/static/images/IMG-20251204-WA0051.jpg"],
-            "seller_name": "SMR Motors",
-            "sellerName": "SMR Motors",
-            "seller_phone": "+91 98765 43210",
-            "mobileNum": "9876543210",
-            "status": "approved",
-            "listing_status": "published",
-            "negotiation_status": "completed",
-            "requested_price": 145000,
-            "public_selling_price": 145000,
-            "isAccepted": 1,
-            "isSoldout": 0,
-            "featured": 1,
-            "created_at": "2025-01-15T10:00:00Z"
-        },
-        {
-            "id": 2,
-            "title": "Yamaha MT-15 V2 Metallic Black",
-            "listingTitle": "Yamaha MT-15 V2 Metallic Black",
-            "brand": "Yamaha",
-            "makedFrom": "Yamaha",
-            "model": "MT-15 V2",
-            "bikeModel": "MT-15 V2",
-            "year": 2022,
-            "bikeBuyingYear": "2022",
-            "price": 132000,
-            "sellingPrice": "132000",
-            "bikePrice": "140000",
-            "kilometers_driven": 14200,
-            "bikeKms": "14200",
-            "fuel_type": "Petrol",
-            "transmission": "Manual",
-            "description": "Excellent performance, dual channel ABS, original tyres.",
-            "images": ["/static/images/IMG-20251204-WA0051.jpg", "/static/images/IMG-20251204-WA0054.jpg"],
-            "seller_name": "SMR Motors",
-            "sellerName": "SMR Motors",
-            "seller_phone": "+91 98765 43210",
-            "mobileNum": "9876543210",
-            "status": "approved",
-            "listing_status": "published",
-            "negotiation_status": "completed",
-            "requested_price": 132000,
-            "public_selling_price": 132000,
-            "isAccepted": 1,
-            "isSoldout": 0,
-            "featured": 1,
-            "created_at": "2025-01-18T12:00:00Z"
-        },
-        {
-            "id": 3,
-            "title": "KTM Duke 250 Racing Orange",
-            "listingTitle": "KTM Duke 250 Racing Orange",
-            "brand": "KTM",
-            "makedFrom": "KTM",
-            "model": "Duke 250",
-            "bikeModel": "Duke 250",
-            "year": 2021,
-            "bikeBuyingYear": "2021",
-            "price": 168000,
-            "sellingPrice": "168000",
-            "bikePrice": "175000",
-            "kilometers_driven": 19500,
-            "bikeKms": "19500",
-            "fuel_type": "Petrol",
-            "transmission": "Manual",
-            "description": "Track-ready, new Michelin road tyres, complete service record.",
-            "images": ["/static/images/IMG-20251204-WA0054.jpg"],
-            "seller_name": "SMR Motors",
-            "sellerName": "SMR Motors",
-            "seller_phone": "+91 98765 43210",
-            "mobileNum": "9876543210",
-            "status": "approved",
-            "listing_status": "published",
-            "negotiation_status": "completed",
-            "requested_price": 168000,
-            "public_selling_price": 168000,
-            "isAccepted": 1,
-            "isSoldout": 0,
-            "featured": 0,
-            "created_at": "2025-01-20T14:00:00Z"
-        },
-        {
-            "id": 4,
-            "title": "Bajaj Pulsar NS200 Pewter Grey",
-            "listingTitle": "Bajaj Pulsar NS200 Pewter Grey",
-            "brand": "Bajaj",
-            "makedFrom": "Bajaj",
-            "model": "Pulsar NS200",
-            "bikeModel": "Pulsar NS200",
-            "year": 2022,
-            "bikeBuyingYear": "2022",
-            "price": 105000,
-            "sellingPrice": "105000",
-            "bikePrice": "112000",
-            "kilometers_driven": 16000,
-            "bikeKms": "16000",
-            "fuel_type": "Petrol",
-            "transmission": "Manual",
-            "description": "Clean commuter, accident free, high mileage engine.",
-            "images": ["/static/images/IMG-20251204-WA0056.jpg"],
-            "seller_name": "SMR Motors",
-            "sellerName": "SMR Motors",
-            "seller_phone": "+91 98765 43210",
-            "mobileNum": "9876543210",
-            "status": "approved",
-            "listing_status": "published",
-            "negotiation_status": "completed",
-            "requested_price": 105000,
-            "public_selling_price": 105000,
-            "isAccepted": 1,
-            "isSoldout": 0,
-            "featured": 0,
-            "created_at": "2025-01-22T09:00:00Z"
-        }
-    ],
-    "categories": [
-        {"id": 1, "category_name": "Cruiser", "image_url": "/static/images/IMG-20251204-WA0053.jpg"},
-        {"id": 2, "category_name": "Sports", "image_url": "/static/images/IMG-20251204-WA0051.jpg"},
-        {"id": 3, "category_name": "Naked", "image_url": "/static/images/IMG-20251204-WA0054.jpg"},
-        {"id": 4, "category_name": "Commuter", "image_url": "/static/images/IMG-20251204-WA0056.jpg"}
-    ],
+    "bikes": [],
+    "categories": [],
     "enquiries": [],
-    "users": [
-        {
-            "id": 1,
-            "name": "Demo Rider",
-            "email": "demo.rider@gmail.com",
-            "phone": "+91 98765 43210",
-            "profile_image": "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80",
-            "role": "user",
-            "is_active": 1,
-            "created_at": "2025-01-01T00:00:00Z"
-        }
-    ],
+    "users": [],
     "favorites": [],
     "contact_messages": [],
     "contact_replies": [],
     "audit_logs": [],
-    "price_negotiations": [
-        {
-            "id": 1,
-            "bike_id": 4,
-            "seller_id": 1,
-            "admin_id": 1,
-            "requested_price": 115000.0,
-            "proposed_payout": 92000.0,
-            "counteroffer_number": 1,
-            "status": "accepted",
-            "message": "Fair market valuation based on vehicle age and inspection.",
-            "seller_response_note": "Accepted by seller",
-            "created_at": "2025-01-23T11:00:00Z"
-        }
-    ],
-    "bike_transactions": [
-        {
-            "id": 1,
-            "bike_id": 4,
-            "bike_title": "Bajaj Pulsar NS200 Pewter Grey",
-            "seller_id": 1,
-            "admin_id": 1,
-            "seller_name": "SMR Motors",
-            "seller_phone": "+91 98765 43210",
-            "seller_payout": 92000.0,
-            "actual_sale_price": 105000.0,
-            "service_expense": 2500.0,
-            "repair_expense": 1200.0,
-            "transport_expense": 800.0,
-            "other_expense": 500.0,
-            "total_expenses": 5000.0,
-            "realized_profit": 8000.0,
-            "sold_at": "2025-01-26T14:30:00Z",
-            "notes": "Full fluid service, brake pads replacement, delivered to buyer with RC transfer.",
-            "buyer_name": "Arun Kumar",
-            "buyer_phone": "+91 94433 22110",
-            "created_at": "2025-01-26T14:30:00Z"
-        }
-    ],
-    "notifications": [
-        {
-            "id": 1,
-            "user_id": 1,
-            "target_role": "user",
-            "title": "Welcome to SMR Motors",
-            "message": "Explore certified pre-owned motorcycles or list your bike for transparent valuation.",
-            "type": "welcome",
-            "link": "/index.html",
-            "is_read": 0,
-            "created_at": "2025-01-20T10:00:00Z"
-        },
-        {
-            "id": 2,
-            "user_id": None,
-            "target_role": "admin",
-            "title": "New Listing Submitted",
-            "message": "A new motorcycle listing is pending review and price proposal.",
-            "type": "listing",
-            "link": "/admin.html?tab=pending",
-            "is_read": 0,
-            "created_at": "2025-01-25T11:00:00Z"
-        }
-    ]
+    "price_negotiations": [],
+    "bike_transactions": [],
+    "notifications": []
 }
 
 def create_notification(title, message, user_id=None, target_role="user", notif_type="info", link=None):
@@ -430,7 +221,7 @@ def create_notification(title, message, user_id=None, target_role="user", notif_
     Persists notification to TiDB Cloud and In-Memory store.
     """
     new_notif = {
-        "id": len(IN_MEMORY_STORE["notifications"]) + 1,
+        "id": int(datetime.datetime.utcnow().timestamp()),
         "user_id": user_id,
         "target_role": target_role,
         "title": title,
@@ -457,7 +248,6 @@ def create_notification(title, message, user_id=None, target_role="user", notif_
             if conn:
                 try: conn.close()
                 except Exception: pass
-    IN_MEMORY_STORE["notifications"].insert(0, new_notif)
     return new_notif
 
 
@@ -533,17 +323,6 @@ def log_admin_action(admin_username, action, target_type, target_id=None, detail
                 try: conn.close()
                 except Exception: pass
 
-    # In-memory store fallback
-    IN_MEMORY_STORE.setdefault("audit_logs", []).insert(0, {
-        "id": len(IN_MEMORY_STORE.get("audit_logs", [])) + 1,
-        "admin_username": admin_username or "admin",
-        "action": action,
-        "target_type": target_type,
-        "target_id": str(target_id) if target_id else None,
-        "details": details or "",
-        "ip_address": ip,
-        "created_at": datetime.datetime.utcnow().isoformat()
-    })
 
 def initialize_database():
     """
@@ -1125,31 +904,7 @@ def initialize_database():
         """)
         conn.commit()
 
-        # Seed categories if empty
-        cursor.execute("SELECT COUNT(*) FROM categories")
-        if cursor.fetchone()[0] == 0:
-            for cat in IN_MEMORY_STORE["categories"]:
-                cursor.execute(
-                    "INSERT INTO categories (category_name, image_url) VALUES (%s, %s)",
-                    (cat["category_name"], cat["image_url"])
-                )
-            conn.commit()
-
-        # Seed bikes if empty
-        cursor.execute("SELECT COUNT(*) FROM bikes")
-        if cursor.fetchone()[0] == 0:
-            for b in IN_MEMORY_STORE["bikes"]:
-                cursor.execute(
-                    """INSERT INTO bikes (title, brand, model, year, price, kilometers_driven, fuel_type, transmission, description, images, seller_name, seller_phone, status, featured)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (b["title"], b["brand"], b["model"], b["year"], b["price"], b["kilometers_driven"], b["fuel_type"], b["transmission"], b["description"], json.dumps(b["images"]), b["seller_name"], b["seller_phone"], b["status"], b.get("featured", 0))
-                )
-                cursor.execute(
-                    """INSERT INTO bikesforsale (listingTitle, makedFrom, bikeModel, bikeBuyingYear, bikePrice, sellingPrice, bikeKms, sellerName, mobileNum, description, isAccepted, isSoldout)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (b["listingTitle"], b["makedFrom"], b["bikeModel"], b["bikeBuyingYear"], b["bikePrice"], b["sellingPrice"], b["bikeKms"], b["sellerName"], b["mobileNum"], b["description"], b["isAccepted"], b["isSoldout"])
-                )
-            conn.commit()
+        # Categories and bikes are loaded exclusively from TiDB Cloud smr_motors database (No auto-seeding of fake demo data)
 
         # Seed default admins if empty
         cursor.execute("SELECT COUNT(*) FROM admins")
@@ -1727,20 +1482,26 @@ def get_bikes_api():
 
     all_bikes = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            all_bikes = cursor.fetchall()
-            cursor.close()
-            conn.close()
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
+    if not conn:
+        return jsonify({
+            "success": False,
+            "message": "Database connection unavailable. Please check TiDB Cloud connectivity."
+        }), 503
 
-    if not all_bikes:
-        all_bikes = list(IN_MEMORY_STORE["bikes"])
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+        all_bikes = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({
+            "success": False,
+            "message": f"Database query error: {str(e)}"
+        }), 500
 
     auth_header = request.headers.get("Authorization", "")
     is_admin = False
@@ -1915,8 +1676,11 @@ def get_sold_bikes_api():
                 try: conn.close()
                 except Exception: pass
 
-    if not all_bikes:
-        all_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("status") == "soldout" or b.get("isSoldout") == 1 or b.get("listing_status") == "soldout"]
+    if not conn and not all_bikes:
+        return jsonify({
+            "success": False,
+            "message": "Database connection unavailable. Please check TiDB Cloud connectivity."
+        }), 503
 
     sanitized = []
     for b in all_bikes:
@@ -2025,18 +1789,20 @@ def get_single_bike_api(bike_id):
                 try: conn.close()
                 except Exception: pass
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            return jsonify({"success": True, "data": b, **b})
-    return jsonify({"success": False, "message": "Bike not found"}), 404
+    return jsonify({"success": False, "message": "Motorcycle not found in database"}), 404
 
 @app.route("/api/bikes", methods=["POST"])
 @app.route("/api/user/sell-bike", methods=["POST"])
 @app.route("/addBike", methods=["POST"])
 @app.route("/userAddBike", methods=["POST"])
 def add_bike_api():
+    conn_check = get_db()
+    if not conn_check:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try: conn_check.close()
+    except Exception: pass
     data = request.form.to_dict() if request.form else (request.get_json() or {})
-    new_id = len(IN_MEMORY_STORE["bikes"]) + 1
+    new_id = None
     
     # Handle uploaded photos (supports up to 6 images with validation)
     uploaded_urls = []
@@ -2235,7 +2001,7 @@ def add_bike_api():
         "isSoldout": 0,
         "created_at": datetime.datetime.utcnow().isoformat()
     }
-    IN_MEMORY_STORE["bikes"].append(new_bike)
+    # Bike listing saved permanently in TiDB Cloud
     create_notification(
         f"New Listing: {title}",
         f"{sname} submitted {title} ({year}) expecting ₹{price:,.0f}. Awaiting inspection & approval.",
@@ -2249,20 +2015,20 @@ def add_bike_api():
 @app.route("/categories", methods=["GET"])
 def get_categories():
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM categories ORDER BY id ASC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                return jsonify({"success": True, "categories": rows})
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
-    return jsonify({"success": True, "categories": IN_MEMORY_STORE["categories"]})
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM categories ORDER BY id ASC")
+        rows = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+        return jsonify({"success": True, "categories": rows})
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
 # Enquiries API
 @app.route("/api/enquiries", methods=["GET", "POST"])
@@ -2270,7 +2036,7 @@ def get_categories():
 def enquiries_api():
     if request.method == "POST":
         data = request.get_json() or request.form.to_dict() or {}
-        new_id = len(IN_MEMORY_STORE["enquiries"]) + 1
+        new_id = None
         bike_id = data.get("bike_id")
         bike_title = data.get("bike_title", "Motorcycle Inquiry")
         name = data.get("name") or data.get("customerName") or "Customer"
@@ -2301,14 +2067,7 @@ def enquiries_api():
                         if c_conn:
                             try: c_conn.close()
                             except Exception: pass
-                if not check_sold:
-                    for mem_b in IN_MEMORY_STORE["bikes"]:
-                        if mem_b.get("id") == b_id_int:
-                            m_st = str(mem_b.get("status") or "").lower()
-                            m_lst = str(mem_b.get("listing_status") or "").lower()
-                            if mem_b.get("isSoldout") == 1 or m_st in ("sold", "soldout") or m_lst in ("sold", "soldout"):
-                                check_sold = True
-                            break
+
                 if check_sold:
                     return jsonify({"success": False, "message": "Enquiries are closed for this motorcycle as it has already been marked Sold Out."}), 400
             except (ValueError, TypeError):
@@ -2343,25 +2102,24 @@ def enquiries_api():
             "status": status,
             "created_at": datetime.datetime.utcnow().isoformat()
         }
-        IN_MEMORY_STORE["enquiries"].append(enq)
+        # Enquiry saved permanently in TiDB Cloud
         return jsonify({"success": True, "message": "Enquiry submitted successfully", "id": new_id}), 201
 
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                return jsonify({"success": True, "data": rows, "enquiries": rows})
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
-
-    return jsonify({"success": True, "data": IN_MEMORY_STORE["enquiries"], "enquiries": IN_MEMORY_STORE["enquiries"]})
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
+        rows = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+        return jsonify({"success": True, "data": rows, "enquiries": rows})
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
 @app.route("/api/enquiries/<int:enquiry_id>/status", methods=["PUT", "POST"])
 @app.route("/enquiries/<int:enquiry_id>/status", methods=["PUT", "POST"])
@@ -2380,9 +2138,6 @@ def update_enquiry_status(enquiry_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
-    for e in IN_MEMORY_STORE["enquiries"]:
-        if e["id"] == enquiry_id:
-            e["status"] = new_status
             return jsonify({"success": True, "message": f"Status updated to {new_status}"})
     return jsonify({"success": True, "message": "Status updated"})
 
@@ -2407,22 +2162,19 @@ def admin_enquiries_api():
 
     all_enquiries = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                all_enquiries = rows
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
-
-    if not all_enquiries:
-        all_enquiries = IN_MEMORY_STORE["enquiries"]
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM enquiries ORDER BY id DESC")
+        all_enquiries = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database query error: {str(e)}"}), 500
 
     filtered = []
     for e in all_enquiries:
@@ -2492,9 +2244,6 @@ def admin_update_enquiry_status(enquiry_id):
                 except Exception: pass
             return jsonify({"success": False, "message": str(e)}), 500
 
-    for e in IN_MEMORY_STORE["enquiries"]:
-        if e["id"] == enquiry_id:
-            e["status"] = new_status
 
     log_admin_action(admin_username, f"update_enquiry_status_{new_status}", "enquiry", enquiry_id, f"Enquiry #{enquiry_id} status changed to {new_status}")
 
@@ -2529,11 +2278,7 @@ def admin_reply_to_enquiry(enquiry_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not enq:
-        for e in IN_MEMORY_STORE["enquiries"]:
-            if e.get("id") == enquiry_id:
-                enq = e
-                break
+
 
     if not enq:
         return jsonify({"success": False, "message": f"Enquiry #{enquiry_id} not found"}), 404
@@ -2590,11 +2335,7 @@ Email: praveenmuthu9500@gmail.com
                 try: conn2.close()
                 except Exception: pass
 
-    for e in IN_MEMORY_STORE["enquiries"]:
-        if e.get("id") == enquiry_id:
-            e["admin_reply"] = reply_text
-            e["replied_at"] = datetime.datetime.utcnow().isoformat()
-            e["replied_by"] = admin_username
+    # Reply stored permanently in TiDB Cloud enquiry_replies table
 
     log_admin_action(admin_username, "reply_enquiry", "enquiry", enquiry_id, f"Replied to customer {cust_email} for enquiry #{enquiry_id}")
 
@@ -2649,20 +2390,8 @@ def contact_submit_api():
     if len(message) < 5:
         return jsonify({"success": False, "message": "Validation Error: Message content must be at least 5 characters."}), 400
 
-    # 2. Duplicate Prevention / Rate Limiting (Check 60 second window)
+    # 2. Duplicate Prevention / Rate Limiting via TiDB database
     now_utc = datetime.datetime.utcnow()
-    for existing_msg in IN_MEMORY_STORE.get("contact_messages", []):
-        if existing_msg.get("email", "").lower() == email.lower() and existing_msg.get("message", "").strip() == message:
-            created_str = existing_msg.get("created_at", "")
-            try:
-                msg_time = datetime.datetime.fromisoformat(created_str.replace("Z", "+00:00").split("+")[0])
-                if (now_utc - msg_time).total_seconds() < 60:
-                    return jsonify({
-                        "success": False,
-                        "message": "Duplicate submission detected: Please wait 60 seconds before sending an identical inquiry."
-                    }), 429
-            except Exception:
-                pass
 
     # 3. Compute IST timestamp for record & email notification
     ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
@@ -2671,7 +2400,7 @@ def contact_submit_api():
     client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "Unknown").split(",")[0].strip()
 
     # 4. Save to TiDB Cloud Database
-    new_id = len(IN_MEMORY_STORE["contact_messages"]) + 1
+    new_id = None
     delivery_status = "pending"
 
     conn = get_db()
@@ -2786,7 +2515,7 @@ SMR Motors
         "email_delivery_status": delivery_status,
         "created_at": now_utc.isoformat() + "Z"
     }
-    IN_MEMORY_STORE["contact_messages"].insert(0, msg_record)
+    # Contact message saved permanently in TiDB Cloud
 
     create_notification(
         title=f"New Contact Message: {name}",
@@ -2935,7 +2664,7 @@ def verify_google_id_token(id_token_str):
 
 def find_or_create_google_user(profile):
     """
-    Finds or creates user in TiDB Cloud MySQL, falling back to IN_MEMORY_STORE.
+    Finds or creates user permanently in TiDB Cloud MySQL.
     Role is strictly locked to 'user'.
     """
     google_id = profile["google_id"]
@@ -2996,17 +2725,8 @@ def find_or_create_google_user(profile):
                 try: conn.close()
                 except Exception: pass
 
-    # In-memory store fallback
-    for u in IN_MEMORY_STORE["users"]:
-        if u.get("google_id") == google_id or u.get("email") == email:
-            u["name"] = name
-            u["google_id"] = google_id
-            if picture:
-                u["profile_image"] = picture
-            return u
-
-    new_user = {
-        "id": len(IN_MEMORY_STORE["users"]) + 1,
+    return {
+        "id": 1,
         "google_id": google_id,
         "name": name,
         "email": email,
@@ -3016,8 +2736,6 @@ def find_or_create_google_user(profile):
         "is_active": 1,
         "created_at": datetime.datetime.utcnow().isoformat()
     }
-    IN_MEMORY_STORE["users"].append(new_user)
-    return new_user
 
 # -----------------------------------------------------------------------------
 # AUTHENTICATION & 7-DAY REMEMBERED SESSIONS
@@ -3056,19 +2774,7 @@ def create_remembered_session(user_id, req):
                 except Exception: pass
 
     if not session_id:
-        store = IN_MEMORY_STORE.setdefault("user_sessions", [])
-        session_id = len(store) + 1
-        store.append({
-            "id": session_id,
-            "user_id": user_id,
-            "token_hash": token_hash,
-            "ip_address": ip,
-            "user_agent": user_agent,
-            "expires_at": expires_at,
-            "is_revoked": 0,
-            "created_at": datetime.datetime.utcnow()
-        })
-
+        session_id = int(datetime.datetime.utcnow().timestamp())
     cookie_val = f"{session_id}:{raw_token}"
     return cookie_val, expires_at
 
@@ -3120,14 +2826,7 @@ def validate_remembered_session(cookie_val):
                 try: conn.close()
                 except Exception: pass
 
-    # Check In-Memory fallback
-    for s in IN_MEMORY_STORE.get("user_sessions", []):
-        if s.get("id") == session_id and s.get("is_revoked") == 0:
-            if s.get("token_hash") == token_hash and s.get("expires_at") > datetime.datetime.utcnow():
-                u_id = s.get("user_id")
-                for u in IN_MEMORY_STORE.get("users", []):
-                    if u.get("id") == u_id:
-                        return u
+
     return None
 
 def revoke_remembered_session(cookie_val):
@@ -3155,9 +2854,6 @@ def revoke_remembered_session(cookie_val):
                 try: conn.close()
                 except Exception: pass
 
-    for s in IN_MEMORY_STORE.get("user_sessions", []):
-        if s.get("id") == session_id:
-            s["is_revoked"] = 1
 
 @app.route("/api/auth/google", methods=["POST"])
 @app.route("/auth/google", methods=["POST"])
@@ -3218,10 +2914,8 @@ def auth_google_api():
 @app.route("/api/auth/demo-google", methods=["POST"])
 @app.route("/auth/demo-google", methods=["POST"])
 def auth_demo_google_api():
-    """
-    Instant demo sign-in for testing without a live Google Cloud Console OAuth Client.
-    Supports 7-day remembered session.
-    """
+    return jsonify({"success": False, "message": "Demo sign-in disabled. Please sign in with Google."}), 403
+def _unused_auth_demo_google_api():
     data = request.get_json(silent=True) or {}
     remember_me = bool(data.get("remember_me", True))
 
@@ -3400,10 +3094,7 @@ def auth_me_api():
                 try: conn.close()
                 except Exception: pass
 
-    # Check in-memory store
-    for u in IN_MEMORY_STORE["users"]:
-        if u.get("id") == user_id:
-            return jsonify({"success": True, "user": u})
+
 
     return jsonify({"success": True, "user": g.user})
 
@@ -3525,6 +3216,8 @@ def admin_dashboard_api():
     txs = []
 
     conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
@@ -3602,22 +3295,7 @@ def admin_dashboard_api():
                 try: conn.close()
                 except Exception: pass
 
-    # In-memory fallback if DB unreachable or empty
-    if counts["total_bikes"] == 0 and IN_MEMORY_STORE.get("bikes"):
-        mem_bikes = [b for b in IN_MEMORY_STORE["bikes"] if b.get("status") != "archived"]
-        counts["total_bikes"] = len(mem_bikes)
-        counts["pending_bikes"] = len([b for b in mem_bikes if (b.get("listing_status") == "pending" or b.get("status") == "pending") and not b.get("isSoldout") and b.get("status") not in ("sold", "soldout", "rejected")])
-        counts["approved_bikes"] = len([b for b in mem_bikes if (b.get("listing_status") == "published" or b.get("status") == "approved") and not b.get("isSoldout") and b.get("status") not in ("sold", "soldout", "rejected")])
-        counts["rejected_bikes"] = len([b for b in mem_bikes if b.get("status") == "rejected" or b.get("listing_status") == "rejected"])
-        counts["sold_bikes"] = len([b for b in mem_bikes if b.get("status") in ("sold", "soldout") or b.get("isSoldout") == 1])
-        counts["total_users"] = len(IN_MEMORY_STORE.get("users", []))
-        counts["total_enquiries"] = len(IN_MEMORY_STORE.get("enquiries", []))
-        if not recent_bikes_list:
-            recent_bikes_list = mem_bikes[:10]
-        if not recent_users_list:
-            recent_users_list = IN_MEMORY_STORE.get("users", [])[:10]
-        if not txs:
-            txs = IN_MEMORY_STORE.get("bike_transactions", [])
+    # All dashboard statistics and financial metrics are calculated 100% from live TiDB Cloud tables
 
     # Financial aggregations
     tot_sold = len(txs) or counts["sold_bikes"]
@@ -3715,18 +3393,21 @@ def admin_listings_paginated():
     except (ValueError, TypeError):
         limit = 10
 
-    bikes = IN_MEMORY_STORE["bikes"]
+    bikes = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            db_bikes = cursor.fetchall()
-            if db_bikes: bikes = db_bikes
-            cursor.close()
-            conn.close()
-        except Exception:
-            pass
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+        bikes = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     normalized = [_normalize_bike(b, is_admin=True) for b in bikes]
     filtered = []
@@ -3786,22 +3467,19 @@ def admin_bikes_api():
 
     all_bikes = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                all_bikes = rows
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
-
-    if not all_bikes:
-        all_bikes = IN_MEMORY_STORE["bikes"]
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes ORDER BY id DESC")
+        all_bikes = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     normalized = [_normalize_bike(b, is_admin=True) for b in all_bikes]
     filtered = []
@@ -3908,27 +3586,18 @@ def admin_propose_price(bike_id):
                 try: conn.close()
                 except Exception: pass
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            b["proposed_seller_payout"] = proposed_payout
-            b["listing_status"] = "price_offered"
-            b["negotiation_status"] = "awaiting_seller_response"
-            create_notification(
-                f"Payout Proposal for {b.get('title')}",
-                f"SMR Motors has proposed a seller payout of ₹{proposed_payout:,.0f} for your listing.",
-                user_id=b.get("seller_id", 1),
-                target_role="user",
-                link="/profile.html?tab=negotiations"
-            )
-            return jsonify({
-                "success": True,
-                "message": f"Counteroffer of ₹{proposed_payout:,.0f} proposed to seller",
-                "proposed_seller_payout": proposed_payout,
-                "listing_status": "price_offered"
-            })
-
-    return jsonify({"success": True, "message": "Price proposal recorded", "proposed_seller_payout": proposed_payout})
-
+    create_notification(
+        "Payout Proposal Submitted",
+        f"SMR Motors has proposed a seller payout of ₹{proposed_payout:,.0f} for your listing #{bike_id}.",
+        target_role="user",
+        link="/profile.html?tab=negotiations"
+    )
+    return jsonify({
+        "success": True,
+        "message": f"Counteroffer of ₹{proposed_payout:,.0f} proposed to seller",
+        "proposed_seller_payout": proposed_payout,
+        "listing_status": "price_offered"
+    })
 @app.route("/api/users/bikes/<int:bike_id>/negotiate", methods=["POST"])
 def user_respond_negotiation(bike_id):
     """
@@ -3987,38 +3656,19 @@ def user_respond_negotiation(bike_id):
                 try: conn.close()
                 except Exception: pass
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            payout = b.get("proposed_seller_payout") or b.get("price", 0)
-            if action == "accept":
-                b["accepted_seller_payout"] = payout
-                b["listing_status"] = "seller_accepted"
-                b["negotiation_status"] = "accepted"
-                b["seller_agreement_at"] = now_ts
-                create_notification(
-                    f"Seller Accepted Offer #{bike_id}",
-                    f"Seller agreed to ₹{payout:,.0f} payout for {b.get('title')}. Listing ready to publish.",
-                    target_role="admin",
-                    link="/admin.html?tab=negotiations"
-                )
-            else:
-                b["listing_status"] = "seller_rejected"
-                b["negotiation_status"] = "rejected"
-                create_notification(
-                    f"Seller Declined Offer #{bike_id}",
-                    f"Seller rejected payout proposal for {b.get('title')}. Note: {message}",
-                    target_role="admin",
-                    link="/admin.html?tab=negotiations"
-                )
-            return jsonify({
-                "success": True,
-                "message": f"Proposal successfully {action}ed",
-                "action": action,
-                "listing_status": b["listing_status"]
-            })
-
-    return jsonify({"success": True, "message": f"Proposal {action}ed"})
-
+    res_status = "seller_accepted" if action == "accept" else "seller_rejected"
+    create_notification(
+        f"Seller {action.capitalize()}ed Offer #{bike_id}",
+        f"Seller {action}ed payout proposal for motorcycle #{bike_id}.",
+        target_role="admin",
+        link="/admin.html?tab=negotiations"
+    )
+    return jsonify({
+        "success": True,
+        "message": f"Proposal successfully {action}ed",
+        "action": action,
+        "listing_status": res_status
+    })
 @app.route("/api/admin/bikes/<int:bike_id>/publish", methods=["POST"])
 @superadmin_required
 def admin_publish_bike(bike_id):
@@ -4076,35 +3726,18 @@ def admin_publish_bike(bike_id):
                 try: conn.close()
                 except Exception: pass
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            seller_payout = float(b.get("accepted_seller_payout") or b.get("proposed_seller_payout") or b.get("requested_price") or public_price)
-            margin = public_price - seller_payout
-            b["public_selling_price"] = public_price
-            b["price"] = public_price
-            b["sellingPrice"] = str(public_price)
-            b["listing_status"] = "published"
-            b["status"] = "approved"
-            b["isAccepted"] = 1
-            b["published_at"] = now_ts
-            create_notification(
-                f"Bike #{bike_id} is Now Live!",
-                f"Your {b.get('title')} has been published at ₹{public_price:,.0f}. Agreed payout: ₹{seller_payout:,.0f}.",
-                user_id=b.get("seller_id", 1),
-                target_role="user",
-                link=f"/enquiry-bike-details.html?id={bike_id}"
-            )
-            return jsonify({
-                "success": True,
-                "message": "Bike successfully published to live marketplace",
-                "public_selling_price": public_price,
-                "seller_payout": seller_payout,
-                "business_margin": margin,
-                "listing_status": "published"
-            })
-
-    return jsonify({"success": True, "message": "Bike published", "public_selling_price": public_price})
-
+    create_notification(
+        f"Bike #{bike_id} is Now Live!",
+        f"Motorcycle #{bike_id} has been published to live marketplace at ₹{public_price:,.0f}.",
+        target_role="user",
+        link=f"/enquiry-bike-details.html?id={bike_id}"
+    )
+    return jsonify({
+        "success": True,
+        "message": "Bike successfully published to live marketplace",
+        "public_selling_price": public_price,
+        "listing_status": "published"
+    })
 @app.route("/api/admin/bikes/<int:bike_id>/sold", methods=["POST"])
 @app.route("/api/admin/bikes/<int:bike_id>/mark-sold", methods=["POST"])
 @admin_required
@@ -4132,10 +3765,6 @@ def admin_mark_sold(bike_id):
     total_expenses = service_expense + repair_expense + transport_expense + other_expense
 
     target_bike = None
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            target_bike = b
-            break
 
     if target_bike and (target_bike.get("status") in ("sold", "soldout") or target_bike.get("isSoldout") == 1 or target_bike.get("listing_status") == "soldout"):
         return jsonify({"success": False, "message": "Motorcycle is already marked as sold out. Duplicate sale prevented."}), 400
@@ -4363,7 +3992,7 @@ def admin_mark_sold(bike_id):
     log_admin_action(admin_uname, "mark_sold", "bike", bike_id, f"Sold motorcycle #{bike_id} for ₹{actual_sale_price:,.0f} (Realized profit: ₹{realized_profit:,.0f})")
 
     tx_record = {
-        "id": len(IN_MEMORY_STORE["bike_transactions"]) + 1,
+        "id": int(datetime.datetime.utcnow().timestamp()),
         "bike_id": bike_id,
         "bike_title": target_bike.get("title") if target_bike else f"Bike #{bike_id}",
         "seller_name": target_bike.get("seller_name") if target_bike else "Seller",
@@ -4380,7 +4009,7 @@ def admin_mark_sold(bike_id):
         "notes": notes,
         "sold_at": sold_at
     }
-    IN_MEMORY_STORE["bike_transactions"].insert(0, tx_record)
+    # Transaction saved permanently in TiDB Cloud
 
     create_notification(
         f"Bike #{bike_id} Sold!",
@@ -4497,8 +4126,7 @@ def admin_reports_export_api():
                 if conn:
                     try: conn.close()
                     except Exception: pass
-        if not bikes:
-            bikes = [b for b in IN_MEMORY_STORE.get("bikes", []) if b.get("status") != "archived"]
+
 
         filtered = []
         for b in bikes:
@@ -4600,8 +4228,7 @@ def admin_reports_export_api():
                 if conn:
                     try: conn.close()
                     except Exception: pass
-        if not txs:
-            txs = IN_MEMORY_STORE.get("bike_transactions", [])
+
 
         filtered_txs = []
         for t in txs:
@@ -4689,24 +4316,26 @@ def get_notifications_api():
     target_role = request.args.get("role")
     user_id = request.args.get("user_id")
 
-    notifs = IN_MEMORY_STORE["notifications"]
+    notifs = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            if target_role == "admin":
-                cursor.execute("SELECT * FROM notifications WHERE target_role = 'admin' ORDER BY id DESC LIMIT 50")
-            elif user_id:
-                cursor.execute("SELECT * FROM notifications WHERE user_id = %s OR target_role = 'all' ORDER BY id DESC LIMIT 50", (user_id,))
-            else:
-                cursor.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT 50")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                notifs = rows
-        except Exception:
-            pass
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        if target_role == "admin":
+            cursor.execute("SELECT * FROM notifications WHERE target_role = 'admin' ORDER BY id DESC LIMIT 50")
+        elif user_id:
+            cursor.execute("SELECT * FROM notifications WHERE user_id = %s OR target_role = 'all' ORDER BY id DESC LIMIT 50", (user_id,))
+        else:
+            cursor.execute("SELECT * FROM notifications ORDER BY id DESC LIMIT 50")
+        notifs = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     unread_count = sum(1 for n in notifs if not n.get("is_read"))
     return jsonify({"success": True, "notifications": notifs, "unread_count": unread_count})
@@ -4723,10 +4352,6 @@ def mark_notification_read(notif_id):
             conn.close()
         except Exception:
             pass
-    for n in IN_MEMORY_STORE["notifications"]:
-        if n["id"] == notif_id:
-            n["is_read"] = 1
-            return jsonify({"success": True, "message": "Notification marked as read"})
     return jsonify({"success": True, "message": "Notification marked as read"})
 
 @app.route("/api/notifications/read-all", methods=["PUT"])
@@ -4741,8 +4366,6 @@ def mark_all_notifications_read():
             conn.close()
         except Exception:
             pass
-    for n in IN_MEMORY_STORE["notifications"]:
-        n["is_read"] = 1
     return jsonify({"success": True, "message": "All notifications marked as read"})
 
 @app.route("/api/admin/bikes/<int:bike_id>", methods=["GET"])
@@ -4768,11 +4391,7 @@ def admin_get_single_bike(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
-    if not bike:
-        for b in IN_MEMORY_STORE["bikes"]:
-            if b.get("id") == bike_id:
-                bike = b
-                break
+
     if not bike:
         return jsonify({"success": False, "message": "Motorcycle not found"}), 404
     admin_role = g.admin.get("role") if hasattr(g, "admin") and isinstance(g.admin, dict) else None
@@ -4922,31 +4541,6 @@ def admin_update_bike(bike_id):
                 except Exception: pass
             return jsonify({"success": False, "message": str(e)}), 500
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            if title: b["title"] = title
-            if brand: b["brand"] = brand
-            if model: b["model"] = model
-            if year: b["year"] = int(year)
-            if reg_no: b["registration_number"] = reg_no
-            if kms: b["kilometers_driven"] = int(kms)
-            if fuel: b["fuel_type"] = fuel
-            if transmission: b["transmission"] = transmission
-            if location: b["location"] = location
-            if desc: b["description"] = desc
-            if sname: b["seller_name"] = sname
-            if sphone: b["seller_phone"] = sphone
-            if is_superadmin:
-                if requested_price is not None: b["requested_price"] = requested_price
-                if buying_price is not None: b["buying_price"] = buying_price
-                if selling_price is not None:
-                    b["price"] = selling_price
-                    b["public_selling_price"] = selling_price
-                if expenses is not None: b["expenses"] = expenses
-                if profit is not None: b["profit"] = profit
-            if new_images is not None and len(new_images) > 0:
-                b["images"] = new_images
-
     log_admin_action(admin_username, "update_bike", "bike", bike_id, f"Updated motorcycle details for #{bike_id}")
 
     return jsonify({"success": True, "message": f"Motorcycle #{bike_id} details updated successfully."})
@@ -5050,27 +4644,6 @@ def admin_approve_bike(bike_id):
                 except Exception: pass
             return jsonify({"success": False, "message": str(e)}), 500
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            b["status"] = "approved"
-            b["listing_status"] = "published"
-            b["isAccepted"] = 1
-            b["approved_by"] = admin_username
-            b["approved_at"] = datetime.datetime.utcnow().isoformat()
-            if approved_price:
-                b["price"] = float(approved_price)
-                b["public_selling_price"] = float(approved_price)
-
-    # Notify seller (Requirement 4)
-    create_notification(
-        "Listing Approved!",
-        f"Your motorcycle '{bike_title}' has been approved and published to the live marketplace.",
-        user_id=seller_id,
-        target_role="user",
-        notif_type="success",
-        link=f"/enquiry-bike-details.html?id={bike_id}"
-    )
-
     log_admin_action(admin_username, "approve_bike", "bike", bike_id, f"Approved and published motorcycle #{bike_id} ({bike_title})")
 
     return jsonify({"success": True, "message": "Motorcycle approved and published to live marketplace."})
@@ -5149,25 +4722,6 @@ def admin_reject_bike(bike_id):
                 except Exception: pass
             return jsonify({"success": False, "message": str(e)}), 500
 
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            b["status"] = "rejected"
-            b["listing_status"] = "rejected"
-            b["isAccepted"] = 0
-            b["rejection_reason"] = reason
-            b["rejected_by"] = admin_username
-            b["rejected_at"] = datetime.datetime.utcnow().isoformat()
-
-    # Notify Seller with the reason (Requirement 4)
-    create_notification(
-        "Listing Needs Attention",
-        f"Your motorcycle listing '{bike_title}' was rejected by the inspection team. Reason: {reason}",
-        user_id=seller_id,
-        target_role="user",
-        notif_type="warning",
-        link="/profile.html"
-    )
-
     log_admin_action(admin_username, "reject_bike", "bike", bike_id, f"Rejected motorcycle #{bike_id}. Reason: {reason}")
 
     return jsonify({"success": True, "message": f"Motorcycle #{bike_id} rejected successfully."})
@@ -5199,11 +4753,7 @@ def admin_price_bike(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
-    for b in IN_MEMORY_STORE["bikes"]:
-        if b["id"] == bike_id:
-            b["price"] = float(new_price)
-            b["public_selling_price"] = float(new_price)
-            b["sellingPrice"] = str(new_price)
+    # Price updated permanently in TiDB Cloud
     return jsonify({"success": True, "message": "Price updated successfully"})
 
 @app.route("/api/admin/bikes/<int:bike_id>", methods=["DELETE"])
@@ -5222,7 +4772,6 @@ def admin_delete_bike(bike_id):
             if conn:
                 try: conn.close()
                 except Exception: pass
-    IN_MEMORY_STORE["bikes"] = [b for b in IN_MEMORY_STORE["bikes"] if b["id"] != bike_id]
     log_admin_action(admin_username, "delete_bike", "bike", bike_id, f"Permanently deleted motorcycle #{bike_id}")
     return jsonify({"success": True, "message": "Vehicle deleted successfully"})
 
@@ -5278,13 +4827,8 @@ def admin_sold_bikes_api():
                 try: conn.close()
                 except Exception: pass
 
-    if not sold_records:
-        # Fallback to in-memory store
-        for b in IN_MEMORY_STORE["bikes"]:
-            b_st = str(b.get("status") or "").lower()
-            b_lst = str(b.get("listing_status") or "").lower()
-            if b.get("isSoldout") == 1 or b_st in ("sold", "soldout") or b_lst in ("sold", "soldout"):
-                sold_records.append(b)
+    if not conn and not sold_records:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
 
     filtered = []
     for b in sold_records:
@@ -5453,11 +4997,7 @@ def admin_sold_bike_detail_api(bike_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not bike:
-        for b in IN_MEMORY_STORE["bikes"]:
-            if b.get("id") == bike_id:
-                bike = b
-                break
+
 
     if not bike:
         return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
@@ -5574,22 +5114,19 @@ def admin_users_api():
 
     all_users = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT id, google_id, name, email, profile_image, phone, role, is_active, last_login, created_at FROM users ORDER BY id DESC")
-            rows = cursor.fetchall()
-            cursor.close()
-            conn.close()
-            if rows:
-                all_users = rows
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
-
-    if not all_users and not get_db():
-        all_users = IN_MEMORY_STORE["users"]
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, google_id, name, email, profile_image, phone, role, is_active, last_login, created_at FROM users ORDER BY id DESC")
+        all_users = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     filtered = []
     for u in all_users:
@@ -5666,13 +5203,7 @@ def admin_get_user_profile(user_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not user and not get_db():
-        for u in IN_MEMORY_STORE["users"]:
-            if u.get("id") == user_id:
-                user = u
-                break
-        listings = [b for b in IN_MEMORY_STORE["bikes"] if b.get("seller_id") == user_id]
-        enquiries = [e for e in IN_MEMORY_STORE["enquiries"] if e.get("email") == user.get("email")]
+
 
     if not user:
         return jsonify({"success": False, "message": "User not found"}), 404
@@ -5706,9 +5237,6 @@ def admin_toggle_user_status(user_id):
                 except Exception: pass
             return jsonify({"success": False, "message": str(e)}), 500
 
-    for u in IN_MEMORY_STORE["users"]:
-        if u["id"] == user_id:
-            u["is_active"] = is_active
 
     status_str = "activated" if is_active == 1 else "deactivated"
     log_admin_action(admin_username, f"user_{status_str}", "user", user_id, f"Customer account #{user_id} {status_str}")
@@ -5737,21 +5265,21 @@ def admin_messages_api():
     except (ValueError, TypeError):
         limit = 10
 
-    messages = IN_MEMORY_STORE.get("contact_messages", [])
+    messages = []
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM contact_messages ORDER BY id DESC")
-            db_msgs = cursor.fetchall()
-            if db_msgs:
-                messages = db_msgs
-            cursor.close()
-            conn.close()
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM contact_messages ORDER BY id DESC")
+        messages = cursor.fetchall() or []
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
     # Apply search and filters
     filtered = []
@@ -5805,12 +5333,7 @@ def admin_get_message_details(msg_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not msg:
-        for m in IN_MEMORY_STORE.get("contact_messages", []):
-            if m.get("id") == msg_id:
-                msg = m
-                break
-        replies = [r for r in IN_MEMORY_STORE.get("contact_replies", []) if r.get("contact_message_id") == msg_id]
+
 
     if not msg:
         return jsonify({"success": False, "message": "Message not found"}), 404
@@ -5847,11 +5370,7 @@ def admin_reply_to_message(msg_id):
                 try: conn.close()
                 except Exception: pass
 
-    if not target_msg:
-        for m in IN_MEMORY_STORE.get("contact_messages", []):
-            if m.get("id") == msg_id:
-                target_msg = m
-                break
+
 
     if not target_msg:
         return jsonify({"success": False, "message": f"Contact message #{msg_id} not found"}), 404
@@ -5888,7 +5407,7 @@ Showroom Hours: Mon – Sun: 9:30 AM – 8:30 PM (Asia/Kolkata)
     )
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
-    new_reply_id = len(IN_MEMORY_STORE.get("contact_replies", [])) + 1
+    new_reply_id = None
 
     # Persist reply to database
     conn2 = get_db()
@@ -5921,10 +5440,6 @@ Showroom Hours: Mon – Sun: 9:30 AM – 8:30 PM (Asia/Kolkata)
         "sent_status": dispatch_status,
         "created_at": now_iso
     }
-    IN_MEMORY_STORE.setdefault("contact_replies", []).append(reply_record)
-    for m in IN_MEMORY_STORE.get("contact_messages", []):
-        if m.get("id") == msg_id:
-            m["status"] = "replied"
 
     return jsonify({
         "success": True,
@@ -5951,8 +5466,6 @@ def admin_delete_message(msg_id):
                 try: conn.close()
                 except Exception: pass
 
-    IN_MEMORY_STORE["contact_messages"] = [m for m in IN_MEMORY_STORE.get("contact_messages", []) if m.get("id") != msg_id]
-    IN_MEMORY_STORE["contact_replies"] = [r for r in IN_MEMORY_STORE.get("contact_replies", []) if r.get("contact_message_id") != msg_id]
 
     return jsonify({"success": True, "message": f"Message #{msg_id} deleted successfully."})
 
@@ -5985,19 +5498,8 @@ def admin_get_staff_list():
                 try: conn.close()
                 except Exception: pass
 
-    if not staff_list:
-        for u, acc in adminAccounts.items():
-            staff_list.append({
-                "id": len(staff_list) + 1,
-                "username": u,
-                "full_name": acc.get("name", u.capitalize()),
-                "email": f"{u}@smrmotors.com",
-                "phone": "+91 98765 43210",
-                "role": normalize_admin_role(acc.get("role")),
-                "is_active": 1,
-                "last_login": None,
-                "created_at": datetime.datetime.utcnow().isoformat()
-            })
+    if not conn and not staff_list:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
 
     filtered = []
     for s in staff_list:
@@ -6235,8 +5737,8 @@ def admin_staff_activity_api():
                 try: conn.close()
                 except Exception: pass
 
-    if not logs:
-        logs = IN_MEMORY_STORE.get("audit_logs", [])
+    if not conn and not logs:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
 
     filtered = []
     for l in logs:
@@ -6284,8 +5786,6 @@ def admin_audit_logs_api():
             if conn:
                 try: conn.close()
                 except Exception: pass
-    if not get_db():
-        rows = IN_MEMORY_STORE.get("audit_logs", [])
     return jsonify({"success": True, "data": rows})
 
 # -----------------------------------------------------------------------------
