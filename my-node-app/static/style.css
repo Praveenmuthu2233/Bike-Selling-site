@@ -5,89 +5,41 @@
 
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
-:root,
-html[data-theme="light"],
-html:not([data-theme="dark"]) {
-  /* Core Color Palette - DEFAULT LIGHT MODE */
-  --bg-primary: #F8FAFC;
-  --bg-secondary: #FFFFFF;
-  --bg-surface: #FFFFFF;
-  --bg-surface-elevated: #F1F5F9;
-  --bg-surface-card: #FFFFFF;
-  --bg-overlay: rgba(15, 23, 42, 0.65);
-  --bg-hover: #FFF7ED;
-  --input-bg: #FFFFFF;
+:root {
+  /* Core Color Palette */
+  --bg-primary: #0B0F17;
+  --bg-surface: #121824;
+  --bg-surface-elevated: #1B2433;
+  --bg-surface-card: rgba(22, 30, 46, 0.75);
+  --bg-overlay: rgba(11, 15, 23, 0.85);
 
   /* Brand Accents */
-  --accent-primary: #F97316;
-  --accent-hover: #EA580C;
-  --accent-subtle: rgba(249, 115, 22, 0.12);
-  --accent-gradient: linear-gradient(135deg, #F97316 0%, #FB923C 50%, #FDBA74 100%);
-  --accent-glow: 0 0 25px rgba(249, 115, 22, 0.22);
-
-  /* Supportive Tones */
-  --color-success: #16A34A;
-  --color-success-bg: #F0FDF4;
-  --color-warning: #F59E0B;
-  --color-warning-bg: #FFFBEB;
-  --color-danger: #DC2626;
-  --color-danger-bg: #FEF2F2;
-  --color-info: #2563EB;
-  --color-info-bg: #EFF6FF;
-
-  /* Text & Content */
-  --text-primary: #111827;
-  --text-secondary: #64748B;
-  --text-muted: #94A3B8;
-  --text-inverse: #FFFFFF;
-
-  /* Borders & Dividers */
-  --border-subtle: #E2E8F0;
-  --border-medium: #CBD5E1;
-  --border-focus: #F97316;
-}
-
-html[data-theme="dark"] {
-  /* Core Color Palette - DARK MODE */
-  --bg-primary: #0F172A;
-  --bg-secondary: #111827;
-  --bg-surface: #1E293B;
-  --bg-surface-elevated: #334155;
-  --bg-surface-card: #1E293B;
-  --bg-overlay: rgba(15, 23, 42, 0.85);
-  --bg-hover: #1E293B;
-  --input-bg: #1E293B;
-
-  /* Brand Accents */
-  --accent-primary: #F97316;
-  --accent-hover: #EA580C;
-  --accent-subtle: rgba(249, 115, 22, 0.15);
-  --accent-gradient: linear-gradient(135deg, #F97316 0%, #FB923C 50%, #FDBA74 100%);
-  --accent-glow: 0 0 25px rgba(249, 115, 22, 0.35);
+  --accent-primary: #FF6B00;
+  --accent-hover: #E05E00;
+  --accent-subtle: rgba(255, 107, 0, 0.12);
+  --accent-gradient: linear-gradient(135deg, #FF6B00 0%, #FF8A00 50%, #FFA800 100%);
+  --accent-glow: 0 0 25px rgba(255, 107, 0, 0.35);
 
   /* Supportive Tones */
   --color-success: #10B981;
-  --color-success-bg: rgba(16, 185, 129, 0.15);
+  --color-success-bg: rgba(16, 185, 129, 0.12);
   --color-warning: #F59E0B;
-  --color-warning-bg: rgba(245, 158, 11, 0.15);
+  --color-warning-bg: rgba(245, 158, 11, 0.12);
   --color-danger: #EF4444;
-  --color-danger-bg: rgba(239, 68, 68, 0.15);
+  --color-danger-bg: rgba(239, 68, 68, 0.12);
   --color-info: #3B82F6;
-  --color-info-bg: rgba(59, 130, 246, 0.15);
+  --color-info-bg: rgba(59, 130, 246, 0.12);
 
   /* Text & Content */
   --text-primary: #F8FAFC;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
-  --text-inverse: #0F172A;
+  --text-inverse: #0B0F17;
 
   /* Borders & Dividers */
-  --border-subtle: #334155;
-  --border-medium: #475569;
-  --border-focus: #F97316;
-}
-
-:root {
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-medium: rgba(255, 255, 255, 0.14);
+  --border-focus: #FF6B00;
 
   /* Typography */
   --font-display: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

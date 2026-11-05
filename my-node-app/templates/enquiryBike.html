@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
-  <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('smr_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Customer Enquiries | SMR Motors Admin</title>
@@ -24,7 +13,6 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='adminStyle.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
 
@@ -36,10 +24,6 @@
         <span>ADMIN CONSOLE</span>
       </a>
       <div class="nav-actions">
-        <!-- Theme Toggle Button (Light/Dark Mode) -->
-        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
-          <i class="fas fa-moon"></i>
-        </button>
         <a href="{{ url_for('admin_page') }}" class="btn btn-sm btn-outline"><i class="fas fa-arrow-left"></i> Dashboard</a>
       </div>
     </div>
@@ -116,6 +100,5 @@
 
     document.addEventListener('DOMContentLoaded', loadEnquiries);
   </script>
-  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>

@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
-  <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('smr_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Marketplace Disclaimer & Advisory | SMR Motors</title>
@@ -24,7 +13,6 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
 
@@ -46,10 +34,6 @@
       </ul>
 
       <div class="nav-actions">
-        <!-- Theme Toggle Button (Light/Dark Mode) -->
-        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
-          <i class="fas fa-moon"></i>
-        </button>
         <div class="nav-auth-slot">
           <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
           <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
@@ -112,7 +96,7 @@
 
         <!-- 1. Marketplace Intermediary Role -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-handshake" style="color: var(--accent-primary);"></i> 1. Marketplace & Intermediary Capacity
           </h2>
           <p style="color: var(--text-secondary);">
@@ -122,7 +106,7 @@
 
         <!-- 2. Independent Verification Required -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-magnifying-glass" style="color: var(--accent-primary);"></i> 2. Seller-Provided Specifications & Verification
           </h2>
           <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
@@ -135,7 +119,7 @@
 
         <!-- 3. Physical Inspection & Test Rides -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-wrench" style="color: var(--accent-primary);"></i> 3. Physical Vehicle Inspection & Test Rides
           </h2>
           <p style="color: var(--text-secondary);">
@@ -145,7 +129,7 @@
 
         <!-- 4. Legal Documentation & Ownership Transfer -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-id-card" style="color: var(--accent-primary);"></i> 4. Documentation, RC Transfer & Clear Title
           </h2>
           <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
@@ -162,7 +146,7 @@
 
         <!-- 5. Dynamic Pricing & Availability -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-tags" style="color: var(--accent-primary);"></i> 5. Pricing Variations & Inventory Availability
           </h2>
           <p style="color: var(--text-secondary);">
@@ -172,7 +156,7 @@
 
         <!-- 6. Limitation of Liability -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-shield-alt" style="color: var(--accent-primary);"></i> 6. Limitation of Liability
           </h2>
           <p style="color: var(--text-secondary);">
@@ -182,7 +166,7 @@
 
         <!-- 7. Safe Communication Channels -->
         <section>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: var(--text-primary); margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
+          <h2 style="font-size: 1.35rem; font-weight: 800; color: #FFFFFF; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.65rem;">
             <i class="fas fa-comments" style="color: var(--accent-primary);"></i> 7. Legitimate Communication Channels
           </h2>
           <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
@@ -272,6 +256,5 @@
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
-  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>

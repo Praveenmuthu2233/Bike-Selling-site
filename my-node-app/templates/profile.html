@@ -1,17 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
-  <script>
-    (function(){
-      try {
-        var t = localStorage.getItem('smr_theme') || 'light';
-        document.documentElement.setAttribute('data-theme', t);
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
-    })();
-  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Dashboard & Profile | SMR Motors</title>
@@ -446,7 +435,6 @@
       }
     }
   </style>
-  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
 
@@ -463,10 +451,6 @@
       </a>
 
       <div class="nav-actions">
-        <!-- Theme Toggle Button (Light/Dark Mode) -->
-        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
-          <i class="fas fa-moon"></i>
-        </button>
         <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> List Bike</a>
         <a href="{{ url_for('index') }}" class="btn btn-sm btn-outline"><i class="fas fa-globe"></i> Marketplace</a>
         <button onclick="AuthService.logout()" class="btn btn-sm btn-secondary"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -1033,9 +1017,9 @@
 
       <!-- New Inquiry / Support Chat Modal -->
       <div id="new-chat-modal" class="modal-backdrop" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; align-items:center; justify-content:center;">
-        <div class="table-card" style="width:100%; max-width:480px; margin:1rem; padding:1.75rem; background:var(--bg-surface); border:1px solid var(--border-subtle); border-radius:12px;">
+        <div class="table-card" style="width:100%; max-width:480px; margin:1rem; padding:1.75rem; background:#0f172a; border:1px solid #1e293b; border-radius:12px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.25rem;">
-            <h3 style="margin:0; font-size:1.2rem; color:var(--text-primary);"><i class="fas fa-comment-medical" style="color:#ea580c;"></i> New Support Inquiry</h3>
+            <h3 style="margin:0; font-size:1.2rem; color:#fff;"><i class="fas fa-comment-medical" style="color:#ea580c;"></i> New Support Inquiry</h3>
             <button onclick="closeNewChatModal()" style="background:none; border:none; color:#94a3b8; font-size:1.2rem; cursor:pointer;"><i class="fas fa-times"></i></button>
           </div>
           <form id="new-chat-form" onsubmit="handleNewChatSubmit(event)">
@@ -2198,6 +2182,5 @@
       }
     });
   </script>
-  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>
