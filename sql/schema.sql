@@ -1,5 +1,5 @@
 -- ==============================================================================
--- SMR Motors - TiDB Cloud MySQL 8.0 Compatible Schema
+-- SMR Motors - TiDB Cloud MySQL 8.0 Compatible Schema (Complete 24 Tables)
 -- ==============================================================================
 
 CREATE DATABASE IF NOT EXISTS `smr_motors` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -67,9 +67,21 @@ CREATE TABLE IF NOT EXISTS `bikes` (
   `status` VARCHAR(30) NOT NULL DEFAULT 'pending',
   `rejection_reason` TEXT NULL,
   `featured` TINYINT(1) NOT NULL DEFAULT 0,
+  `registration_number` VARCHAR(50) NULL,
+  `location` VARCHAR(120) NULL,
+  `approved_by` VARCHAR(60) NULL,
+  `approved_at` TIMESTAMP NULL,
+  `rejected_by` VARCHAR(60) NULL,
+  `rejected_at` TIMESTAMP NULL,
+  `buying_price` DECIMAL(12,2) NULL,
+  `expenses` DECIMAL(12,2) DEFAULT 0,
+  `profit` DECIMAL(12,2) DEFAULT 0,
+  `isSoldout` TINYINT(1) DEFAULT 0,
+  `sold_by` VARCHAR(60) NULL,
+  `sold_at` TIMESTAMP NULL,
+  `sold_snapshot` JSON NULL,
   `seller_agreement_at` TIMESTAMP NULL,
   `published_at` TIMESTAMP NULL,
-  `sold_at` TIMESTAMP NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   INDEX `idx_bikes_brand` (`brand`),
@@ -78,6 +90,19 @@ CREATE TABLE IF NOT EXISTS `bikes` (
   INDEX `idx_bikes_price` (`price`),
   INDEX `idx_bikes_seller` (`seller_id`),
   FOREIGN KEY (`seller_id`) REFERENCES `users`(`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4a. Listing Status History Table
+CREATE TABLE IF NOT EXISTS `listing_status_history` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL,
+  `old_status` VARCHAR(40) NULL,
+  `new_status` VARCHAR(40) NOT NULL,
+  `changed_by` VARCHAR(60) NOT NULL DEFAULT 'system',
+  `reason` TEXT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_lsh_bike` (`bike_id`),
+  FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 4b. Price Negotiations Table (Counteroffers & Margin Transparency)
@@ -114,6 +139,9 @@ CREATE TABLE IF NOT EXISTS `bike_transactions` (
   `other_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
   `realized_profit` DECIMAL(12,2) NOT NULL,
+  `buyer_name` VARCHAR(100) NULL,
+  `buyer_phone` VARCHAR(30) NULL,
+  `sold_by` VARCHAR(60) NULL,
   `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `notes` TEXT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -123,7 +151,99 @@ CREATE TABLE IF NOT EXISTS `bike_transactions` (
   FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 4d. Notifications Table (User & Admin Alerts)
+-- 4c-1. Sold Bikes Table (Sold Out Management permanent archive)
+CREATE TABLE IF NOT EXISTS `sold_bikes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL UNIQUE,
+  `title` VARCHAR(160) NOT NULL,
+  `brand` VARCHAR(60) NOT NULL,
+  `model` VARCHAR(80) NOT NULL,
+  `year` INT NOT NULL,
+  `price` DECIMAL(12,2) NOT NULL,
+  `kilometers_driven` INT NOT NULL DEFAULT 0,
+  `fuel_type` VARCHAR(30) NOT NULL DEFAULT 'Petrol',
+  `transmission` VARCHAR(30) NOT NULL DEFAULT 'Manual',
+  `seller_id` INT NULL,
+  `seller_name` VARCHAR(100) NULL,
+  `seller_phone` VARCHAR(30) NULL,
+  `seller_payout` DECIMAL(12,2) NULL,
+  `actual_sale_price` DECIMAL(12,2) NOT NULL,
+  `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `realized_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `buyer_name` VARCHAR(100) NULL,
+  `buyer_phone` VARCHAR(30) NULL,
+  `sold_by` VARCHAR(60) NULL,
+  `sold_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_sold_bikes_bike_id` (`bike_id`),
+  INDEX `idx_sold_bikes_brand` (`brand`),
+  INDEX `idx_sold_bikes_sold_at` (`sold_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4c-2. Financial Records Table
+CREATE TABLE IF NOT EXISTS `financial_records` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL,
+  `transaction_type` VARCHAR(50) NOT NULL DEFAULT 'sale',
+  `requested_price` DECIMAL(12,2) NULL,
+  `buying_price` DECIMAL(12,2) NULL,
+  `seller_payout` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `selling_price` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `service_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `repair_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `transport_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `other_expense` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `total_expenses` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `estimated_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `actual_profit` DECIMAL(12,2) NOT NULL DEFAULT 0,
+  `recorded_by` VARCHAR(60) NULL,
+  `notes` TEXT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_fin_bike` (`bike_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4d. Bike Images Table (6-Image Gallery)
+CREATE TABLE IF NOT EXISTS `bike_images` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL,
+  `image_url` VARCHAR(500) NOT NULL,
+  `image_order` INT NOT NULL DEFAULT 1,
+  `is_primary` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_bi_bike` (`bike_id`),
+  INDEX `idx_bi_order` (`bike_id`, `image_order`),
+  FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4e. Bikes For Sale Table (Legacy Compatibility)
+CREATE TABLE IF NOT EXISTS `bikesforsale` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `listingTitle` VARCHAR(255),
+  `vehicleNumber` VARCHAR(255),
+  `sellerName` VARCHAR(255),
+  `mobileNum` VARCHAR(20),
+  `bikeCondition` VARCHAR(50),
+  `bikeType` VARCHAR(50),
+  `makedFrom` VARCHAR(50),
+  `bikeModel` VARCHAR(100),
+  `bikeKms` VARCHAR(50),
+  `bikePrice` VARCHAR(50),
+  `sellingPrice` VARCHAR(50),
+  `bikeOwner` VARCHAR(50),
+  `bikeBuyingYear` VARCHAR(10),
+  `bikeColor` VARCHAR(50),
+  `bikeEngineCC` VARCHAR(50),
+  `driveType` VARCHAR(50),
+  `insurance` VARCHAR(50),
+  `horsepower` VARCHAR(50),
+  `bikeLocation` VARCHAR(255),
+  `description` TEXT,
+  `isAccepted` BOOLEAN DEFAULT TRUE,
+  `isSoldout` BOOLEAN DEFAULT FALSE,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 5. Notifications Table (User & Admin Alerts)
 CREATE TABLE IF NOT EXISTS `notifications` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -139,7 +259,7 @@ CREATE TABLE IF NOT EXISTS `notifications` (
   INDEX `idx_notif_read` (`is_read`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 5. Enquiries Table (Customer Leads)
+-- 6. Enquiries Table (Customer Leads)
 CREATE TABLE IF NOT EXISTS `enquiries` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NULL,
@@ -158,7 +278,19 @@ CREATE TABLE IF NOT EXISTS `enquiries` (
   FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 6. Favorites Table (Saved Vehicles)
+-- 6b. Enquiry Replies Table
+CREATE TABLE IF NOT EXISTS `enquiry_replies` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `enquiry_id` INT NOT NULL,
+  `admin_id` INT NULL,
+  `admin_username` VARCHAR(60) NULL,
+  `reply_message` TEXT NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_er_enquiry` (`enquiry_id`),
+  FOREIGN KEY (`enquiry_id`) REFERENCES `enquiries`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 7. Favorites Table (Saved Vehicles)
 CREATE TABLE IF NOT EXISTS `favorites` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,
@@ -171,7 +303,7 @@ CREATE TABLE IF NOT EXISTS `favorites` (
   FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7. Contact Messages Table (Customer Enquiries with Subject & Delivery Status)
+-- 8. Contact Messages Table
 CREATE TABLE IF NOT EXISTS `contact_messages` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `name` VARCHAR(100) NOT NULL,
@@ -186,7 +318,7 @@ CREATE TABLE IF NOT EXISTS `contact_messages` (
   INDEX `idx_contact_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 7b. Contact Replies Table (Admin Responses & Delivery Tracking)
+-- 8b. Contact Replies Table
 CREATE TABLE IF NOT EXISTS `contact_replies` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `contact_message_id` INT NOT NULL,
@@ -200,7 +332,7 @@ CREATE TABLE IF NOT EXISTS `contact_replies` (
   FOREIGN KEY (`contact_message_id`) REFERENCES `contact_messages`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 8. Admin Audit Logs Table (Accountability & Security)
+-- 9. Admin Audit Logs Table
 CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `admin_id` INT NULL,
@@ -215,7 +347,18 @@ CREATE TABLE IF NOT EXISTS `admin_audit_logs` (
   INDEX `idx_audit_action` (`action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 9. Customer Support Chat Conversations Table
+-- 9b. Admin Activity Logs Table
+CREATE TABLE IF NOT EXISTS `admin_activity_logs` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `admin_id` INT NULL,
+  `admin_username` VARCHAR(60) NOT NULL,
+  `action` VARCHAR(60) NOT NULL,
+  `details` TEXT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_aal_admin` (`admin_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 10. Customer Support Chat Conversations Table
 CREATE TABLE IF NOT EXISTS `chat_conversations` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `user_id` INT NOT NULL,
@@ -232,7 +375,7 @@ CREATE TABLE IF NOT EXISTS `chat_conversations` (
   INDEX `idx_conv_updated` (`updated_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 10. Customer Support Chat Messages Table
+-- 11. Customer Support Chat Messages Table
 CREATE TABLE IF NOT EXISTS `chat_messages` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `conversation_id` INT NOT NULL,
@@ -247,7 +390,7 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
   INDEX `idx_msg_created` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 11. Customer Support Chat Read Receipts
+-- 12. Customer Support Chat Read Receipts Table
 CREATE TABLE IF NOT EXISTS `chat_read_status` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `conversation_id` INT NOT NULL,
@@ -259,7 +402,21 @@ CREATE TABLE IF NOT EXISTS `chat_read_status` (
   INDEX `idx_crs_user` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 12. Durable Persistent Images Table (Survives Render Container Restarts & Redeployments)
+-- 13. User Sessions Table
+CREATE TABLE IF NOT EXISTS `user_sessions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `session_token` VARCHAR(128) NOT NULL UNIQUE,
+  `user_id` INT NOT NULL,
+  `ip_address` VARCHAR(45) NULL,
+  `user_agent` TEXT NULL,
+  `expires_at` TIMESTAMP NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_us_token` (`session_token`),
+  INDEX `idx_us_user` (`user_id`),
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 14. Durable Persistent Images Table (Longblob binary store)
 CREATE TABLE IF NOT EXISTS `durable_images` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
   `filename` VARCHAR(255) NOT NULL UNIQUE,

@@ -1841,7 +1841,7 @@
           </div>
         </div>
 
-        <details style="margin-bottom:1rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:0.6rem 0.85rem;">
+        <details id="sold-financial-details-container" style="margin-bottom:1rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); padding:0.6rem 0.85rem;">
           <summary style="font-size:0.82rem; font-weight:700; color:var(--admin-primary); cursor:pointer;">
             <i class="fas fa-sliders"></i> Optional: Record Buyer & Financial Details
           </summary>
@@ -1885,7 +1885,7 @@
       </div>
       <div class="modal-footer-bar">
         <button class="btn-table-action" onclick="closeModal('modal-mark-sold')">Cancel</button>
-        <button class="topbar-btn-action" style="background:var(--admin-primary); color:#FFFFFF;" onclick="confirmMarkSoldAction()">
+        <button class="topbar-btn-action" id="btn-confirm-mark-sold" style="background:var(--admin-primary); color:#FFFFFF;" onclick="confirmMarkSoldAction()">
           <i class="fas fa-check"></i> Confirm Sold Out
         </button>
       </div>
@@ -2394,6 +2394,7 @@
     // Global State
     let currentAdmin = null;
     let currentBikeTab = 'all';
+    let adminBikesList = [];
     let currentEnquiryTab = 'all';
     let currentUserTab = 'all';
     let currentBikeEditImages = [];
@@ -2802,6 +2803,7 @@
 
         const res = await apiRequest(url);
         const bikes = res.data || [];
+        adminBikesList = bikes;
         const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
 
         if (bikes.length === 0) {
@@ -2841,7 +2843,7 @@
                     <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve"><i class="fas fa-check"></i></button>
                     <button class="btn-table-action danger" onclick="openRejectBikeModal(${b.id})" title="Reject"><i class="fas fa-xmark"></i></button>
                   ` : ''}
-                  ${st === 'approved' ? `
+                  ${(st === 'approved' || st === 'published') ? `
                     <button class="btn-table-action primary" onclick="openMarkSoldModal(${b.id})" title="Mark as Sold Out"><i class="fas fa-handshake"></i> Sold Out</button>
                   ` : ''}
                   <button class="btn-table-action danger" onclick="deleteBikeAction(${b.id})" title="Delete"><i class="fas fa-trash"></i></button>
@@ -3399,10 +3401,20 @@
     }
 
     // ==================================================
-    // 7. MARK AS SOLD
+        // 7. MARK AS SOLD
     // ==================================================
-    function openMarkSoldModal(id, title = '') {
-      const bike = (adminBikesList || []).find(b => b.id == id);
+    async function openMarkSoldModal(id, title = '') {
+      let bike = (adminBikesList || []).find(b => b.id == id);
+      if (!bike) {
+        try {
+          const res = await apiRequest(`/api/admin/bikes/${id}`);
+          if (res && res.data) bike = res.data;
+          else if (res && res.bike) bike = res.bike;
+        } catch (e) {
+          console.warn("Could not fetch bike details for modal:", e);
+        }
+      }
+
       document.getElementById('sold-bike-id').value = id;
       document.getElementById('sold-bike-id-display').textContent = `#${id}`;
 
@@ -3425,7 +3437,7 @@
       const statusBadge = document.getElementById('sold-bike-status-badge');
       if (statusBadge) {
         statusBadge.textContent = curStatus.toUpperCase();
-        statusBadge.className = `badge-status ${curStatus === 'approved' ? 'badge-approved' : (curStatus === 'soldout' ? 'badge-sold' : 'badge-pending')}`;
+        statusBadge.className = `badge-status ${curStatus === 'approved' ? 'badge-approved' : ((curStatus === 'sold' || curStatus === 'soldout') ? 'badge-sold' : 'badge-pending')}`;
       }
 
       // Specs display
@@ -3443,7 +3455,7 @@
       // Registration Number display
       const regEl = document.getElementById('sold-bike-reg-display');
       if (regEl) {
-        regEl.textContent = bike?.registration_number || 'TN-XX-XXXX';
+        regEl.textContent = bike?.registration_number || bike?.vehicleNumber || 'Unregistered / TN-XX-XXXX';
       }
 
       // Seller info
@@ -3463,6 +3475,14 @@
       document.getElementById('sold-buyer-phone').value = '';
       document.getElementById('sold-expense-service').value = 0;
       document.getElementById('sold-expense-other').value = 0;
+
+      // Role Permissions (Requirement 6): Hide financial breakdown from Staff Admin
+      const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
+      const finDetails = document.getElementById('sold-financial-details-container');
+      if (finDetails) {
+        finDetails.style.display = isSuper ? 'block' : 'none';
+      }
+
       calculateLiveProfit();
       openModal('modal-mark-sold');
     }
@@ -3478,6 +3498,13 @@
     }
 
     async function confirmMarkSoldAction() {
+      const confirmBtn = document.getElementById('btn-confirm-mark-sold');
+      if (confirmBtn) {
+        if (confirmBtn.disabled) return; // Prevent double-clicks
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+      }
+
       const id = document.getElementById('sold-bike-id').value;
       const saleP = parseFloat(document.getElementById('sold-sale-price')?.value) || 0;
 
@@ -3494,11 +3521,19 @@
         await apiRequest(`/api/admin/bikes/${id}/sold`, { method: 'POST', body: JSON.stringify(payload) });
         showToast('Motorcycle marked as Sold Out and moved to archive!', 'success');
         closeModal('modal-mark-sold');
-        loadAdminBikes(currentBikeTab, 1);
-        loadAdminDashboard();
-        loadSoldOutBikesView(1);
+        // Instantly refresh inventory, dashboard counters, and sales archive
+        await Promise.all([
+          loadAdminBikes(currentBikeTab, 1),
+          loadAdminDashboard(),
+          loadSoldOutBikesView(1)
+        ]);
       } catch (err) {
-        showToast(err.message, 'error');
+        showToast(err.message || 'Failed to mark motorcycle as sold. Please try again.', 'error');
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i class="fas fa-check"></i> Confirm Sold Out';
+        }
       }
     }
 
