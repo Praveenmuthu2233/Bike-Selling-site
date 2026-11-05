@@ -6943,8 +6943,11 @@ def get_user_chat_conversations():
                 SELECT 
                     c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
                     c.created_at, c.updated_at,
-                    b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model,
-                    b.price AS bike_price, b.images AS bike_images,
+                    COALESCE(b.title, bfs.title) AS bike_title,
+                    COALESCE(b.brand, bfs.brand) AS bike_brand,
+                    COALESCE(b.model, bfs.model) AS bike_model,
+                    COALESCE(b.price, bfs.price) AS bike_price,
+                    COALESCE(b.images, bfs.images) AS bike_images,
                     (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
                     (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
                     (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
@@ -6952,6 +6955,7 @@ def get_user_chat_conversations():
                     a.username AS assigned_admin_name
                 FROM chat_conversations c
                 LEFT JOIN bikes b ON c.bike_id = b.id
+                LEFT JOIN bikesforsale bfs ON c.bike_id = bfs.id
                 LEFT JOIN admins a ON c.assigned_admin_id = a.id
                 WHERE c.user_id = %s
                 ORDER BY c.updated_at DESC
@@ -7190,11 +7194,16 @@ def get_conversation_messages(conv_id):
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
-            SELECT c.*, b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model,
-                   b.price AS bike_price, b.images AS bike_images,
+            SELECT c.*,
+                   COALESCE(b.title, bfs.title) AS bike_title,
+                   COALESCE(b.brand, bfs.brand) AS bike_brand,
+                   COALESCE(b.model, bfs.model) AS bike_model,
+                   COALESCE(b.price, bfs.price) AS bike_price,
+                   COALESCE(b.images, bfs.images) AS bike_images,
                    u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar
             FROM chat_conversations c
             LEFT JOIN bikes b ON c.bike_id = b.id
+            LEFT JOIN bikesforsale bfs ON c.bike_id = bfs.id
             LEFT JOIN users u ON c.user_id = u.id
             WHERE c.id = %s
         """, (conv_id,))
@@ -7434,7 +7443,11 @@ def admin_get_chat_conversations():
                 c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
                 c.created_at, c.updated_at,
                 u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar, u.phone AS customer_phone,
-                b.title AS bike_title, b.brand AS bike_brand, b.model AS bike_model, b.price AS bike_price, b.images AS bike_images,
+                COALESCE(b.title, bfs.title) AS bike_title,
+                COALESCE(b.brand, bfs.brand) AS bike_brand,
+                COALESCE(b.model, bfs.model) AS bike_model,
+                COALESCE(b.price, bfs.price) AS bike_price,
+                COALESCE(b.images, bfs.images) AS bike_images,
                 (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
                 (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
                 (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
@@ -7443,6 +7456,7 @@ def admin_get_chat_conversations():
             FROM chat_conversations c
             LEFT JOIN users u ON c.user_id = u.id
             LEFT JOIN bikes b ON c.bike_id = b.id
+            LEFT JOIN bikesforsale bfs ON c.bike_id = bfs.id
             LEFT JOIN admins a ON c.assigned_admin_id = a.id
             WHERE 1=1
         """

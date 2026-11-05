@@ -2120,7 +2120,9 @@
   <!-- ==================================================
        SCRIPTS & APPLICATION ENGINE
        ================================================== -->
-  <script src="{{ url_for('static', filename='config.js') }}">
+    <script src="{{ url_for('static', filename='config.js') }}"></script>
+  <script src="{{ url_for('static', filename='api.js') }}"></script>
+  <script>
     // ---------------------------------------------------------------------------
     // SMR MOTORS - ADMIN CHAT MANAGEMENT SYSTEM (REAL-TIME & TIDB PERSISTENT)
     // ---------------------------------------------------------------------------
@@ -2149,9 +2151,22 @@
       }
     }
 
+    let adminChatLoading = false;
+
     async function loadAdminChat() {
       const convList = document.getElementById('adminChatConvList');
       if (!convList) return;
+      if (adminChatLoading) return;
+      adminChatLoading = true;
+
+      // Show spinner while fetching
+      convList.innerHTML = `
+        <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+          <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #ea580c; margin-bottom: 0.5rem;"></i>
+          <p style="margin: 0; font-size: 0.85rem;">Loading customer conversations...</p>
+        </div>
+      `;
+
       const search = (document.getElementById('adminChatSearch')?.value || '').trim();
 
       try {
@@ -2172,9 +2187,31 @@
           openAdminConversation(parseInt(convParam));
         } else if (adminChatConversations.length > 0 && window.innerWidth > 900 && !currentAdminChatConvId) {
           openAdminConversation(adminChatConversations[0].id);
+        } else if (adminChatConversations.length === 0) {
+          // Reset right pane placeholder if no conversation
+          const placeholder = document.getElementById('adminChatPlaceholder');
+          if (placeholder) placeholder.style.display = 'block';
+          const header = document.getElementById('adminChatHeader');
+          if (header) header.style.display = 'none';
+          const inputBar = document.getElementById('adminChatInputBar');
+          if (inputBar) inputBar.style.display = 'none';
+          const quickReplies = document.getElementById('adminChatQuickReplies');
+          if (quickReplies) quickReplies.style.display = 'none';
+          const pinnedBike = document.getElementById('adminChatPinnedBike');
+          if (pinnedBike) pinnedBike.style.display = 'none';
         }
       } catch (e) {
-        convList.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--admin-danger);">${escapeHtml(e.message)}</div>`;
+        convList.innerHTML = `
+          <div style="text-align:center; padding:2.5rem 1rem;">
+            <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444; margin-bottom:0.75rem;"></i>
+            <p style="margin:0 0 0.75rem; color:#ef4444; font-size:0.88rem; font-weight:600;">${escapeHtml(e.message || 'Failed to load conversations')}</p>
+            <button class="btn btn-sm btn-outline" onclick="loadAdminChat()" style="margin-top:0.25rem;">
+              <i class="fas fa-redo"></i> Retry
+            </button>
+          </div>
+        `;
+      } finally {
+        adminChatLoading = false;
       }
     }
 
@@ -2195,11 +2232,13 @@
     function renderAdminChatConvList(convs) {
       const convList = document.getElementById('adminChatConvList');
       if (!convs || convs.length === 0) {
+        const filterLabel = currentAdminChatFilter === 'all' ? '' : ` (${currentAdminChatFilter})`;
         convList.innerHTML = `
-          <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+          <div style="text-align: center; padding: 3rem 1.5rem; color: #94a3b8;">
             <i class="fas fa-inbox" style="font-size: 2.2rem; color: #cbd5e1; margin-bottom: 0.75rem;"></i>
-            <p style="margin: 0; font-size: 0.9rem; font-weight:600;">No conversations found.</p>
-            <p style="font-size: 0.8rem; margin-top: 0.25rem;">Adjust search filters above.</p>
+            <p style="margin: 0; font-size: 0.95rem; font-weight:600; color:#1e293b;">No conversations yet${filterLabel}.</p>
+            <p style="font-size: 0.82rem; margin-top: 0.35rem; color:#64748b;">Customer inquiries and live chat messages will appear here in real time.</p>
+            ${currentAdminChatFilter !== 'all' ? '<button class="btn btn-xs btn-outline" onclick="setAdminChatFilter(\'all\', document.querySelectorAll(\'.admin-chat-filter-btn\')[0])" style="margin-top:0.75rem;">View All Inquiries</button>' : ''}
           </div>
         `;
         return;
@@ -2522,10 +2561,9 @@
       if (stream) stream.scrollTop = stream.scrollHeight;
     }
 
-  </script>
-  <script src="{{ url_for('static', filename='api.js') }}"></script>
 
-  <script>
+    // Global State & Core Handlers
+
     // Global State
     let currentAdmin = null;
     let currentBikeTab = 'all';
