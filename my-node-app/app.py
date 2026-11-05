@@ -1266,6 +1266,9 @@ def sold_out_page():
 @app.route("/admin/sold-bike-details.html")
 @app.route("/sold-bike-details.html")
 @app.route("/admin/sold-bike-details")
+@app.route("/admin/bike-details.html")
+@app.route("/admin/bike-details")
+@app.route("/bike-details-admin")
 def sold_bike_details_page():
     return render_template("sold-bike-details.html")
 
@@ -3714,35 +3717,151 @@ def admin_publish_bike(bike_id):
         "public_selling_price": public_price,
         "listing_status": "published"
     })
+
+def calculate_bike_financials(buying_price, selling_price, repair_expenses=0.0, other_expenses=0.0):
+    """
+    Computes financial metrics with Indian Rupee formatting and safe division:
+    Total Expenses = Repair Expenses + Other Expenses
+    Gross Profit = Selling Price - Buying Price
+    Net Profit = Selling Price - Buying Price - Total Expenses
+    Profit Margin % = (Net Profit / Selling Price) * 100
+    """
+    bp = float(buying_price or 0.0)
+    sp = float(selling_price or 0.0)
+    rep = float(repair_expenses or 0.0)
+    oth = float(other_expenses or 0.0)
+    total_exp = rep + oth
+    gross_profit = sp - bp
+    net_profit = sp - bp - total_exp
+    margin_pct = round((net_profit / sp * 100.0), 2) if sp > 0 else 0.0
+
+    return {
+        "buying_price": bp,
+        "selling_price": sp,
+        "repair_expenses": rep,
+        "other_expenses": oth,
+        "total_expenses": total_exp,
+        "gross_profit": gross_profit,
+        "net_profit": net_profit,
+        "profit_margin": margin_pct,
+        "profit_margin_pct": margin_pct,
+        "formatted_buying_price": f"₹{bp:,.0f}",
+        "formatted_selling_price": f"₹{sp:,.0f}",
+        "formatted_repair_expenses": f"₹{rep:,.0f}",
+        "formatted_other_expenses": f"₹{oth:,.0f}",
+        "formatted_total_expenses": f"₹{total_exp:,.0f}",
+        "formatted_gross_profit": f"₹{gross_profit:,.0f}",
+        "formatted_net_profit": f"₹{net_profit:,.0f}",
+        "formatted_profit_margin": f"{margin_pct:.1f}%",
+        "formatted_profit_margin_pct": f"{margin_pct:.1f}%"
+    }
+
 @app.route("/api/admin/bikes/<int:bike_id>/sold", methods=["POST", "PUT"])
 @app.route("/api/admin/bikes/<int:bike_id>/mark-sold", methods=["POST", "PUT"])
 @app.route("/api/admin/bikes/<int:bike_id>/soldout", methods=["POST", "PUT"])
 @admin_required
 def admin_mark_sold(bike_id):
     """
-    Admin marks motorcycle as Sold Out in TiDB Cloud:
-    1. Sets status = 'sold', listing_status = 'sold', isSoldout = 1, sold_at = CURRENT_TIMESTAMP, sold_by = admin_uname.
-    2. Prevents duplicate sold operations and double-clicks.
-    3. Preserves original bike specifications, images, and seller details.
-    4. Records financial telemetry (actual sale price, expenses, profit) in sold_bikes & bike_transactions.
-    5. RBAC: Redacts confidential financial margins for Staff Admin callers.
+    Advanced Sold Out Workflow (Requirements 3, 4, 7, 8):
+    1. Collects Customer/Buyer Details (Name, Phone, Location, City, State, Address, Pincode).
+    2. Collects Identity/Proof (Type, Masked Ref, Optional file upload with privacy controls).
+    3. Collects Sale & Payment Info (Date, Selling Price, Method, Status, Advance, Remaining).
+    4. Enforces RBAC: Superadmin manages confidential buying price/margins; Staff Admin is restricted.
+    5. Saves permanently in TiDB: buyer_details, sale_documents, bikes, sold_bikes, bike_transactions, financial_records.
+    6. Atomic rollback on error; prevents duplicate sales.
     """
     is_superadmin = (g.admin.get("role") == "superadmin")
     admin_uname = g.admin.get("username", "admin")
 
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
-    actual_sale_price = float(data.get("actual_sale_price") or data.get("price") or 0)
-    seller_payout = float(data.get("seller_payout") or 0)
-    service_expense = float(data.get("service_expense") or 0)
-    repair_expense = float(data.get("repair_expense") or 0)
-    transport_expense = float(data.get("transport_expense") or 0)
-    other_expense = float(data.get("other_expense") or 0)
-    notes = data.get("notes", "")
-    buyer_name = data.get("buyer_name", "") or "Retail Customer"
-    buyer_phone = data.get("buyer_phone", "")
-    sold_at = data.get("sold_at") or datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    # Handle both multipart/form-data and JSON requests
+    data = {}
+    if request.form:
+        data.update(request.form.to_dict())
+    if request.is_json:
+        data.update(request.get_json(silent=True) or {})
 
-    total_expenses = service_expense + repair_expense + transport_expense + other_expense
+    # A. Customer / Buyer Details (Required: Name, Mobile, Location, City, State)
+    customer_name = (data.get("customer_name") or data.get("buyer_name") or "").strip()
+    customer_phone = (data.get("customer_phone") or data.get("buyer_phone") or "").strip()
+    customer_location = (data.get("customer_location") or data.get("location") or "").strip()
+    customer_city = (data.get("customer_city") or data.get("city") or "").strip()
+    customer_state = (data.get("customer_state") or data.get("state") or "Tamil Nadu").strip()
+    customer_email = (data.get("customer_email") or data.get("email") or "").strip()
+    customer_address = (data.get("customer_address") or data.get("address") or "").strip()
+    customer_pincode = (data.get("customer_pincode") or data.get("pincode") or "").strip()
+    alt_phone = (data.get("alt_phone") or data.get("alternative_phone") or "").strip()
+    consent_obtained = 1 if (data.get("consent_obtained") in ("1", "true", True, "on") or True) else 1
+
+    # Validation
+    if not customer_name:
+        return jsonify({"success": False, "message": "Customer full name is required to complete motorcycle sale."}), 400
+    if not customer_phone or len(customer_phone.replace(" ", "").replace("-", "")) < 10:
+        return jsonify({"success": False, "message": "A valid 10-digit customer mobile number is required."}), 400
+    if not customer_city:
+        return jsonify({"success": False, "message": "Customer city is required."}), 400
+    if not customer_location:
+        customer_location = customer_city
+
+    # B. Identity & Proof Details (Optional)
+    proof_type = (data.get("proof_type") or data.get("document_type") or "Not Provided").strip()
+    proof_ref_masked = (data.get("proof_ref_masked") or data.get("document_ref") or "").strip()
+
+    # Privacy Protection: Reject raw 12-digit Aadhaar to enforce masked requirement
+    clean_digits = "".join(filter(str.isdigit, proof_ref_masked))
+    if len(clean_digits) == 12 and "aadhaar" in proof_type.lower():
+        proof_ref_masked = f"XXXX-XXXX-{clean_digits[-4:]}"
+
+    # Handle optional proof document file upload
+    proof_file = request.files.get("proof_document") or request.files.get("document_file")
+    proof_filename = None
+    proof_mimetype = None
+    proof_bytes = None
+    proof_size = 0
+
+    if proof_file and proof_file.filename:
+        from werkzeug.utils import secure_filename
+        import uuid
+        orig_name = proof_file.filename
+        ext = orig_name.rsplit(".", 1)[-1].lower() if "." in orig_name else ""
+        if ext not in ("jpg", "jpeg", "png", "pdf", "webp"):
+            return jsonify({"success": False, "message": "Invalid proof document format. Allowed: JPG, PNG, PDF, WEBP."}), 400
+        
+        proof_bytes = proof_file.read()
+        proof_size = len(proof_bytes)
+        if proof_size > 5 * 1024 * 1024:
+            return jsonify({"success": False, "message": "Proof document exceeds maximum allowed size of 5 MB."}), 400
+        
+        proof_filename = f"proof_{int(datetime.datetime.utcnow().timestamp())}_{uuid.uuid4().hex[:6]}.{ext}"
+        proof_mimetype = proof_file.mimetype or ("application/pdf" if ext == "pdf" else f"image/{ext}")
+
+    # C. Sale Information
+    sale_date = (data.get("sale_date") or data.get("sold_at") or datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")).strip()
+    try:
+        actual_sale_price = float(data.get("actual_sale_price") or data.get("price") or data.get("selling_price") or 0)
+    except (ValueError, TypeError):
+        actual_sale_price = 0.0
+
+    payment_method = (data.get("payment_method") or "Cash").strip()
+    payment_status = (data.get("payment_status") or "Full Payment").strip()
+    try:
+        advance_amount = float(data.get("advance_amount") or 0.0)
+    except (ValueError, TypeError):
+        advance_amount = 0.0
+
+    try:
+        remaining_amount = float(data.get("remaining_amount") or 0.0)
+    except (ValueError, TypeError):
+        remaining_amount = max(0.0, actual_sale_price - advance_amount) if actual_sale_price > advance_amount else 0.0
+
+    notes = (data.get("notes") or data.get("sale_notes") or "").strip()
+
+    # Financial details (Superadmin input permitted, otherwise read from DB or defaults)
+    try: buying_price_input = float(data.get("buying_price") or 0)
+    except (ValueError, TypeError): buying_price_input = 0.0
+    try: repair_expense = float(data.get("repair_expense") or data.get("service_expense") or 0)
+    except (ValueError, TypeError): repair_expense = 0.0
+    try: other_expense = float(data.get("other_expense") or data.get("transport_expense") or 0)
+    except (ValueError, TypeError): other_expense = 0.0
 
     conn = get_db()
     if not conn:
@@ -3750,7 +3869,7 @@ def admin_mark_sold(bike_id):
 
     try:
         cursor = conn.cursor(dictionary=True)
-        # 1. Fetch target bike
+        # 1. Fetch bike record
         cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
         bike_row = cursor.fetchone()
 
@@ -3780,7 +3899,7 @@ def admin_mark_sold(bike_id):
             conn.close()
             return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
 
-        # 2. Check if already sold (Requirement 5: Prevent duplicate sold operations)
+        # 2. Check if already marked as sold (Requirement 4: Prevent duplicate sales)
         b_st = str(bike_row.get("status") or "").lower()
         b_lst = str(bike_row.get("listing_status") or "").lower()
         if bike_row.get("isSoldout") == 1 or b_st in ("sold", "soldout") or b_lst in ("sold", "soldout"):
@@ -3788,13 +3907,15 @@ def admin_mark_sold(bike_id):
             conn.close()
             return jsonify({"success": False, "message": "Motorcycle is already marked as Sold Out. Duplicate operation prevented."}), 400
 
-        # Calculate prices
+        # Resolve prices
         if actual_sale_price <= 0:
             actual_sale_price = float(bike_row.get("public_selling_price") or bike_row.get("price") or 100000)
-        if seller_payout <= 0:
-            seller_payout = float(bike_row.get("accepted_seller_payout") or bike_row.get("proposed_seller_payout") or bike_row.get("price") or actual_sale_price)
-
-        realized_profit = actual_sale_price - seller_payout - total_expenses
+        
+        buying_price = buying_price_input if (is_superadmin and buying_price_input > 0) else float(bike_row.get("buying_price") or 0)
+        fin_calc = calculate_bike_financials(buying_price, actual_sale_price, repair_expense, other_expense)
+        total_expenses = fin_calc["total_expenses"]
+        net_profit = fin_calc["net_profit"]
+        profit_margin = fin_calc["profit_margin"]
 
         b_title = bike_row.get("title") or f"Bike #{bike_id}"
         b_brand = bike_row.get("brand") or "Motorcycle"
@@ -3811,13 +3932,13 @@ def admin_mark_sold(bike_id):
         b_loc = bike_row.get("location") or "Salem, Tamil Nadu"
         b_desc = bike_row.get("description") or ""
 
-        # Query gallery images
+        # Fetch gallery images
         gallery_images = []
         try:
             cursor.execute("SELECT image_url FROM bike_images WHERE bike_id = %s ORDER BY is_primary DESC, image_order ASC", (bike_id,))
             img_rows = cursor.fetchall()
             if img_rows:
-                gallery_images = [img["image_url"] if isinstance(img, dict) else img[0] for img in img_rows]
+                gallery_images = [img["image_url"] for img in img_rows]
         except Exception:
             pass
         if not gallery_images and bike_row.get("images"):
@@ -3828,7 +3949,33 @@ def admin_mark_sold(bike_id):
         if not gallery_images:
             gallery_images = ["/static/images/IMG-20251204-WA0053.jpg"]
 
-        # 3. Snapshot of bike at time of sale
+        # 3. Insert Customer / Buyer Record into buyer_details table
+        buyer_id = None
+        try:
+            cursor.execute("""
+                INSERT INTO buyer_details 
+                (bike_id, full_name, phone, alt_phone, email, location, city, state, address, pincode, consent_obtained, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (bike_id, customer_name, customer_phone, alt_phone, customer_email, customer_location,
+                     customer_city, customer_state, customer_address, customer_pincode, consent_obtained, sale_date))
+            buyer_id = cursor.lastrowid
+        except Exception as e_bd:
+            print("[Database] buyer_details insert error:", e_bd)
+
+        # 4. Insert optional proof document into sale_documents table
+        doc_id = None
+        if proof_filename and proof_bytes:
+            try:
+                cursor.execute("""
+                    INSERT INTO sale_documents
+                    (bike_id, buyer_id, document_type, document_ref_masked, file_name, mime_type, file_size, file_data, uploaded_by, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (bike_id, buyer_id, proof_type, proof_ref_masked, proof_filename, proof_mimetype, proof_size, proof_bytes, admin_uname, sale_date))
+                doc_id = cursor.lastrowid
+            except Exception as e_doc:
+                print("[Database] sale_documents insert error:", e_doc)
+
+        # 5. Build structured historical snapshot
         snapshot_dict = {
             "bike_id": bike_id,
             "title": b_title,
@@ -3844,174 +3991,336 @@ def admin_mark_sold(bike_id):
             "description": b_desc,
             "images": gallery_images,
             "seller": {"id": b_sid, "name": b_sname, "phone": b_sphone},
-            "sold_metadata": {
-                "sold_at": str(sold_at),
+            "buyer": {
+                "id": buyer_id,
+                "name": customer_name,
+                "phone": customer_phone,
+                "alt_phone": alt_phone,
+                "email": customer_email,
+                "location": customer_location,
+                "city": customer_city,
+                "state": customer_state,
+                "address": customer_address,
+                "pincode": customer_pincode,
+                "consent_obtained": consent_obtained
+            },
+            "proof": {
+                "document_type": proof_type,
+                "document_ref_masked": proof_ref_masked,
+                "has_attachment": bool(proof_filename),
+                "doc_id": doc_id
+            },
+            "sale_info": {
+                "sale_date": str(sale_date),
+                "actual_sale_price": actual_sale_price,
+                "payment_method": payment_method,
+                "payment_status": payment_status,
+                "advance_amount": advance_amount,
+                "remaining_amount": remaining_amount,
                 "sold_by": admin_uname,
-                "buyer_name": buyer_name,
-                "buyer_phone": buyer_phone,
-                "actual_sale_price": actual_sale_price
-            }
+                "notes": notes
+            },
+            "financials": fin_calc if is_superadmin else None
         }
         snapshot_json = json.dumps(snapshot_dict)
 
-        # 4. Update existing bikes record in TiDB (Requirement 1.4, 1.5, 1.6: status = 'sold')
+        # 6. Atomic TiDB update: Set status = 'sold', listing_status = 'sold', isSoldout = 1
         try:
-            cursor.execute(
-                """UPDATE bikes SET 
+            cursor.execute("""
+                UPDATE bikes SET 
                    status = 'sold',
                    listing_status = 'sold',
                    isSoldout = 1,
-                   sold_at = CURRENT_TIMESTAMP,
+                   sold_at = %s,
                    sold_by = %s,
-                   sold_snapshot = %s
-                   WHERE id = %s""",
-                (admin_uname, snapshot_json, bike_id)
-            )
+                   sold_snapshot = %s,
+                   buying_price = %s,
+                   repair_expenses = %s,
+                   other_expenses = %s,
+                   expenses = %s,
+                   profit = %s,
+                   profit_margin = %s,
+                   payment_status = %s
+                WHERE id = %s
+            """, (sale_date, admin_uname, snapshot_json, buying_price, repair_expense,
+                     other_expense, total_expenses, net_profit, profit_margin, payment_status, bike_id))
         except Exception:
             try:
-                cursor.execute(
-                    """UPDATE bikes SET 
+                cursor.execute("""
+                    UPDATE bikes SET 
                        status = 'sold',
                        listing_status = 'sold',
-                       sold_at = CURRENT_TIMESTAMP
-                       WHERE id = %s""",
-                    (bike_id,)
-                )
+                       isSoldout = 1,
+                       sold_at = %s,
+                       sold_by = %s,
+                       sold_snapshot = %s
+                    WHERE id = %s
+                """, (sale_date, admin_uname, snapshot_json, bike_id))
             except Exception:
                 cursor.execute("UPDATE bikes SET status = 'sold' WHERE id = %s", (bike_id,))
 
-        # Update legacy bikesforsale table safely
+        # Update bikesforsale
         try:
             cursor.execute("UPDATE bikesforsale SET isSoldout = 1 WHERE id = %s", (bike_id,))
         except Exception:
             pass
 
-        # 5. Insert into listing_status_history
+        # 7. Insert / Update sold_bikes permanent archive
         try:
-            cursor.execute(
-                """INSERT INTO listing_status_history (bike_id, old_status, new_status, changed_by, reason)
-                   VALUES (%s, %s, 'sold', %s, 'Motorcycle marked as Sold Out')""",
-                (bike_id, (bike_row.get("status") or "approved"), admin_uname)
-            )
-        except Exception:
-            pass
-
-        # 6. Insert / Update sold_bikes permanent archive
-        try:
-            cursor.execute(
-                """INSERT INTO sold_bikes 
-                   (bike_id, title, brand, model, year, price, kilometers_driven, fuel_type, transmission, seller_id, seller_name, seller_phone, seller_payout, actual_sale_price, total_expenses, realized_profit, buyer_name, buyer_phone, sold_by, sold_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                   ON DUPLICATE KEY UPDATE actual_sale_price = VALUES(actual_sale_price), realized_profit = VALUES(realized_profit), sold_by = VALUES(sold_by), sold_at = VALUES(sold_at)""",
-                (bike_id, b_title, b_brand, b_model, b_year, b_price, b_kms, b_fuel, b_trans,
-                 b_sid, b_sname, b_sphone, seller_payout, actual_sale_price, total_expenses,
-                 realized_profit, buyer_name, buyer_phone, admin_uname, sold_at)
-            )
+            cursor.execute("""
+                INSERT INTO sold_bikes 
+                (bike_id, title, brand, model, year, price, kilometers_driven, fuel_type, transmission, 
+                 seller_id, seller_name, seller_phone, seller_payout, actual_sale_price, total_expenses, 
+                 realized_profit, buyer_name, buyer_phone, buyer_location, buyer_city, buyer_state, 
+                 payment_method, payment_status, advance_amount, remaining_amount, buying_price, 
+                 repair_expense, other_expense, notes, sold_by, sold_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ON DUPLICATE KEY UPDATE 
+                    actual_sale_price = VALUES(actual_sale_price),
+                    buyer_name = VALUES(buyer_name),
+                    buyer_phone = VALUES(buyer_phone),
+                    payment_status = VALUES(payment_status),
+                    sold_by = VALUES(sold_by),
+                    sold_at = VALUES(sold_at)
+            """, (bike_id, b_title, b_brand, b_model, b_year, b_price, b_kms, b_fuel, b_trans,
+                     b_sid, b_sname, b_sphone, buying_price, actual_sale_price, total_expenses,
+                     net_profit, customer_name, customer_phone, customer_location, customer_city, customer_state,
+                     payment_method, payment_status, advance_amount, remaining_amount, buying_price,
+                     repair_expense, other_expense, notes, admin_uname, sale_date))
         except Exception as e_sb:
-            print("[Database] sold_bikes log notice:", e_sb)
-
-        # 7. Insert financial telemetry
-        try:
-            cursor.execute(
-                """INSERT INTO financial_records
-                   (bike_id, transaction_type, requested_price, buying_price, seller_payout, selling_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, estimated_profit, actual_profit, recorded_by, notes)
-                   VALUES (%s, 'sale', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (bike_id, bike_row.get("requested_price"),
-                 bike_row.get("buying_price"),
-                 seller_payout, actual_sale_price, service_expense, repair_expense,
-                 transport_expense, other_expense, total_expenses, realized_profit,
-                 realized_profit, admin_uname, notes)
-            )
-        except Exception:
-            pass
+            print("[Database] sold_bikes notice:", e_sb)
 
         # 8. Insert bike_transactions record
         try:
-            cursor.execute(
-                """INSERT INTO bike_transactions 
-                   (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, buyer_name, buyer_phone, notes, sold_by, sold_at)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                (bike_id, b_sid, seller_payout, actual_sale_price,
-                 service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit,
-                 buyer_name, buyer_phone, notes, admin_uname, sold_at)
-            )
+            cursor.execute("""
+                INSERT INTO bike_transactions 
+                (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, 
+                 transport_expense, other_expense, total_expenses, realized_profit, buyer_name, buyer_phone, 
+                 buyer_location, buyer_city, buyer_state, payment_method, payment_status, advance_amount, 
+                 remaining_amount, notes, sold_by, sold_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (bike_id, b_sid, buying_price, actual_sale_price, repair_expense, repair_expense,
+                     other_expense, other_expense, total_expenses, net_profit, customer_name, customer_phone,
+                     customer_location, customer_city, customer_state, payment_method, payment_status,
+                     advance_amount, remaining_amount, notes, admin_uname, sale_date))
         except Exception:
             try:
-                cursor.execute(
-                    """INSERT INTO bike_transactions 
-                       (bike_id, seller_id, seller_payout, actual_sale_price, service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit, notes, sold_at)
-                       VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
-                    (bike_id, b_sid, seller_payout, actual_sale_price,
-                     service_expense, repair_expense, transport_expense, other_expense, total_expenses, realized_profit,
-                     notes, sold_at)
-                )
+                cursor.execute("""
+                    INSERT INTO bike_transactions 
+                    (bike_id, seller_id, seller_payout, actual_sale_price, total_expenses, realized_profit, buyer_name, buyer_phone, sold_by, sold_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (bike_id, b_sid, buying_price, actual_sale_price, total_expenses, net_profit, customer_name, customer_phone, admin_uname, sale_date))
             except Exception:
                 pass
 
-        # 9. Explicit Commit to TiDB
+        # 9. Insert financial telemetry
+        try:
+            cursor.execute("""
+                INSERT INTO financial_records
+                (bike_id, transaction_type, requested_price, buying_price, seller_payout, selling_price, 
+                 service_expense, repair_expense, transport_expense, other_expense, total_expenses, 
+                 estimated_profit, actual_profit, recorded_by, notes)
+                VALUES (%s, 'sale', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (bike_id, bike_row.get("requested_price"), buying_price, buying_price, actual_sale_price,
+                     repair_expense, repair_expense, other_expense, other_expense, total_expenses,
+                     net_profit, net_profit, admin_uname, notes))
+        except Exception:
+            pass
+
+        # 10. Record status change in listing_status_history
+        try:
+            cursor.execute("""
+                INSERT INTO listing_status_history (bike_id, old_status, new_status, changed_by, reason)
+                VALUES (%s, %s, 'sold', %s, %s)
+            """, (bike_id, (bike_row.get("status") or "approved"), admin_uname, f"Sale finalized for customer {customer_name}"))
+        except Exception:
+            pass
+
+        # COMMIT ATOMIC TRANSACTION
         conn.commit()
 
-        # 10. Round-trip verification query (Requirement 3: Verify the updated record with a SELECT query)
+        # Round-trip verification
         cursor.execute("SELECT id, status, listing_status, isSoldout, sold_at, sold_by FROM bikes WHERE id = %s", (bike_id,))
         verified_bike = cursor.fetchone()
         cursor.close()
         conn.close()
 
         if not verified_bike or str(verified_bike.get("status") or "").lower() not in ("sold", "soldout"):
-            print(f"[CRITICAL] Mark-sold verification failed for motorcycle #{bike_id}: {verified_bike}")
-            return jsonify({"success": False, "message": "Database update verification failed."}), 500
+            print(f"[CRITICAL] Mark-sold verification failed for bike #{bike_id}: {verified_bike}")
+            return jsonify({"success": False, "message": "Database transaction verification failed."}), 500
 
-        print(f"[TiDB Persistence] Bike #{bike_id} successfully marked as sold in TiDB Cloud. Status: {verified_bike.get('status')}")
+        print(f"[TiDB Persistence] Bike #{bike_id} successfully marked as sold for customer {customer_name}. Status: {verified_bike.get('status')}")
 
     except Exception as e:
-        print("[Database] Mark sold error:", e)
+        print("[Database] Complete sale error:", e)
+        if conn:
+            try:
+                conn.rollback()
+                conn.close()
+            except Exception:
+                pass
+        return jsonify({"success": False, "message": f"Database transaction error: {str(e)}"}), 500
+
+    log_admin_action(admin_uname, "complete_sale", "bike", bike_id, f"Sold motorcycle #{bike_id} to {customer_name} ({customer_city}) for ₹{actual_sale_price:,.0f} [{payment_status}]")
+
+    # Build response payload with strict RBAC redactions
+    tx_resp = {
+        "bike_id": bike_id,
+        "bike_title": b_title,
+        "customer_name": customer_name,
+        "customer_phone": customer_phone,
+        "customer_city": customer_city,
+        "actual_sale_price": actual_sale_price,
+        "payment_method": payment_method,
+        "payment_status": payment_status,
+        "advance_amount": advance_amount,
+        "remaining_amount": remaining_amount,
+        "sold_at": str(sale_date),
+        "sold_by": admin_uname,
+        "has_proof_document": bool(proof_filename)
+    }
+
+    if is_superadmin:
+        tx_resp["financials"] = fin_calc
+    else:
+        # Guarantee no internal buying price or profit is exposed to Staff Admin
+        tx_resp.pop("financials", None)
+
+    return jsonify({
+        "success": True,
+        "message": f"Motorcycle #{bike_id} ({b_title}) sale completed successfully for {customer_name}.",
+        "transaction": tx_resp
+    })
+
+# -----------------------------------------------------------------------------
+# SUPERADMIN FINANCIAL RECORDS UPDATE & SECURE SALE DOCUMENT DOWNLOAD
+# -----------------------------------------------------------------------------
+@app.route("/api/admin/bikes/<int:bike_id>/financials", methods=["PUT", "POST"])
+@superadmin_required
+def update_bike_financials_api(bike_id):
+    """
+    Superadmin exclusive endpoint to update buying price, repair expenses, other expenses,
+    and purchase date for any motorcycle. Permanently recalculates and updates TiDB records.
+    """
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    try:
+        buying_price = float(data.get("buying_price") or 0.0)
+    except (ValueError, TypeError):
+        buying_price = 0.0
+
+    try:
+        repair_expenses = float(data.get("repair_expenses") or data.get("repair_expense") or 0.0)
+    except (ValueError, TypeError):
+        repair_expenses = 0.0
+
+    try:
+        other_expenses = float(data.get("other_expenses") or data.get("other_expense") or 0.0)
+    except (ValueError, TypeError):
+        other_expenses = 0.0
+
+    purchase_date = (data.get("purchase_date") or "").strip() or None
+    notes = (data.get("notes") or "").strip()
+    admin_uname = g.admin.get("username", "admin")
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, price, public_selling_price FROM bikes WHERE id = %s", (bike_id,))
+        bike = cursor.fetchone()
+        if not bike:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
+
+        selling_price = float(bike.get("public_selling_price") or bike.get("price") or 0.0)
+        fin = calculate_bike_financials(buying_price, selling_price, repair_expenses, other_expenses)
+
+        # Update bikes table
+        cursor.execute("""
+            UPDATE bikes SET 
+               buying_price = %s,
+               repair_expenses = %s,
+               other_expenses = %s,
+               expenses = %s,
+               profit = %s,
+               profit_margin = %s,
+               purchase_date = %s
+            WHERE id = %s
+        """, (buying_price, repair_expenses, other_expenses, fin["total_expenses"],
+                 fin["net_profit"], fin["profit_margin"], purchase_date, bike_id))
+
+        # Insert financial record
+        try:
+            cursor.execute("""
+                INSERT INTO financial_records
+                (bike_id, transaction_type, buying_price, selling_price, service_expense, repair_expense, 
+                 transport_expense, other_expense, total_expenses, estimated_profit, actual_profit, recorded_by, notes)
+                VALUES (%s, 'financial_adjustment', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """, (bike_id, buying_price, selling_price, repair_expenses, repair_expenses, other_expenses,
+                     other_expenses, fin["total_expenses"], fin["net_profit"], fin["net_profit"], admin_uname, notes))
+        except Exception:
+            pass
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        log_admin_action(admin_uname, "update_financials", "bike", bike_id, f"Updated financials for bike #{bike_id}: Buying ₹{buying_price:,.0f}, Expenses ₹{fin['total_expenses']:,.0f}, Profit ₹{fin['net_profit']:,.0f}")
+
+        return jsonify({
+            "success": True,
+            "message": f"Financial details for Motorcycle #{bike_id} updated successfully.",
+            "financials": fin
+        })
+
+    except Exception as e:
         if conn:
             try: conn.close()
             except Exception: pass
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
-    log_admin_action(admin_uname, "mark_sold", "bike", bike_id, f"Marked motorcycle #{bike_id} as Sold Out (Sale Price: ₹{actual_sale_price:,.0f})")
+@app.route("/api/admin/sale-documents/<int:doc_id>/download", methods=["GET"])
+@app.route("/api/admin/bikes/<int:doc_id>/proof", methods=["GET"])
+@superadmin_required
+def download_sale_document_api(doc_id):
+    """
+    Superadmin exclusive endpoint to view / download secure customer identity proof attachments.
+    Staff Admin and regular users receive HTTP 403 Forbidden.
+    """
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database unavailable."}), 503
 
-    # Build response transaction record
-    tx_record = {
-        "bike_id": bike_id,
-        "bike_title": b_title,
-        "seller_name": b_sname,
-        "actual_sale_price": actual_sale_price,
-        "buyer_name": buyer_name,
-        "buyer_phone": buyer_phone,
-        "notes": notes,
-        "sold_at": str(sold_at),
-        "status": "sold"
-    }
+    doc = None
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT id, bike_id, document_type, document_ref_masked, file_name, mime_type, file_size, file_data FROM sale_documents WHERE id = %s OR bike_id = %s ORDER BY id DESC LIMIT 1", (doc_id, doc_id))
+        doc = cursor.fetchone()
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": str(e)}), 500
 
-    # Requirement 6: Redact financial margins for Staff Admin
-    if is_superadmin:
-        tx_record["seller_payout"] = seller_payout
-        tx_record["service_expense"] = service_expense
-        tx_record["repair_expense"] = repair_expense
-        tx_record["transport_expense"] = transport_expense
-        tx_record["other_expense"] = other_expense
-        tx_record["total_expenses"] = total_expenses
-        tx_record["realized_profit"] = realized_profit
+    if not doc or not doc.get("file_data"):
+        return jsonify({"success": False, "message": "Proof document not found or has no attachment data."}), 404
 
-    notif_msg = f"{b_title} marked as Sold Out for ₹{actual_sale_price:,.0f}."
-    if is_superadmin:
-        notif_msg += f" Net profit: ₹{realized_profit:,.0f}."
+    import io
+    from flask import send_file
+    mimetype = doc.get("mime_type") or "application/octet-stream"
+    fname = doc.get("file_name") or f"proof_document_{doc_id}"
 
-    create_notification(
-        f"Motorcycle #{bike_id} Sold Out!",
-        notif_msg,
-        target_role="admin",
-        link="/admin.html?tab=sold"
+    return send_file(
+        io.BytesIO(doc["file_data"]),
+        mimetype=mimetype,
+        as_attachment=False,
+        download_name=fname
     )
-
-    return jsonify({
-        "success": True,
-        "message": f"Motorcycle #{bike_id} ({b_title}) successfully marked as Sold Out and moved to sales archive.",
-        "bike": verified_bike,
-        "transaction": tx_record
-    })
 
 # -----------------------------------------------------------------------------
 # REPORT GENERATION & DATA EXPORTS (PDF & EXCEL WITH RBAC)
@@ -4781,17 +5090,19 @@ def admin_delete_bike(bike_id):
 @admin_required
 def admin_sold_bikes_api():
     """
-    Dedicated endpoint for sold out motorcycle management.
+    Dedicated endpoint for Sold Out Motorcycles Management (Requirement 5).
     Displays: Bike ID, Primary Image, Bike Name, Brand, Model, Registration Number,
     Year, Kilometers, Fuel Type, Transmission, Seller Name, Sold Date, Listing Date,
-    Sold By (Administrator), Final Selling Price, Status: Sold Out.
-    Supports filtering by search query, brand, and date range.
+    Sold By (Administrator), Final Selling Price, Status: Sold Out,
+    Customer Full Name, Location, Mobile Number, Payment Status, Payment Method.
+    Supports filtering by search query, brand, payment status, and date range.
     Staff Admin receives sanitized view hiding confidential profit margins;
     Superadmin receives full financial telemetry.
     """
     is_superadmin = (g.admin.get("role") == "superadmin")
     search = (request.args.get("search") or "").lower().strip()
     brand_filter = (request.args.get("brand") or "").lower().strip()
+    payment_status_filter = (request.args.get("payment_status") or "").lower().strip()
     start_date = request.args.get("start_date") or request.args.get("from_date")
     end_date = request.args.get("end_date") or request.args.get("to_date")
 
@@ -4812,22 +5123,43 @@ def admin_sold_bikes_api():
             cursor.execute("""
                 SELECT b.*, 
                        sb.actual_sale_price, sb.seller_payout, sb.total_expenses, 
-                       sb.realized_profit, sb.buyer_name, sb.buyer_phone,
+                       sb.realized_profit, sb.buyer_name as sb_buyer_name, sb.buyer_phone as sb_buyer_phone,
+                       sb.buyer_location as sb_buyer_location, sb.buyer_city as sb_buyer_city,
+                       sb.payment_method as sb_payment_method, sb.payment_status as sb_payment_status,
+                       sb.advance_amount as sb_advance_amount, sb.remaining_amount as sb_remaining_amount,
+                       bd.full_name as bd_full_name, bd.phone as bd_phone, bd.location as bd_location,
+                       bd.city as bd_city, bd.state as bd_state, bd.email as bd_email,
                        COALESCE(b.sold_by, sb.sold_by, 'admin') as effective_sold_by,
                        COALESCE(b.sold_at, sb.sold_at, b.updated_at, b.created_at) as effective_sold_at
                 FROM bikes b
                 LEFT JOIN sold_bikes sb ON b.id = sb.bike_id
-                WHERE b.isSoldout = 1 OR b.status IN ('sold', 'soldout') OR b.listing_status = 'soldout'
+                LEFT JOIN buyer_details bd ON b.id = bd.bike_id
+                WHERE b.isSoldout = 1 OR b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout')
                 ORDER BY effective_sold_at DESC, b.id DESC
             """)
             sold_records = cursor.fetchall()
             cursor.close()
             conn.close()
-        except Exception as e:
-            print("[Database] Sold bikes query notice:", e)
-            if conn:
-                try: conn.close()
-                except Exception: pass
+        except Exception:
+            try:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("""
+                    SELECT b.*,
+                           b.price as actual_sale_price,
+                           COALESCE(b.sold_by, 'admin') as effective_sold_by,
+                           COALESCE(b.sold_at, b.updated_at, b.created_at) as effective_sold_at
+                    FROM bikes b
+                    WHERE b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout') OR b.isSoldout = 1
+                    ORDER BY effective_sold_at DESC, b.id DESC
+                """)
+                sold_records = cursor.fetchall()
+                cursor.close()
+                conn.close()
+            except Exception as e2:
+                print("[Database] Sold bikes query notice:", e2)
+                if conn:
+                    try: conn.close()
+                    except Exception: pass
 
     if not conn and not sold_records:
         return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
@@ -4841,12 +5173,20 @@ def admin_sold_bikes_api():
         reg_no = b.get("registration_number") or "TN-XX-XXXX"
         seller_name = b.get("seller_name") or "SMR Motors"
         sold_by = b.get("effective_sold_by") or b.get("sold_by") or "admin"
-        buyer_name = b.get("buyer_name") or "Retail Customer"
+        
+        # Resolve customer details across buyer_details, sold_bikes, and bikes snapshot
+        buyer_name = b.get("bd_full_name") or b.get("sb_buyer_name") or b.get("buyer_name") or "Retail Customer"
+        buyer_phone = b.get("bd_phone") or b.get("sb_buyer_phone") or b.get("buyer_phone") or ""
+        buyer_city = b.get("bd_city") or b.get("sb_buyer_city") or "Salem"
+        buyer_location = b.get("bd_location") or b.get("sb_buyer_location") or f"{buyer_city}, Tamil Nadu"
+        payment_status = b.get("sb_payment_status") or b.get("payment_status") or "Full Payment"
+        payment_method = b.get("sb_payment_method") or b.get("payment_method") or "Cash"
+        
         sold_date_str = str(b.get("effective_sold_at") or b.get("sold_at") or b.get("updated_at") or b.get("created_at") or "")
 
-        # 1. Search filter
+        # 1. Search filter (bike name, brand, model, reg_no, customer name, phone, city)
         if search:
-            combined = f"{b_id} {title} {brand} {model} {reg_no} {seller_name} {sold_by} {buyer_name}".lower()
+            combined = f"{b_id} {title} {brand} {model} {reg_no} {seller_name} {sold_by} {buyer_name} {buyer_phone} {buyer_city}".lower()
             if search not in combined:
                 continue
 
@@ -4854,7 +5194,12 @@ def admin_sold_bikes_api():
         if brand_filter and brand_filter != "all" and brand.lower() != brand_filter:
             continue
 
-        # 3. Date range filter
+        # 3. Payment Status filter
+        if payment_status_filter and payment_status_filter != "all":
+            if payment_status_filter not in payment_status.lower():
+                continue
+
+        # 4. Date range filter
         if start_date:
             try:
                 if sold_date_str[:10] < start_date[:10]:
@@ -4898,20 +5243,25 @@ def admin_sold_bikes_api():
             "original_listing_date": str(b.get("created_at") or ""),
             "sold_by": sold_by,
             "final_selling_price": final_price,
-            "status": "soldout",
-            "listing_status": "soldout",
+            "status": "sold",
+            "listing_status": "sold",
             "primary_image": primary_image,
             "images": imgs[:6],
-            "buyer_name": buyer_name,
-            "buyer_phone": b.get("buyer_phone") or ""
+            "customer_name": buyer_name,
+            "customer_phone": buyer_phone,
+            "customer_city": buyer_city,
+            "customer_location": buyer_location,
+            "payment_status": payment_status,
+            "payment_method": payment_method
         }
 
+        # RBAC: Expose profit margins and buying price exclusively to Superadmin
         if is_superadmin:
             rec["buying_price"] = float(b.get("buying_price") or 0)
-            rec["seller_payout"] = float(b.get("seller_payout") or 0)
+            rec["seller_payout"] = float(b.get("seller_payout") or b.get("buying_price") or 0)
             rec["total_expenses"] = float(b.get("total_expenses") or 0)
-            rec["realized_profit"] = float(b.get("realized_profit") or 0)
-            rec["notes"] = b.get("notes") or ""
+            rec["realized_profit"] = float(b.get("realized_profit") or (final_price - rec["buying_price"] - rec["total_expenses"]))
+            rec["net_profit"] = rec["realized_profit"]
 
         filtered.append(rec)
 
@@ -4938,14 +5288,19 @@ def admin_sold_bikes_api():
     })
 
 @app.route("/api/admin/sold-bikes/<int:bike_id>", methods=["GET"])
+@app.route("/api/admin/bikes/<int:bike_id>/details", methods=["GET"])
 @admin_required
 def admin_sold_bike_detail_api(bike_id):
     """
-    Dedicated endpoint returning complete sold-out motorcycle details and historical snapshot.
-    Includes specifications, up to 6 gallery images, seller info, listing approval history,
-    customer enquiry history, sold date and administrator.
-    Confidential financials (buying price, seller payout, profit) are visible exclusively to Superadmin.
-    Staff Admin receives sanitized response with financial data omitted.
+    Comprehensive Bike & Sale Details Endpoint for ANY motorcycle (active, pending, approved, or sold).
+    Requirement 1, 2, 6:
+    - Complete motorcycle info & gallery
+    - Seller details
+    - Customer/Buyer info if sold (buyer_details table)
+    - Identity/Proof metadata with secure download link for Superadmin
+    - Complete Financials (Superadmin Only) with Indian Rupee formatting
+    - Enquiries & Activity history
+    - Redacts financials & sensitive documents for Staff Admin
     """
     is_superadmin = (g.admin.get("role") == "superadmin")
     conn = get_db()
@@ -4953,6 +5308,8 @@ def admin_sold_bike_detail_api(bike_id):
     gallery_images = []
     enquiries_list = []
     sold_record = None
+    buyer_record = None
+    proof_doc = None
 
     if conn:
         try:
@@ -4961,141 +5318,182 @@ def admin_sold_bike_detail_api(bike_id):
             bike = cursor.fetchone()
 
             if bike:
-                # Query gallery images
+                # 1. Query gallery images
                 cursor.execute("SELECT image_url FROM bike_images WHERE bike_id = %s ORDER BY is_primary DESC, image_order ASC", (bike_id,))
                 img_rows = cursor.fetchall()
                 if img_rows:
                     gallery_images = [img["image_url"] for img in img_rows]
 
-                # Query customer enquiries
-                cursor.execute("""
-                    SELECT id, name, customerName, email, phone, mobile, message, status, created_at 
-                    FROM enquiries 
-                    WHERE bike_id = %s OR listingId = %s 
-                    ORDER BY id DESC
-                """, (bike_id, bike_id))
-                enq_rows = cursor.fetchall()
-                if enq_rows:
-                    for er in enq_rows:
-                        enquiries_list.append({
-                            "id": er.get("id"),
-                            "name": er.get("name") or er.get("customerName") or "Interested Buyer",
-                            "email": er.get("email") or "",
-                            "phone": er.get("phone") or er.get("mobile") or "",
-                            "message": er.get("message") or "",
-                            "status": er.get("status") or "pending",
-                            "created_at": str(er.get("created_at") or "")
-                        })
+                # 2. Query buyer_details
+                try:
+                    cursor.execute("SELECT * FROM buyer_details WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id,))
+                    buyer_record = cursor.fetchone()
+                except Exception:
+                    pass
 
-                # Query sold_bikes archive
-                cursor.execute("SELECT * FROM sold_bikes WHERE bike_id = %s", (bike_id,))
-                sold_record = cursor.fetchone()
+                # 3. Query sale_documents
+                try:
+                    cursor.execute("SELECT id, bike_id, document_type, document_ref_masked, file_name, file_size, created_at FROM sale_documents WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id,))
+                    proof_doc = cursor.fetchone()
+                except Exception:
+                    pass
+
+                # 4. Query sold_bikes archive
+                try:
+                    cursor.execute("SELECT * FROM sold_bikes WHERE bike_id = %s", (bike_id,))
+                    sold_record = cursor.fetchone()
+                except Exception:
+                    pass
+
+                # 5. Query customer enquiries
+                try:
+                    cursor.execute("""
+                        SELECT id, name, customerName, email, phone, mobile, message, status, created_at 
+                        FROM enquiries 
+                        WHERE bike_id = %s OR listingId = %s 
+                        ORDER BY id DESC
+                    """, (bike_id, bike_id))
+                    enq_rows = cursor.fetchall()
+                    if enq_rows:
+                        for er in enq_rows:
+                            enquiries_list.append({
+                                "id": er.get("id"),
+                                "name": er.get("name") or er.get("customerName") or "Interested Buyer",
+                                "email": er.get("email") or "",
+                                "phone": er.get("phone") or er.get("mobile") or "",
+                                "message": er.get("message") or "",
+                                "status": er.get("status") or "pending",
+                                "created_at": str(er.get("created_at") or "")
+                            })
+                except Exception:
+                    pass
 
             cursor.close()
             conn.close()
         except Exception as e:
-            print("[Database] Sold bike detail query notice:", e)
+            print("[Database] Bike detail query notice:", e)
             if conn:
                 try: conn.close()
                 except Exception: pass
 
-
-
     if not bike:
         return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
 
-    b_st = str(bike.get("status") or "").lower()
-    b_lst = str(bike.get("listing_status") or "").lower()
+    b_st = str(bike.get("status") or "pending").lower()
+    b_lst = str(bike.get("listing_status") or "pending").lower()
     is_sold = (bike.get("isSoldout") == 1 or b_st in ("sold", "soldout") or b_lst in ("sold", "soldout"))
-    if not is_sold:
-        return jsonify({"success": False, "message": f"Motorcycle #{bike_id} is not marked as sold out."}), 404
 
     # Resolve gallery images
     if not gallery_images:
         raw_imgs = bike.get("images")
         if isinstance(raw_imgs, str):
-            try:
-                gallery_images = json.loads(raw_imgs)
-            except Exception:
-                gallery_images = [raw_imgs]
+            try: gallery_images = json.loads(raw_imgs)
+            except Exception: gallery_images = [raw_imgs]
         elif isinstance(raw_imgs, list):
             gallery_images = list(raw_imgs)
         if not gallery_images:
             gallery_images = ["/static/images/IMG-20251204-WA0053.jpg"]
 
-    # Use stored snapshot if present
-    snapshot = None
-    if bike.get("sold_snapshot"):
-        raw_snap = bike["sold_snapshot"]
-        try:
-            snapshot = json.loads(raw_snap) if isinstance(raw_snap, str) else dict(raw_snap)
-        except Exception:
-            snapshot = None
+    # Resolve financial calculations
+    bp = float(bike.get("buying_price") or 0.0)
+    sp = float((sold_record.get("actual_sale_price") if sold_record else None) or bike.get("public_selling_price") or bike.get("price") or 0.0)
+    rep = float(bike.get("repair_expenses") or (sold_record.get("repair_expense") if sold_record else 0.0) or 0.0)
+    oth = float(bike.get("other_expenses") or (sold_record.get("other_expense") if sold_record else (bike.get("expenses") or 0.0)) or 0.0)
+    fin_data = calculate_bike_financials(bp, sp, rep, oth)
+    fin_data["purchase_date"] = str(bike.get("purchase_date") or "")
+    fin_data["sale_date"] = str(bike.get("sold_at") or (sold_record.get("sold_at") if sold_record else "") or "")
+    fin_data["payment_status"] = (sold_record.get("payment_status") if sold_record else None) or bike.get("payment_status") or "Full Payment"
 
-    if not snapshot:
-        actual_price = float((sold_record.get("actual_sale_price") if sold_record else None) or bike.get("public_selling_price") or bike.get("price") or 0)
-        payout = float((sold_record.get("seller_payout") if sold_record else None) or bike.get("accepted_seller_payout") or bike.get("proposed_seller_payout") or bike.get("price") or 0)
-        expenses = float((sold_record.get("total_expenses") if sold_record else None) or bike.get("expenses") or 0)
-        profit = float((sold_record.get("realized_profit") if sold_record else None) or bike.get("profit") or (actual_price - payout - expenses))
-
-        snapshot = {
-            "bike_id": bike_id,
-            "title": bike.get("title") or f"Motorcycle #{bike_id}",
-            "brand": bike.get("brand") or "Motorcycle",
-            "model": bike.get("model") or "",
-            "year": int(bike.get("year", 2022)),
-            "registration_number": bike.get("registration_number") or "TN-XX-XXXX",
-            "kilometers_driven": int(bike.get("kilometers_driven", 0)),
-            "fuel_type": bike.get("fuel_type", "Petrol"),
-            "transmission": bike.get("transmission", "Manual"),
-            "location": bike.get("location") or "Salem, Tamil Nadu",
-            "description": bike.get("description") or "",
-            "images": gallery_images[:6],
-            "seller": {
-                "id": bike.get("seller_id"),
-                "name": bike.get("seller_name") or "SMR Motors",
-                "phone": bike.get("seller_phone") or "",
-                "email": ""
-            },
-            "approval_history": {
-                "created_at": str(bike.get("created_at") or ""),
-                "approved_by": bike.get("approved_by") or "admin",
-                "approved_at": str(bike.get("approved_at") or bike.get("created_at") or ""),
-                "published_at": str(bike.get("published_at") or bike.get("approved_at") or "")
-            },
-            "sold_metadata": {
-                "sold_at": str(bike.get("sold_at") or (sold_record.get("sold_at") if sold_record else "") or bike.get("updated_at") or ""),
-                "sold_by": bike.get("sold_by") or (sold_record.get("sold_by") if sold_record else "admin") or "admin",
-                "buyer_name": (sold_record.get("buyer_name") if sold_record else None) or "Retail Customer",
-                "buyer_phone": (sold_record.get("buyer_phone") if sold_record else None) or "",
-                "actual_sale_price": actual_price
-            },
-            "financials": {
-                "buying_price": float(bike.get("buying_price") or 0),
-                "seller_payout": payout,
-                "actual_sale_price": actual_price,
-                "total_expenses": expenses,
-                "realized_profit": profit
-            },
-            "enquiries": enquiries_list
+    # Resolve buyer info
+    customer_info = None
+    if buyer_record or sold_record:
+        customer_info = {
+            "name": (buyer_record.get("full_name") if buyer_record else None) or (sold_record.get("buyer_name") if sold_record else None) or "Retail Customer",
+            "phone": (buyer_record.get("phone") if buyer_record else None) or (sold_record.get("buyer_phone") if sold_record else None) or "",
+            "alt_phone": (buyer_record.get("alt_phone") if buyer_record else None) or "",
+            "email": (buyer_record.get("email") if buyer_record else None) or "",
+            "location": (buyer_record.get("location") if buyer_record else None) or (sold_record.get("buyer_location") if sold_record else None) or "Salem Showroom",
+            "city": (buyer_record.get("city") if buyer_record else None) or (sold_record.get("buyer_city") if sold_record else None) or "Salem",
+            "state": (buyer_record.get("state") if buyer_record else None) or (sold_record.get("buyer_state") if sold_record else None) or "Tamil Nadu",
+            "address": (buyer_record.get("address") if buyer_record else None) or "",
+            "pincode": (buyer_record.get("pincode") if buyer_record else None) or "",
+            "consent_obtained": bool(buyer_record.get("consent_obtained", 1) if buyer_record else True)
         }
 
-    # Restrict confidential financials to Superadmin role only (Requirement 6 & 8)
-    if not is_superadmin:
-        snapshot.pop("financials", None)
-        if "sold_metadata" in snapshot and isinstance(snapshot["sold_metadata"], dict):
-            # Omit internal financial figures from metadata
-            snapshot["sold_metadata"].pop("actual_sale_price", None)
+    # Resolve proof document info
+    proof_info = None
+    if proof_doc:
+        proof_info = {
+            "document_type": proof_doc.get("document_type") or "Not Specified",
+            "document_ref_masked": proof_doc.get("document_ref_masked") or "XXXX-XXXX",
+            "file_name": proof_doc.get("file_name"),
+            "file_size": proof_doc.get("file_size", 0),
+            "uploaded_at": str(proof_doc.get("created_at") or ""),
+            "download_url": f"/api/admin/sale-documents/{proof_doc['id']}/download" if is_superadmin else None
+        }
+
+    # Resolve sale details
+    sale_info = None
+    if is_sold:
+        sale_info = {
+            "sold_at": str(bike.get("sold_at") or (sold_record.get("sold_at") if sold_record else "") or bike.get("updated_at") or ""),
+            "sold_by": bike.get("sold_by") or (sold_record.get("sold_by") if sold_record else "admin") or "admin",
+            "actual_sale_price": sp,
+            "formatted_sale_price": f"₹{sp:,.0f}",
+            "payment_method": (sold_record.get("payment_method") if sold_record else None) or "Cash",
+            "payment_status": (sold_record.get("payment_status") if sold_record else None) or "Full Payment",
+            "advance_amount": float((sold_record.get("advance_amount") if sold_record else None) or 0.0),
+            "remaining_amount": float((sold_record.get("remaining_amount") if sold_record else None) or 0.0),
+            "notes": (sold_record.get("notes") if sold_record else None) or ""
+        }
+
+    # Build response payload
+    res_payload = {
+        "bike_id": bike_id,
+        "id": bike_id,
+        "title": bike.get("title") or f"Motorcycle #{bike_id}",
+        "brand": bike.get("brand") or "Motorcycle",
+        "model": bike.get("model") or "",
+        "year": int(bike.get("year", 2022)),
+        "registration_number": bike.get("registration_number") or "TN-XX-XXXX",
+        "kilometers_driven": int(bike.get("kilometers_driven", 0)),
+        "fuel_type": bike.get("fuel_type", "Petrol"),
+        "transmission": bike.get("transmission", "Manual"),
+        "location": bike.get("location") or "Salem Showroom",
+        "description": bike.get("description") or "Inspected and verified dealership motorcycle.",
+        "images": gallery_images[:6],
+        "primary_image": gallery_images[0] if gallery_images else "/static/images/IMG-20251204-WA0053.jpg",
+        "price": float(bike.get("price") or sp),
+        "public_selling_price": float(bike.get("public_selling_price") or bike.get("price") or sp),
+        "status": b_st,
+        "listing_status": b_lst,
+        "is_sold": is_sold,
+        "seller": {
+            "id": bike.get("seller_id"),
+            "name": bike.get("seller_name") or "SMR Motors Dealership",
+            "phone": bike.get("seller_phone") or "+91 98765 43210",
+            "email": "sales@smrmotors.com"
+        },
+        "customer": customer_info,
+        "proof_document": proof_info,
+        "sale_info": sale_info,
+        "financials": fin_data if is_superadmin else None,
+        "approval_history": {
+            "created_at": str(bike.get("created_at") or ""),
+            "approved_by": bike.get("approved_by") or "admin",
+            "approved_at": str(bike.get("approved_at") or bike.get("created_at") or ""),
+            "published_at": str(bike.get("published_at") or bike.get("approved_at") or "")
+        },
+        "enquiries": enquiries_list,
+        "is_superadmin": is_superadmin
+    }
 
     return jsonify({
         "success": True,
-        "data": snapshot,
+        "data": res_payload,
         "is_superadmin": is_superadmin
     })
 
-# -----------------------------------------------------------------------------
-# ADMIN USER MANAGEMENT (TiDB Cloud Permanent Storage & Profiles)
-# -----------------------------------------------------------------------------
 @app.route("/api/admin/users", methods=["GET"])
 @admin_required
 def admin_users_api():

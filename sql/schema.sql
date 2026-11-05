@@ -202,6 +202,44 @@ CREATE TABLE IF NOT EXISTS `financial_records` (
   INDEX `idx_fin_bike` (`bike_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+
+-- 4c-3. Buyer Details Table (Customer Sale Information)
+CREATE TABLE IF NOT EXISTS `buyer_details` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL,
+  `full_name` VARCHAR(120) NOT NULL,
+  `phone` VARCHAR(30) NOT NULL,
+  `alt_phone` VARCHAR(30) NULL,
+  `email` VARCHAR(191) NULL,
+  `location` VARCHAR(120) NOT NULL,
+  `city` VARCHAR(80) NOT NULL,
+  `state` VARCHAR(80) NOT NULL DEFAULT 'Tamil Nadu',
+  `address` TEXT NULL,
+  `pincode` VARCHAR(20) NULL,
+  `consent_obtained` TINYINT(1) NOT NULL DEFAULT 1,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_bd_bike` (`bike_id`),
+  INDEX `idx_bd_phone` (`phone`),
+  FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 4c-4. Sale Documents Table (Identity Proof & Secure Sale Attachments)
+CREATE TABLE IF NOT EXISTS `sale_documents` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `bike_id` INT NOT NULL,
+  `buyer_id` INT NULL,
+  `document_type` VARCHAR(60) NOT NULL,
+  `document_ref_masked` VARCHAR(80) NULL,
+  `file_name` VARCHAR(255) NULL,
+  `mime_type` VARCHAR(100) NULL,
+  `file_size` INT NULL DEFAULT 0,
+  `file_data` LONGBLOB NULL,
+  `uploaded_by` VARCHAR(60) NOT NULL DEFAULT 'admin',
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_sd_bike` (`bike_id`),
+  FOREIGN KEY (`bike_id`) REFERENCES `bikes`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 4d. Bike Images Table (6-Image Gallery)
 CREATE TABLE IF NOT EXISTS `bike_images` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
