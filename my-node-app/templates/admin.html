@@ -2208,9 +2208,10 @@
       convList.innerHTML = convs.map(c => {
         const isActive = c.id === currentAdminChatConvId ? 'active' : '';
         const timeStr = formatChatTime(c.last_message_at || c.created_at);
-        const avatarLetter = (c.customer.name || 'U').charAt(0).toUpperCase();
-        const avatarHtml = c.customer.avatar
-          ? `<img src="${escapeHtml(c.customer.avatar)}" alt="${escapeHtml(c.customer.name)}">`
+        const custName = (c.customer && c.customer.name) ? c.customer.name : 'Customer';
+        const avatarLetter = custName.charAt(0).toUpperCase();
+        const avatarHtml = (c.customer && c.customer.avatar)
+          ? `<img src="${escapeHtml(c.customer.avatar)}" alt="${escapeHtml(custName)}">`
           : `<span>${avatarLetter}</span>`;
         const unreadBadge = c.unread_count > 0 
           ? `<span class="admin-chat-unread-badge">${c.unread_count}</span>` 
@@ -2225,7 +2226,7 @@
             <div class="admin-chat-avatar">${avatarHtml}</div>
             <div class="admin-chat-conv-info">
               <div class="admin-chat-conv-top">
-                <span class="admin-chat-conv-name">${escapeHtml(c.customer.name)}</span>
+                <span class="admin-chat-conv-name">${escapeHtml(custName)}</span>
                 <span class="admin-chat-conv-time">${timeStr}</span>
               </div>
               <div class="admin-chat-conv-mid">
@@ -2263,7 +2264,7 @@
       stream.innerHTML = '<div style="text-align:center; padding:3rem; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading conversation...</div>';
 
       try {
-        const res = await apiRequest(`/api/chat/conversations/${convId}/messages`);
+        const res = await apiRequest(`/api/admin/chat/conversations/${convId}/messages`);
         const conv = res.conversation;
         currentActiveConvData = conv;
         const messages = res.messages || [];
@@ -2381,7 +2382,7 @@
       adminChatPollTimer = setInterval(async () => {
         if (!currentAdminChatConvId || document.visibilityState === 'hidden') return;
         try {
-          const res = await apiRequest(`/api/chat/conversations/${currentAdminChatConvId}/messages?since_id=${adminChatLastMsgId}`, { skipAuthRedirect: true });
+          const res = await apiRequest(`/api/admin/chat/conversations/${currentAdminChatConvId}/messages?since_id=${adminChatLastMsgId}`, { skipAuthRedirect: true });
           if (res.success && res.messages && res.messages.length > 0) {
             const stream = document.getElementById('adminChatMessagesStream');
             renderAdminMessagesBatch(res.messages, stream, true);
@@ -2411,7 +2412,7 @@
       btn.disabled = true;
 
       try {
-        const res = await apiRequest(`/api/chat/conversations/${currentAdminChatConvId}/messages`, {
+        const res = await apiRequest(`/api/admin/chat/conversations/${currentAdminChatConvId}/messages`, {
           method: 'POST',
           body: { message: text }
         });

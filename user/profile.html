@@ -440,8 +440,12 @@
 
   <!-- Top Navigation -->
   <header class="navbar">
-    <div class="container">
-      <a href="{{ url_for('index') }}" class="nav-brand">
+    <div class="container" style="display:flex; align-items:center; justify-content:space-between;">
+      <div style="display:flex; align-items:center; gap:0.75rem;">
+        <button class="user-sidebar-toggle-btn" id="userSidebarToggle" onclick="toggleUserSidebar()" aria-label="Toggle Navigation Menu">
+          <i class="fas fa-bars"></i>
+        </button>
+        <a href="{{ url_for('index') }}" class="nav-brand">
         <span class="brand-badge"><i class="fas fa-bolt"></i> SMR</span>
         <span>MOTORS<span class="brand-accent">.</span></span>
       </a>
@@ -455,8 +459,11 @@
   </header>
 
   <div class="user-layout">
-    <!-- Sidebar Navigation -->
-    <aside class="user-sidebar">
+    <!-- Sidebar Navigation Drawer -->
+    <aside class="user-sidebar" id="userSidebar">
+      <button class="user-sidebar-close-btn" onclick="toggleUserSidebar(false)" aria-label="Close Sidebar">
+        <i class="fas fa-times"></i>
+      </button>
       <div class="user-profile-summary">
         <div class="user-avatar-wrap">
           <img id="user-avatar-img" class="user-avatar-img" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80" alt="Profile" />
@@ -538,6 +545,8 @@
         </button>
       </div>
     </aside>
+    <!-- Mobile Sidebar Backdrop -->
+    <div class="user-sidebar-backdrop" id="userSidebarBackdrop" onclick="toggleUserSidebar(false)"></div>
 
     <!-- Main Content Area -->
     <main class="user-main-content">
@@ -853,7 +862,7 @@
 
         <div class="table-card">
           <div class="table-responsive">
-            <table class="data-table">
+            <table class="data-table responsive-table-mobile">
               <thead>
                 <tr>
                   <th>Vehicle Enquired</th>
@@ -868,6 +877,7 @@
               </tbody>
             </table>
           </div>
+          <div id="my-enquiries-pagination" style="padding: 1rem 1.5rem;"></div>
         </div>
       </div>
 
@@ -883,6 +893,7 @@
             <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary);"></i>
           </div>
         </div>
+        <div id="favorites-pagination" style="margin-top: 1.5rem;"></div>
       </div>
 
       <!-- 6. TAB: PRICE NEGOTIATIONS -->
@@ -896,6 +907,7 @@
         <div id="user-negotiations-container" style="display: flex; flex-direction: column; gap: 1.5rem;">
           <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading offers...</div>
         </div>
+        <div id="user-negotiations-pagination" style="margin-top: 1.5rem;"></div>
       </div>
 
       <!-- 7. TAB: NOTIFICATIONS -->
@@ -912,6 +924,7 @@
           <div id="user-notifications-list" style="display: flex; flex-direction: column;">
             <div style="text-align: center; padding: 3rem; color: var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading notifications...</div>
           </div>
+          <div id="user-notifications-pagination" style="padding: 1rem 1.5rem;"></div>
         </div>
       </div>
 
@@ -985,6 +998,9 @@
                 <div class="chat-placeholder-icon"><i class="fas fa-comments"></i></div>
                 <h3>SMR Motors Live Support</h3>
                 <p>Select an existing conversation on the left, or click "New Inquiry" to ask our team anything about our bikes, pricing, or test rides.</p>
+                <button class="btn btn-sm btn-primary" onclick="openNewChatModal()" style="margin-top: 1rem;">
+                  <i class="fas fa-plus"></i> Start New Inquiry
+                </button>
               </div>
             </div>
 
@@ -1038,6 +1054,119 @@
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script>
+    // Mobile Sidebar Drawer Toggle
+    function toggleUserSidebar(forceState) {
+      const sidebar = document.getElementById('userSidebar');
+      const backdrop = document.getElementById('userSidebarBackdrop');
+      if (!sidebar) return;
+      const isOpen = (typeof forceState === 'boolean') ? forceState : !sidebar.classList.contains('open');
+      if (isOpen) {
+        sidebar.classList.add('open');
+        if (backdrop) backdrop.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      } else {
+        sidebar.classList.remove('open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+
+    // User Panel Pagination State
+    const userPages = {
+      listings: { page: 1, limit: 10 },
+      enquiries: { page: 1, limit: 10 },
+      negotiations: { page: 1, limit: 10 },
+      favorites: { page: 1, limit: 10 },
+      notifications: { page: 1, limit: 10 }
+    };
+
+    function changeUserPage(section, newPage) {
+      if (!userPages[section]) userPages[section] = { page: 1, limit: 10 };
+      userPages[section].page = Math.max(1, newPage);
+      if (section === 'listings') loadUserListings(userPages.listings.page, currentUserListingFilter, userPages.listings.limit);
+      else if (section === 'enquiries') loadUserEnquiries(userPages.enquiries.page, userPages.enquiries.limit);
+      else if (section === 'negotiations') loadUserNegotiations(userPages.negotiations.page, userPages.negotiations.limit);
+      else if (section === 'favorites') loadFavorites(userPages.favorites.page, userPages.favorites.limit);
+      else if (section === 'notifications') loadUserNotifications(userPages.notifications.page, userPages.notifications.limit);
+    }
+
+    function changeUserLimit(section, newLimit) {
+      newLimit = parseInt(newLimit, 10) || 10;
+      if (!userPages[section]) userPages[section] = { page: 1, limit: 10 };
+      userPages[section].limit = newLimit;
+      userPages[section].page = 1;
+      changeUserPage(section, 1);
+    }
+
+    function renderUserPagination(containerId, section, p) {
+      const c = document.getElementById(containerId);
+      if (!c) return;
+      if (!p || p.total === 0) {
+        c.innerHTML = '';
+        return;
+      }
+
+      const curr = p.page || 1;
+      const limit = p.limit || userPages[section]?.limit || 10;
+      const total = p.total || 0;
+      const totalPages = p.totalPages || p.total_pages || Math.ceil(total / limit) || 1;
+      const start = (p.start !== undefined && p.start !== null) ? p.start : ((curr - 1) * limit + 1);
+      const end = (p.end !== undefined && p.end !== null) ? p.end : Math.min(curr * limit, total);
+
+      let pageButtons = [];
+      const maxButtons = 5;
+      let startPage = Math.max(1, curr - 2);
+      let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+      if (endPage - startPage < maxButtons - 1) {
+        startPage = Math.max(1, endPage - maxButtons + 1);
+      }
+
+      if (startPage > 1) {
+        pageButtons.push(`<button type="button" class="user-btn-page" onclick="changeUserPage('${section}', 1)">1</button>`);
+        if (startPage > 2) pageButtons.push(`<span class="user-page-ellipsis">&hellip;</span>`);
+      }
+
+      for (let i = startPage; i <= endPage; i++) {
+        pageButtons.push(`
+          <button type="button" class="user-btn-page ${i === curr ? 'active' : ''}" onclick="changeUserPage('${section}', ${i})" ${i === curr ? 'aria-current="page"' : ''}>
+            ${i}
+          </button>
+        `);
+      }
+
+      if (endPage < totalPages) {
+        if (endPage < totalPages - 1) pageButtons.push(`<span class="user-page-ellipsis">&hellip;</span>`);
+        pageButtons.push(`<button type="button" class="user-btn-page" onclick="changeUserPage('${section}', ${totalPages})">${totalPages}</button>`);
+      }
+
+      c.innerHTML = `
+        <div class="user-pagination-container">
+          <div class="user-pagination-info">
+            Showing <strong>${start}&ndash;${end}</strong> of <strong>${total}</strong> records
+          </div>
+          <div class="user-pagination-controls">
+            <label class="user-pagination-limit-label" style="display:inline-flex; align-items:center; gap:6px; font-size:0.84rem; color:var(--text-secondary); margin-right:6px;">
+              Rows:
+              <select class="user-pagination-limit-select" onchange="changeUserLimit('${section}', this.value)">
+                <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
+                <option value="25" ${limit === 25 ? 'selected' : ''}>25</option>
+                <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+              </select>
+            </label>
+            <button type="button" class="user-btn-page" ${curr <= 1 ? 'disabled' : ''} onclick="changeUserPage('${section}', ${curr - 1})" title="Previous Page">
+              <i class="fas fa-chevron-left"></i>
+            </button>
+            <div class="user-pagination-pages" style="display:inline-flex; gap:4px;">
+              ${pageButtons.join('')}
+            </div>
+            <button type="button" class="user-btn-page" ${curr >= totalPages ? 'disabled' : ''} onclick="changeUserPage('${section}', ${curr + 1})" title="Next Page">
+              <i class="fas fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
     function switchUserTab(tabId, el) {
       document.querySelectorAll('.user-tab-pane').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.user-nav-link').forEach(i => i.classList.remove('active'));
@@ -1045,12 +1174,16 @@
       if (target) target.classList.add('active');
       if (el) el.classList.add('active');
 
-      if (tabId === 'user-tab-listings') loadUserListings();
+      if (window.innerWidth <= 992) {
+        toggleUserSidebar(false);
+      }
+
+      if (tabId === 'user-tab-listings') loadUserListings(userPages.listings.page, currentUserListingFilter, userPages.listings.limit);
       if (tabId === 'user-tab-add-bike') renderUserBikeImagePreviews();
-      if (tabId === 'user-tab-negotiations') loadUserNegotiations();
-      if (tabId === 'user-tab-enquiries') loadUserEnquiries();
-      if (tabId === 'user-tab-favorites') loadFavorites();
-      if (tabId === 'user-tab-notifications') loadUserNotifications();
+      if (tabId === 'user-tab-negotiations') loadUserNegotiations(userPages.negotiations.page, userPages.negotiations.limit);
+      if (tabId === 'user-tab-enquiries') loadUserEnquiries(userPages.enquiries.page, userPages.enquiries.limit);
+      if (tabId === 'user-tab-favorites') loadFavorites(userPages.favorites.page, userPages.favorites.limit);
+      if (tabId === 'user-tab-notifications') loadUserNotifications(userPages.notifications.page, userPages.notifications.limit);
       if (tabId === 'user-tab-messages') loadUserChat();
       else if (typeof pauseUserChatPolling === 'function') pauseUserChatPolling();
     }
@@ -1305,6 +1438,7 @@
     let currentUserListingFilter = 'all';
 
     function filterUserListings(status, btn) {
+      userPages.listings.page = 1;
       currentUserListingFilter = status;
       document.querySelectorAll('.user-listing-filter').forEach(b => {
         b.classList.remove('btn-primary', 'active');
@@ -1317,11 +1451,12 @@
       loadUserListings(1, status);
     }
 
-    async function loadUserListings(page = 1, status = currentUserListingFilter) {
+    async function loadUserListings(page = 1, status = currentUserListingFilter, limit = null) {
+      limit = limit || userPages.listings.limit || 10;
       const tbody = document.getElementById('my-listings-table-body');
       try {
         const queryStatus = (status && status !== 'all') ? `&status=${encodeURIComponent(status)}` : '';
-        const res = await apiRequest(`/api/users/listings?page=${page}&limit=6${queryStatus}`);
+        const res = await apiRequest(`/api/users/listings?page=${page}&limit=${limit}${queryStatus}`);
         const listings = res.data || [];
         const p = res.pagination || { total: listings.length, page: 1, limit: 6, totalPages: 1 };
         if (listings.length === 0) {
@@ -1395,32 +1530,20 @@
         }).join('');
 
         // Render pagination
-        const paginEl = document.getElementById('my-listings-pagination');
-        if (paginEl && p.totalPages > 1) {
-          paginEl.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
-              <span style="font-size:0.85rem; color:var(--text-muted);">Page ${p.page} of ${p.totalPages} (${p.total} total)</span>
-              <div style="display:flex; gap:0.35rem;">
-                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page - 1}, currentUserListingFilter)" ${p.page <= 1 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i> Prev</button>
-                <button class="btn btn-sm btn-outline" onclick="loadUserListings(${p.page + 1}, currentUserListingFilter)" ${p.page >= p.totalPages ? 'disabled' : ''}>Next <i class="fas fa-chevron-right"></i></button>
-              </div>
-            </div>
-          `;
-        } else if (paginEl) {
-          paginEl.innerHTML = '';
-        }
+        renderUserPagination('my-listings-pagination', 'listings', res.pagination || p);
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
       }
     }
 
-    async function loadUserNegotiations() {
+    async function loadUserNegotiations(page = 1, limit = null) {
+      limit = limit || userPages.negotiations.limit || 10;
       const container = document.getElementById('user-negotiations-container');
       try {
-        const res = await apiRequest('/api/users/negotiations');
+        const res = await apiRequest(`/api/users/negotiations?page=${page}&limit=${limit}`);
         const negs = res.data || [];
         const badge = document.getElementById('user-badge-negotiations');
-        const pendingCount = negs.filter(b => b.listing_status === 'price_offered').length;
+        const pendingCount = (res.pending_count !== undefined) ? res.pending_count : negs.filter(b => b.listing_status === 'price_offered').length;
         if (badge) {
           badge.innerText = pendingCount;
           badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
@@ -1434,6 +1557,7 @@
               <p>When SMR Motors reviews your listed bikes and proposes a payout offer, you will be able to review and accept it here.</p>
             </div>
           `;
+          renderUserPagination('user-negotiations-pagination', 'negotiations', res.pagination);
           return;
         }
 
@@ -1497,6 +1621,8 @@
             </div>
           `;
         }).join('');
+
+        renderUserPagination('user-negotiations-pagination', 'negotiations', res.pagination);
       } catch (err) {
         container.innerHTML = `<div class="empty-state"><p>${err.message}</p></div>`;
       }
@@ -1531,36 +1657,42 @@
       }
     }
 
-    async function loadUserEnquiries() {
+    async function loadUserEnquiries(page = 1, limit = null) {
+      limit = limit || userPages.enquiries.limit || 10;
       const tbody = document.getElementById('my-enquiries-table-body');
       try {
-        const res = await apiRequest('/api/users/enquiries');
+        const res = await apiRequest(`/api/users/enquiries?page=${page}&limit=${limit}`);
         const enquiries = res.data || [];
         if (enquiries.length === 0) {
           tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 2rem;">No enquiries yet.</td></tr>`;
+          renderUserPagination('my-enquiries-pagination', 'enquiries', res.pagination);
           return;
         }
         tbody.innerHTML = enquiries.map(e => `
           <tr>
-            <td style="font-weight:700;">${e.bike_title || 'General Motorcycle Inquiry'}</td>
-            <td>${e.bike_price ? '₹'+Number(e.bike_price).toLocaleString('en-IN') : '-'}</td>
-            <td>${e.message}</td>
-            <td><span class="badge badge-${e.status==='completed'?'approved':'pending'}">${e.status}</span></td>
-            <td>${new Date(e.created_at).toLocaleDateString()}</td>
+            <td data-label="Vehicle Enquired" style="font-weight:700;">${e.bike_title || 'General Motorcycle Inquiry'}</td>
+            <td data-label="Price">${e.bike_price ? '₹'+Number(e.bike_price).toLocaleString('en-IN') : '-'}</td>
+            <td data-label="Message">${e.message || '-'}</td>
+            <td data-label="Status"><span class="badge badge-${e.status==='completed'?'approved':'pending'}">${e.status}</span></td>
+            <td data-label="Date">${new Date(e.created_at).toLocaleDateString()}</td>
           </tr>
         `).join('');
+
+        renderUserPagination('my-enquiries-pagination', 'enquiries', res.pagination);
       } catch (err) {
         tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:var(--color-danger);">${err.message}</td></tr>`;
       }
     }
 
-    async function loadFavorites() {
+    async function loadFavorites(page = 1, limit = null) {
+      limit = limit || userPages.favorites.limit || 10;
       const grid = document.getElementById('favorites-grid');
       try {
-        const res = await apiRequest('/api/users/favorites');
+        const res = await apiRequest(`/api/users/favorites?page=${page}&limit=${limit}`);
         const favs = res.data || [];
         if (favs.length === 0) {
           grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><h3>No saved favorites yet</h3></div>`;
+          renderUserPagination('favorites-pagination', 'favorites', res.pagination);
           return;
         }
         grid.innerHTML = favs.map(bike => {
@@ -1583,18 +1715,22 @@
             </div>
           `;
         }).join('');
+
+        renderUserPagination('favorites-pagination', 'favorites', res.pagination);
       } catch (err) {
         grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;"><p>${err.message}</p></div>`;
       }
     }
 
-    async function loadUserNotifications() {
+    async function loadUserNotifications(page = 1, limit = null) {
+      limit = limit || userPages.notifications.limit || 10;
       const container = document.getElementById('user-notifications-list');
       try {
-        const res = await apiRequest('/api/notifications');
-        const notifs = res.notifications || [];
+        const res = await apiRequest(`/api/notifications?page=${page}&limit=${limit}`);
+        const notifs = res.notifications || res.data || [];
         if (notifs.length === 0) {
           container.innerHTML = `<div style="text-align:center; padding: 3rem; color:var(--text-muted);">No notifications yet.</div>`;
+          renderUserPagination('user-notifications-pagination', 'notifications', res.pagination);
           return;
         }
         container.innerHTML = notifs.map(n => `
@@ -1607,6 +1743,8 @@
             </div>
           </div>
         `).join('');
+
+        renderUserPagination('user-notifications-pagination', 'notifications', res.pagination);
       } catch (e) {
         container.innerHTML = `<div style="padding:2rem; color:var(--color-danger);">${e.message}</div>`;
       }
@@ -1649,7 +1787,7 @@
       }
     }
 
-    async function loadUserChat() {
+    async function loadUserChat(autoOpenId = null) {
       const convList = document.getElementById('userChatConvList');
       if (!convList) return;
       try {
@@ -1658,7 +1796,7 @@
         renderUserChatConvList(userChatLoadedConvs);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const convIdParam = urlParams.get('conv_id');
+        const convIdParam = autoOpenId || urlParams.get('conv_id');
         if (convIdParam) {
           openUserConversation(parseInt(convIdParam));
         } else if (userChatLoadedConvs.length > 0 && window.innerWidth > 768 && !currentUserChatConvId) {
@@ -1675,8 +1813,11 @@
         convList.innerHTML = `
           <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
             <i class="fas fa-inbox" style="font-size: 2.2rem; color: #334155; margin-bottom: 0.75rem;"></i>
-            <p style="margin: 0; font-size: 0.9rem;">No active conversations.</p>
-            <p style="font-size: 0.8rem; margin-top: 0.25rem;">Start an inquiry above to chat with SMR Support.</p>
+            <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: #fff;">No active conversations.</p>
+            <p style="font-size: 0.82rem; margin-top: 0.35rem; color: var(--text-muted);">Start an inquiry below to chat with SMR Support.</p>
+            <button class="btn btn-sm btn-primary" onclick="openNewChatModal()" style="margin-top: 1rem;">
+              <i class="fas fa-plus"></i> Start New Inquiry
+            </button>
           </div>
         `;
         return;
@@ -1918,7 +2059,13 @@
 
     async function openNewChatModal(prefillBikeId = null) {
       const modal = document.getElementById('new-chat-modal');
+      if (!modal) return;
+      modal.classList.add('open');
       modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+
       document.getElementById('new-chat-subject').value = '';
       document.getElementById('new-chat-message').value = '';
       document.getElementById('new-chat-bike-id').value = prefillBikeId || '';
@@ -1955,8 +2102,15 @@
 
     function closeNewChatModal() {
       const modal = document.getElementById('new-chat-modal');
-      if (modal) modal.style.display = 'none';
-      document.getElementById('new-chat-bike-preview').style.display = 'none';
+      if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        modal.style.pointerEvents = 'none';
+      }
+      const preview = document.getElementById('new-chat-bike-preview');
+      if (preview) preview.style.display = 'none';
     }
 
     function handleNewChatBikeSelect(select) {
@@ -2002,7 +2156,7 @@
           closeNewChatModal();
           showToast('Inquiry sent to SMR Support!', 'success');
           switchUserTab('user-tab-messages', document.getElementById('user-nav-messages'));
-          await loadUserChat();
+          await loadUserChat(res.conversation_id);
           if (res.conversation_id) {
             openUserConversation(res.conversation_id);
           }
@@ -2016,6 +2170,17 @@
         btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
       }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const modal = document.getElementById('new-chat-modal');
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            closeNewChatModal();
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>

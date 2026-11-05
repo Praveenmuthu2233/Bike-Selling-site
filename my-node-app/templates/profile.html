@@ -998,6 +998,9 @@
                 <div class="chat-placeholder-icon"><i class="fas fa-comments"></i></div>
                 <h3>SMR Motors Live Support</h3>
                 <p>Select an existing conversation on the left, or click "New Inquiry" to ask our team anything about our bikes, pricing, or test rides.</p>
+                <button class="btn btn-sm btn-primary" onclick="openNewChatModal()" style="margin-top: 1rem;">
+                  <i class="fas fa-plus"></i> Start New Inquiry
+                </button>
               </div>
             </div>
 
@@ -1784,7 +1787,7 @@
       }
     }
 
-    async function loadUserChat() {
+    async function loadUserChat(autoOpenId = null) {
       const convList = document.getElementById('userChatConvList');
       if (!convList) return;
       try {
@@ -1793,7 +1796,7 @@
         renderUserChatConvList(userChatLoadedConvs);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const convIdParam = urlParams.get('conv_id');
+        const convIdParam = autoOpenId || urlParams.get('conv_id');
         if (convIdParam) {
           openUserConversation(parseInt(convIdParam));
         } else if (userChatLoadedConvs.length > 0 && window.innerWidth > 768 && !currentUserChatConvId) {
@@ -1810,8 +1813,11 @@
         convList.innerHTML = `
           <div style="text-align: center; padding: 3rem 1.5rem; color: var(--text-muted);">
             <i class="fas fa-inbox" style="font-size: 2.2rem; color: #334155; margin-bottom: 0.75rem;"></i>
-            <p style="margin: 0; font-size: 0.9rem;">No active conversations.</p>
-            <p style="font-size: 0.8rem; margin-top: 0.25rem;">Start an inquiry above to chat with SMR Support.</p>
+            <p style="margin: 0; font-size: 0.95rem; font-weight: 600; color: #fff;">No active conversations.</p>
+            <p style="font-size: 0.82rem; margin-top: 0.35rem; color: var(--text-muted);">Start an inquiry below to chat with SMR Support.</p>
+            <button class="btn btn-sm btn-primary" onclick="openNewChatModal()" style="margin-top: 1rem;">
+              <i class="fas fa-plus"></i> Start New Inquiry
+            </button>
           </div>
         `;
         return;
@@ -2053,7 +2059,13 @@
 
     async function openNewChatModal(prefillBikeId = null) {
       const modal = document.getElementById('new-chat-modal');
+      if (!modal) return;
+      modal.classList.add('open');
       modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+
       document.getElementById('new-chat-subject').value = '';
       document.getElementById('new-chat-message').value = '';
       document.getElementById('new-chat-bike-id').value = prefillBikeId || '';
@@ -2090,8 +2102,15 @@
 
     function closeNewChatModal() {
       const modal = document.getElementById('new-chat-modal');
-      if (modal) modal.style.display = 'none';
-      document.getElementById('new-chat-bike-preview').style.display = 'none';
+      if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+        modal.style.opacity = '0';
+        modal.style.visibility = 'hidden';
+        modal.style.pointerEvents = 'none';
+      }
+      const preview = document.getElementById('new-chat-bike-preview');
+      if (preview) preview.style.display = 'none';
     }
 
     function handleNewChatBikeSelect(select) {
@@ -2137,7 +2156,7 @@
           closeNewChatModal();
           showToast('Inquiry sent to SMR Support!', 'success');
           switchUserTab('user-tab-messages', document.getElementById('user-nav-messages'));
-          await loadUserChat();
+          await loadUserChat(res.conversation_id);
           if (res.conversation_id) {
             openUserConversation(res.conversation_id);
           }
@@ -2151,6 +2170,17 @@
         btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Message';
       }
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const modal = document.getElementById('new-chat-modal');
+      if (modal) {
+        modal.addEventListener('click', (e) => {
+          if (e.target === modal) {
+            closeNewChatModal();
+          }
+        });
+      }
+    });
   </script>
 </body>
 </html>

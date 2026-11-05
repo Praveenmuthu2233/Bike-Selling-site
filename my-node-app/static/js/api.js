@@ -57,10 +57,12 @@ async function apiRequest(endpoint, options = {}) {
   const headers = { ...options.headers };
 
   // Attach token if present
-  const isAdminRequest = endpoint.includes('/admin') && !endpoint.includes('/admin/login');
-  const token = isAdminRequest 
-    ? (localStorage.getItem('adminToken') || sessionStorage.getItem('adminToken'))
-    : (localStorage.getItem('token') || sessionStorage.getItem('token'));
+  const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || localStorage.getItem('smr_admin_token') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken') || sessionStorage.getItem('smr_admin_token');
+  const userToken = localStorage.getItem('token') || localStorage.getItem('user_token') || localStorage.getItem('userToken') || sessionStorage.getItem('token') || sessionStorage.getItem('user_token') || sessionStorage.getItem('userToken');
+
+  const isAdminRequest = (endpoint.includes('/admin') && !endpoint.includes('/admin/login')) ||
+    (window.location.pathname.includes('admin') && !!adminToken);
+  const token = isAdminRequest ? adminToken : (userToken || adminToken);
 
   if (token && !headers['Authorization']) {
     headers['Authorization'] = `Bearer ${token}`;

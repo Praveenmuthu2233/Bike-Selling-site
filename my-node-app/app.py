@@ -7043,7 +7043,12 @@ def create_chat_conversation():
     if not check_chat_rate_limit(sender_key):
         return jsonify({"success": False, "message": "You are sending messages too quickly. Please wait a moment."}), 429
 
-    bike_id = data.get("bike_id")
+    raw_bike_id = data.get("bike_id")
+    try:
+        bike_id = int(raw_bike_id) if (raw_bike_id not in (None, "", "0", 0)) else None
+    except (ValueError, TypeError):
+        bike_id = None
+
     subject = (data.get("subject") or "").strip()
 
     conn = get_db()
@@ -7061,7 +7066,8 @@ def create_chat_conversation():
         if not subject:
             subject = "General Support Inquiry"
 
-        # Check if an existing open conversation already exists for this user and bike
+        # Check if an existing open conversation already exists for this user and bike / subject
+        existing = None
         if bike_id:
             cursor.execute("""
                 SELECT id FROM chat_conversations
@@ -7069,36 +7075,55 @@ def create_chat_conversation():
                 ORDER BY id DESC LIMIT 1
             """, (caller_id, bike_id))
             existing = cursor.fetchone()
-            if existing:
-                conv_id = existing["id"]
-                cursor.execute("""
-                    INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
-                    VALUES (%s, %s, %s, %s, 0)
-                """, (conv_id, caller_id, caller_role, message_text))
-                new_msg_id = cursor.lastrowid
-                cursor.execute("UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_id,))
-                conn.commit()
-                cursor.close()
-                conn.close()
+        else:
+            five_mins_ago = (datetime.datetime.utcnow() - datetime.timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+            cursor.execute("""
+                SELECT id FROM chat_conversations
+                WHERE user_id = %s AND bike_id IS NULL AND status = 'open' AND subject = %s
+                AND created_at >= %s
+                ORDER BY id DESC LIMIT 1
+            """, (caller_id, subject, five_mins_ago))
+            existing = cursor.fetchone()
 
-                cust_name = caller_info.get("name") or caller_info.get("username") or f"Customer #{caller_id}"
-                create_notification(
-                    title=f"New Chat Message: {subject}",
-                    message=f"{cust_name}: {message_text[:100]}",
-                    user_id=None,
-                    target_role="admin",
-                    notif_type="info",
-                    link=f"/admin.html?tab=customer-chat&conv_id={conv_id}"
-                )
+        if existing:
+            conv_id = existing["id"]
+            cursor.execute("""
+                INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                VALUES (%s, %s, %s, %s, 0)
+            """, (conv_id, caller_id, caller_role, message_text))
+            new_msg_id = cursor.lastrowid
+            cursor.execute("UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_id,))
+            if caller_role == "user":
+                try:
+                    cursor.execute("""
+                        INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+                        VALUES (%s, %s, %s)
+                        ON DUPLICATE KEY UPDATE last_read_message_id = %s
+                    """, (conv_id, caller_id, new_msg_id, new_msg_id))
+                except Exception:
+                    pass
+            conn.commit()
+            cursor.close()
+            conn.close()
 
-                return jsonify({
-                    "success": True,
-                    "conversation_id": conv_id,
-                    "conversation": {"id": conv_id, "subject": subject},
-                    "message_id": new_msg_id,
-                    "reused_existing": True,
-                    "message": "Message sent successfully"
-                }), 201
+            cust_name = caller_info.get("name") or caller_info.get("username") or f"Customer #{caller_id}"
+            create_notification(
+                title=f"New Chat Message: {subject}",
+                message=f"{cust_name}: {message_text[:100]}",
+                user_id=None,
+                target_role="admin",
+                notif_type="info",
+                link=f"/admin.html?tab=customer-chat&conv_id={conv_id}"
+            )
+
+            return jsonify({
+                "success": True,
+                "conversation_id": conv_id,
+                "conversation": {"id": conv_id, "subject": subject},
+                "message_id": new_msg_id,
+                "reused_existing": True,
+                "message": "Message sent successfully"
+            }), 201
 
         cursor.execute("""
             INSERT INTO chat_conversations (user_id, subject, bike_id, status)
@@ -7112,11 +7137,15 @@ def create_chat_conversation():
         """, (conv_id, caller_id, caller_role, message_text))
         new_msg_id = cursor.lastrowid
 
-        cursor.execute("""
-            INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE last_read_message_id = %s
-        """, (conv_id, caller_id, new_msg_id, new_msg_id))
+        if caller_role == "user":
+            try:
+                cursor.execute("""
+                    INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE last_read_message_id = %s
+                """, (conv_id, caller_id, new_msg_id, new_msg_id))
+            except Exception:
+                pass
 
         conn.commit()
         cursor.close()
@@ -7145,6 +7174,7 @@ def create_chat_conversation():
             except Exception: pass
         print("[Chat DB Error] create conversation:", e)
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
 
 @app.route("/api/chat/conversations/<int:conv_id>/messages", methods=["GET"])
 @app.route("/api/admin/chat/conversations/<int:conv_id>/messages", methods=["GET"])
@@ -7315,11 +7345,15 @@ def send_chat_message(conv_id):
             WHERE id = %s
         """, (new_status, conv_id))
 
-        cursor.execute("""
-            INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
-            VALUES (%s, %s, %s)
-            ON DUPLICATE KEY UPDATE last_read_message_id = %s
-        """, (conv_id, caller_id, new_msg_id, new_msg_id))
+        if caller_role == "user":
+            try:
+                cursor.execute("""
+                    INSERT INTO chat_read_status (conversation_id, user_id, last_read_message_id)
+                    VALUES (%s, %s, %s)
+                    ON DUPLICATE KEY UPDATE last_read_message_id = %s
+                """, (conv_id, caller_id, new_msg_id, new_msg_id))
+            except Exception:
+                pass
 
         conn.commit()
         cursor.close()
