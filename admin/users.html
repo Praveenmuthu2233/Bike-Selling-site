@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('smr_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Management | SMR Motors Admin</title>
@@ -13,8 +24,15 @@
   <link rel="stylesheet" href="../assets/css/components.css">
   <link rel="stylesheet" href="../assets/css/responsive.css">
   <link rel="stylesheet" href="css/admin.css">
+  <link rel="stylesheet" href="../assets/css/theme.css">
 </head>
 <body>
+  <!-- Floating Theme Toggle Button -->
+  <div style="position:fixed; top:20px; right:20px; z-index:9999;">
+    <button class="theme-toggle-btn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
 
   <div class="admin-layout">
     <aside class="admin-sidebar">
@@ -177,5 +195,6 @@
       }
     });
   </script>
+  <script src="../assets/js/theme.js"></script>
 </body>
 </html>

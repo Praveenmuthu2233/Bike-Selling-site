@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('smr_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>About Us | SMR Motors - Automotive Excellence & Integrity</title>
@@ -13,6 +24,7 @@
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/components.css">
   <link rel="stylesheet" href="assets/css/responsive.css">
+  <link rel="stylesheet" href="assets/css/theme.css">
 </head>
 <body>
 
@@ -34,6 +46,10 @@
       </ul>
 
       <div class="nav-actions">
+        <!-- Theme Toggle Button (Light/Dark Mode) -->
+        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
+          <i class="fas fa-moon"></i>
+        </button>
         <div class="nav-auth-slot">
           <a href="login.html" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
           <a href="sell-bike.html" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
@@ -186,5 +202,6 @@
   <script src="assets/js/api.js"></script>
   <script src="assets/js/auth.js"></script>
   <script src="assets/js/main.js"></script>
+  <script src="assets/js/theme.js"></script>
 </body>
 </html>

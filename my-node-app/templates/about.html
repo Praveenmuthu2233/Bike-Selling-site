@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('smr_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>About Us | SMR Motors - Automotive Excellence & Integrity</title>
@@ -12,6 +23,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='responsive.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
 
@@ -33,6 +45,10 @@
       </ul>
 
       <div class="nav-actions">
+        <!-- Theme Toggle Button (Light/Dark Mode) -->
+        <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
+          <i class="fas fa-moon"></i>
+        </button>
         <div class="nav-auth-slot">
           <a href="{{ url_for('user_login') }}" class="btn btn-sm btn-outline"><i class="fas fa-user"></i> Sign In</a>
           <a href="{{ url_for('bike_selling') }}" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> Sell Bike</a>
@@ -72,7 +88,7 @@
 
             <!-- Showroom & Business Hours -->
             <div style="margin-top: 2rem; padding: 1.25rem; background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-md);">
-              <div style="font-weight: 700; color: #FFF; margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
+              <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 0.35rem; display: flex; align-items: center; gap: 0.5rem;">
                 <i class="fas fa-clock" style="color: var(--color-success);"></i> Showroom Business Hours
               </div>
               <div style="font-size: 0.92rem; color: var(--accent-primary); font-weight: 600;">Monday – Sunday: 9:30 AM – 8:30 PM (IST)</div>
@@ -121,5 +137,6 @@
   <script src="{{ url_for('static', filename='api.js') }}"></script>
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>

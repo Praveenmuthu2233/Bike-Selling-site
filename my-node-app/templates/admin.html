@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('smr_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SMR Motors | Enterprise Dealership Management Console</title>
@@ -411,6 +422,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body class="admin-body">
 
@@ -560,6 +572,10 @@
         </div>
 
         <div class="topbar-right">
+          <!-- Theme Toggle Button (Light/Dark Mode) -->
+          <button class="theme-toggle-btn notif-bell-btn" id="adminThemeToggleBtn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
+            <i class="fas fa-moon"></i>
+          </button>
           <button class="topbar-btn-action" onclick="switchAdminTab('tab-bikes', document.getElementById('nav-bikes')); openEditBikeModal(0)">
             <i class="fas fa-plus"></i>
             <span>Add Bike</span>
@@ -1399,7 +1415,7 @@
               <div class="admin-chat-messages-stream" id="adminChatMessagesStream">
                 <div class="admin-chat-placeholder" id="adminChatPlaceholder">
                   <i class="fas fa-comments"></i>
-                  <h3 style="color:#0f172a; margin-bottom:0.5rem;">Customer Support Messenger</h3>
+                  <h3 style="color:var(--admin-text-main); margin-bottom:0.5rem;">Customer Support Messenger</h3>
                   <p style="font-size:0.9rem; line-height:1.5;">Select a customer conversation from the left to read messages, provide assistance, and answer bike inquiries.</p>
                 </div>
               </div>
@@ -4586,5 +4602,6 @@
       }
     });
   </script>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>

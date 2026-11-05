@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <!-- Instant Theme Bootstrapper (Default: Light Mode) -->
+  <script>
+    (function(){
+      try {
+        var t = localStorage.getItem('smr_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    })();
+  </script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Motorcycle Inspection & Deal Details | SMR Motors Admin</title>
@@ -489,8 +500,15 @@
     #detail-toast.success { background: #16A34A; }
     #detail-toast.error { background: #DC2626; }
   </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='theme.css') }}">
 </head>
 <body>
+  <!-- Floating Theme Toggle Button -->
+  <div style="position:fixed; top:20px; right:20px; z-index:9999;">
+    <button class="theme-toggle-btn" aria-label="Switch to Dark Mode" title="Switch to Dark Mode" onclick="window.SMRTheme && window.SMRTheme.toggle()">
+      <i class="fas fa-moon"></i>
+    </button>
+  </div>
   <div class="details-container">
     
     <!-- Top Navigation -->
@@ -1290,5 +1308,6 @@
 
     document.addEventListener('DOMContentLoaded', loadBikeFullDetails);
   </script>
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
 </body>
 </html>
