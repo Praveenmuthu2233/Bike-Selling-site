@@ -469,23 +469,72 @@ async function toggleFavorite(bikeId, btn) {
   }
 }
 
-function openEnquiryModal(bikeId) {
+const pendingEnquiriesInFlight = {};
+
+async function openEnquiryModal(bikeId, triggerBtn = null) {
   const bike = allBikes.find(b => b.id === bikeId);
   if (!bike) return;
   currentBikeForEnquiry = bike;
 
-  const modalTitle = document.getElementById('enquiry-modal-bike-title');
-  if (modalTitle) modalTitle.innerText = `${bike.year} ${bike.title} (₹${Number(bike.price).toLocaleString('en-IN')})`;
-
   const user = AuthService.getUser();
-  if (user) {
-    const nameInput = document.getElementById('enquiry-name');
-    const emailInput = document.getElementById('enquiry-email');
-    const phoneInput = document.getElementById('enquiry-phone');
-    if (nameInput) nameInput.value = user.name || '';
-    if (emailInput) emailInput.value = user.email || '';
-    if (phoneInput && user.phone) phoneInput.value = user.phone;
+  const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+
+  // Scenario A: User is already logged in -> Submit automatically without showing form
+  if (user && token) {
+    if (pendingEnquiriesInFlight[bikeId]) {
+      showToast('Enquiry already submitted. SMR Motors team is reviewing it.', 'info');
+      return;
+    }
+    pendingEnquiriesInFlight[bikeId] = true;
+    if (triggerBtn) {
+      triggerBtn.disabled = true;
+      triggerBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+    }
+
+    try {
+      const payload = {
+        bike_id: bike.id,
+        user_id: user.id,
+        name: user.name || 'Valued Customer',
+        email: user.email || '',
+        phone: user.phone || '',
+        bike_title: `${bike.year || ''} ${bike.title}`,
+        message: `Direct booking enquiry for ${bike.brand} ${bike.model} (${bike.year || ''}) from authenticated rider ${user.name}.`
+      };
+
+      const res = await apiRequest('/api/enquiries', {
+        method: 'POST',
+        body: payload
+      });
+
+      showToast(res.message || 'Enquiry submitted successfully! SMR Motors team will contact you shortly.', 'success');
+      if (triggerBtn) {
+        triggerBtn.innerHTML = '<i class="fas fa-check"></i> Enquiry Sent';
+      }
+    } catch (err) {
+      showToast(err.message || 'Failed to submit enquiry', 'error');
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Book Test Ride';
+      }
+    } finally {
+      setTimeout(() => {
+        delete pendingEnquiriesInFlight[bikeId];
+      }, 5000);
+    }
+    return;
   }
+
+  // Scenario B: User is not logged in -> Display guest enquiry form
+  const modalTitle = document.getElementById('enquiry-modal-bike-title');
+  if (modalTitle) modalTitle.innerText = `${bike.year || ''} ${bike.title} (₹${Number(bike.price).toLocaleString('en-IN')})`;
+
+  const nameInput = document.getElementById('enquiry-name');
+  const emailInput = document.getElementById('enquiry-email');
+  const phoneInput = document.getElementById('enquiry-phone');
+  if (nameInput) nameInput.value = '';
+  if (emailInput) emailInput.value = '';
+  if (phoneInput) phoneInput.value = '';
 
   openModal('enquiry-modal');
 }
@@ -501,12 +550,24 @@ async function submitEnquiry(event) {
   submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 
   const formData = new FormData(form);
+  const name = formData.get('name')?.trim();
+  const email = formData.get('email')?.trim();
+  const phone = formData.get('phone')?.trim();
+
+  if (!name || !email || !phone) {
+    showToast('Please enter your name, email, and mobile number', 'warning');
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = originalHtml;
+    return;
+  }
+
   const payload = {
     bike_id: currentBikeForEnquiry.id,
-    name: formData.get('name'),
-    email: formData.get('email'),
-    phone: formData.get('phone'),
-    message: formData.get('message')
+    bike_title: `${currentBikeForEnquiry.year || ''} ${currentBikeForEnquiry.title}`,
+    name: name,
+    email: email,
+    phone: phone,
+    message: formData.get('message') || 'Guest inquiry from website'
   };
 
   try {
@@ -514,7 +575,7 @@ async function submitEnquiry(event) {
       method: 'POST',
       body: payload
     });
-    showToast(res.message || 'Enquiry submitted successfully! Our team will contact you.', 'success');
+    showToast(res.message || 'Enquiry submitted successfully! SMR Motors team will contact you shortly.', 'success');
     closeModal('enquiry-modal');
     form.reset();
   } catch (err) {

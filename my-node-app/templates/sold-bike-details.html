@@ -737,6 +737,17 @@
             </div>
           </div>
 
+          <!-- Section C: Vehicle Ownership Documents (RC, Insurance, ID Proof) -->
+          <div class="card-box" id="ownership-docs-card-box" style="display:none;">
+            <div class="card-box-header">
+              <h3 class="card-box-title"><i class="fas fa-file-shield" style="color:var(--info);"></i> Vehicle Ownership Documents</h3>
+              <span id="ownership-doc-count" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#EFF6FF; color:#1E40AF;">0 DOCS</span>
+            </div>
+            <div id="ownership-docs-list" style="display:flex; flex-direction:column; gap:8px;">
+              <!-- Populated dynamically via JS -->
+            </div>
+          </div>
+
           <!-- Identity Verification & Proof Card (Sold Units Only) -->
           <div class="card-box" id="proof-card-box" style="display:none;">
             <div class="card-box-header">
@@ -923,7 +934,9 @@
     let isSuperAdmin = false;
 
     function getAdminToken() {
-      return localStorage.getItem('smr_admin_token') || sessionStorage.getItem('smr_admin_token');
+      return localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || 
+             localStorage.getItem('smr_admin_token') || sessionStorage.getItem('admin_token') || 
+             sessionStorage.getItem('adminToken') || sessionStorage.getItem('smr_admin_token');
     }
 
     function showDetailToast(msg, type = 'success') {
@@ -944,57 +957,71 @@
       }
 
       const token = getAdminToken();
-      if (!token) {
-        window.location.href = '/adminLogin.html';
-        return;
+      if (token) {
+        try {
+          const res = await fetch(`/api/admin/sold-bikes/${bikeId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && data.data) {
+              currentBikeData = data.data;
+              isSuperAdmin = !!data.is_superadmin;
+              renderDetails(currentBikeData, 'admin');
+              return;
+            }
+          }
+        } catch (adminErr) {
+          console.warn('Admin fetch notice, falling back to public view:', adminErr);
+        }
       }
 
+      // Public visitor flow: never redirect to login
       try {
-        const res = await fetch(`/api/admin/sold-bikes/${bikeId}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (res.status === 401 || res.status === 403) {
-          if (res.status === 401) {
-            window.location.href = '/adminLogin.html';
-            return;
-          }
-        }
-
+        const res = await fetch(`/api/bikes/${bikeId}`);
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          showError('Unable to Load Motorcycle', data.message || 'The requested motorcycle record is unavailable.');
-          return;
+        if (res.ok && data) {
+          const bike = data.data || data;
+          currentBikeData = bike;
+          isSuperAdmin = false;
+          renderDetails(currentBikeData, 'public');
+        } else {
+          showError('Motorcycle Not Found', data.message || 'The requested motorcycle is not currently listed.');
         }
-
-        currentBikeData = data.data;
-        isSuperAdmin = !!data.is_superadmin;
-        renderDetails(currentBikeData);
-
       } catch (err) {
         showError('Connection Error', err.message || 'Unable to communicate with the TiDB backend server.');
       }
     }
 
-    function renderDetails(bike) {
+    function renderDetails(bike, viewRole = 'admin') {
       document.getElementById('loading-state').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
 
       const isSold = !!bike.is_sold;
       const statusStr = (bike.listing_status || bike.status || 'pending').toLowerCase();
 
-      // Top Back Button Text
+      // Top Back Button & Role Handling
       const backBtn = document.getElementById('btn-back');
-      if (isSold) {
-        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Sold Out Bikes';
+      const exportGroup = document.querySelector('.export-btn-group');
+      if (viewRole === 'public') {
+        backBtn.href = '/SoldOutPage.html';
+        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Sold Gallery';
+        if (exportGroup) exportGroup.style.display = 'none';
       } else {
-        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Bike Management';
+        backBtn.href = '/admin.html';
+        backBtn.innerHTML = isSold ? '<i class="fas fa-arrow-left"></i> Back to Sold Out Bikes' : '<i class="fas fa-arrow-left"></i> Back to Admin Dashboard';
+        if (exportGroup) exportGroup.style.display = 'flex';
       }
 
       // Hero Banner
       document.getElementById('hero-title').textContent = bike.title || `${bike.brand} ${bike.model}`;
       document.getElementById('hero-bike-id').textContent = `#${bike.bike_id || bike.id}`;
-      document.getElementById('hero-reg-no').textContent = bike.registration_number || 'TN-XX-XXXX';
+      if (viewRole === 'public') {
+        document.getElementById('hero-reg-no').textContent = bike.registration_number_masked || 'TN-**-****';
+      } else {
+        document.getElementById('hero-reg-no').textContent = bike.registration_number || 'TN-XX-XXXX';
+      }
 
       const statusBadge = document.getElementById('hero-status-badge');
       const dateVal = document.getElementById('hero-date-val');
@@ -1047,7 +1074,11 @@
       document.getElementById('spec-brand-model').textContent = `${bike.brand} ${bike.model}`;
       document.getElementById('spec-year').textContent = bike.year || 2022;
       document.getElementById('spec-kms').textContent = `${(bike.kilometers_driven || 0).toLocaleString()} km`;
-      document.getElementById('spec-reg').textContent = bike.registration_number || 'TN-XX-XXXX';
+      if (viewRole === 'public') {
+        document.getElementById('spec-reg').textContent = bike.registration_number_masked || 'TN-**-****';
+      } else {
+        document.getElementById('spec-reg').textContent = bike.registration_number || 'TN-XX-XXXX';
+      }
       document.getElementById('spec-fuel').textContent = bike.fuel_type || 'Petrol';
       document.getElementById('spec-trans').textContent = bike.transmission || 'Manual';
       document.getElementById('spec-loc').textContent = bike.location || 'Salem Showroom';
@@ -1061,10 +1092,11 @@
       document.getElementById('seller-phone').textContent = s.phone || '+91 78452 15164';
       document.getElementById('seller-email').textContent = s.email || 'dealership@smrmotors.com';
 
-      // Superadmin Financials
+      // Section D: Superadmin Financials (Superadmin Only)
       const finBox = document.getElementById('financial-card-box');
       const editFinBtn = document.getElementById('btn-edit-financials');
-      if (isSuperAdmin && bike.financials) {
+      const enqBox = document.getElementById('enquiry-card-box');
+      if (viewRole === 'admin' && isSuperAdmin && bike.financials) {
         finBox.style.display = 'block';
         if (editFinBtn) editFinBtn.style.display = 'inline-flex';
 
@@ -1086,12 +1118,14 @@
         if (editFinBtn) editFinBtn.style.display = 'none';
       }
 
-      // Buyer Info Section
+      // Section B: Buyer Info Section (Admin/Superadmin Only)
       const buyerBox = document.getElementById('buyer-card-box');
       const buyerActiveDeal = document.getElementById('buyer-active-deal');
       const buyerNotSold = document.getElementById('buyer-not-sold-deal');
 
-      if (isSold && bike.customer) {
+      if (viewRole === 'public') {
+        if (buyerBox) buyerBox.style.display = 'none';
+      } else if (isSold && bike.customer) {
         buyerActiveDeal.style.display = 'flex';
         buyerNotSold.style.display = 'none';
         const c = bike.customer;
@@ -1107,9 +1141,56 @@
         buyerNotSold.style.display = 'block';
       }
 
-      // Identity Proof Document Card
+      // Section C: Ownership Documents & Proof (Admin/Superadmin Only)
+      const ownBox = document.getElementById('ownership-docs-card-box');
       const proofCard = document.getElementById('proof-card-box');
-      if (isSold && bike.proof_document) {
+
+      if (viewRole === 'public') {
+        if (ownBox) ownBox.style.display = 'none';
+        if (proofCard) proofCard.style.display = 'none';
+      } else {
+        // Render bike_documents
+        const bDocs = bike.bike_documents || [];
+        if (ownBox) {
+          if (bDocs.length > 0) {
+            ownBox.style.display = 'block';
+            document.getElementById('ownership-doc-count').textContent = `${bDocs.length} DOCS`;
+            document.getElementById('ownership-docs-list').innerHTML = bDocs.map(d => {
+              const typeLabel = {
+                'rc_book': 'RC Book (Registration Certificate)',
+                'insurance': 'Insurance Policy',
+                'owner_id': 'Owner Identity Proof',
+                'other': 'Other Vehicle Document'
+              }[d.doc_type] || (d.doc_type || 'Document').toUpperCase();
+
+              const stBadge = d.status === 'approved' ? '<span class="status-badge-hero approved" style="font-size:0.7rem; padding:2px 8px;">VERIFIED</span>' :
+                             (d.status === 'rejected' ? '<span class="status-badge-hero sold" style="font-size:0.7rem; padding:2px 8px;">REJECTED</span>' :
+                             '<span class="status-badge-hero pending" style="font-size:0.7rem; padding:2px 8px;">PENDING REVIEW</span>');
+
+              const tokenParam = encodeURIComponent(getAdminToken() || '');
+              return `
+                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+                  <div>
+                    <div style="font-size:0.85rem; font-weight:800; color:var(--text-main);">${typeLabel}</div>
+                    <div style="font-size:0.75rem; color:var(--text-muted);">${d.file_name} • Uploaded ${d.created_at.substring(0, 10)}</div>
+                    ${d.remarks ? `<div style="font-size:0.75rem; color:#DC2626; margin-top:2px;">Remark: ${d.remarks}</div>` : ''}
+                  </div>
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    ${stBadge}
+                    <a href="${d.download_url}?token=${tokenParam}" target="_blank" class="back-btn" style="padding:0.35rem 0.65rem; font-size:0.75rem; background:var(--info); color:#FFFFFF; border-color:var(--info);">
+                      <i class="fas fa-download"></i> View
+                    </a>
+                  </div>
+                </div>
+              `;
+            }).join('');
+          } else {
+            ownBox.style.display = 'none';
+          }
+        }
+      }
+
+      if (viewRole !== 'public' && isSold && bike.proof_document) {
         proofCard.style.display = 'block';
         const p = bike.proof_document;
         document.getElementById('proof-type-val').textContent = p.document_type || 'Not Provided';
@@ -1139,9 +1220,11 @@
         proofCard.style.display = 'none';
       }
 
-      // Sale & Payment Card
+      // Sale & Payment Card (Staff Admin / Superadmin)
       const saleCard = document.getElementById('sale-payment-card-box');
-      if (isSold && bike.sale_info) {
+      if (viewRole === 'public') {
+        if (saleCard) saleCard.style.display = 'none';
+      } else if (isSold && bike.sale_info) {
         saleCard.style.display = 'block';
         const si = bike.sale_info;
         document.getElementById('sale-price-val').textContent = si.formatted_sale_price || `₹${parseFloat(si.actual_sale_price || 0).toLocaleString('en-IN')}`;
