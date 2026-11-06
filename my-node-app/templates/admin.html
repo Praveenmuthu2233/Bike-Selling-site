@@ -1324,11 +1324,220 @@
              TAB 10: CONTACT MESSAGES (Inbound Direct Inquiries)
              ================================================== -->
         <section class="admin-tab-pane" id="tab-messages">
+          <style>
+            .contact-cards-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 1.25rem;
+              margin-bottom: 1.5rem;
+            }
+            @media (max-width: 1100px) {
+              .contact-cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+              }
+            }
+            @media (max-width: 680px) {
+              .contact-cards-grid {
+                grid-template-columns: 1fr;
+              }
+            }
+            .contact-msg-card {
+              background: #FFFFFF;
+              border: 1px solid #E2E8F0;
+              border-radius: 12px;
+              padding: 1.25rem;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+              transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+              position: relative;
+              overflow: hidden;
+            }
+            .contact-msg-card:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 6px 12px -2px rgba(15, 23, 42, 0.08), 0 3px 6px -2px rgba(15, 23, 42, 0.04);
+              border-color: #CBD5E1;
+            }
+            .contact-msg-card.is-new {
+              border-left: 4px solid #2563EB;
+              background: #FFFFFF;
+            }
+            .contact-msg-card.is-resolved {
+              border-left: 4px solid #10B981;
+            }
+            .contact-msg-card.is-replied {
+              border-left: 4px solid #8B5CF6;
+            }
+            .contact-msg-header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 0.65rem;
+              padding-bottom: 0.5rem;
+              border-bottom: 1px solid #F1F5F9;
+            }
+            .contact-msg-kicker {
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: #64748B;
+              letter-spacing: 0.06em;
+              text-transform: uppercase;
+              display: flex;
+              align-items: center;
+              gap: 0.35rem;
+            }
+            .contact-msg-name {
+              font-size: 1.15rem;
+              font-weight: 700;
+              color: #0F172A;
+              margin: 0 0 0.5rem 0;
+              line-height: 1.3;
+              word-break: break-word;
+            }
+            .contact-msg-details {
+              display: flex;
+              flex-direction: column;
+              gap: 0.35rem;
+              font-size: 0.85rem;
+              margin-bottom: 0.85rem;
+            }
+            .contact-msg-row {
+              display: flex;
+              align-items: baseline;
+              gap: 0.4rem;
+            }
+            .contact-msg-label {
+              font-weight: 600;
+              color: #64748B;
+              font-size: 0.78rem;
+              min-width: 55px;
+            }
+            .contact-msg-val {
+              color: #334155;
+              word-break: break-word;
+            }
+            .contact-msg-link {
+              color: #2563EB;
+              text-decoration: none;
+              font-weight: 500;
+              transition: color 0.15s;
+              word-break: break-all;
+            }
+            .contact-msg-link:hover {
+              text-decoration: underline;
+              color: #1D4ED8;
+            }
+            .contact-msg-body {
+              background: #F8FAFC;
+              border: 1px solid #F1F5F9;
+              border-radius: 8px;
+              padding: 0.75rem;
+              margin-bottom: 1rem;
+              flex-grow: 1;
+            }
+            .contact-msg-snippet {
+              font-size: 0.85rem;
+              color: #475569;
+              line-height: 1.45;
+              margin: 0;
+              word-break: break-word;
+              display: -webkit-box;
+              -webkit-line-clamp: 3;
+              -webkit-box-orient: vertical;
+              overflow: hidden;
+            }
+            .contact-msg-footer {
+              display: flex;
+              flex-direction: column;
+              gap: 0.75rem;
+              border-top: 1px solid #F1F5F9;
+              padding-top: 0.75rem;
+            }
+            .contact-msg-date {
+              font-size: 0.78rem;
+              color: #64748B;
+              display: flex;
+              align-items: center;
+              gap: 0.35rem;
+            }
+            .contact-card-actions {
+              display: flex;
+              flex-wrap: wrap;
+              align-items: center;
+              gap: 0.45rem;
+            }
+            .btn-card-action {
+              display: inline-flex;
+              align-items: center;
+              gap: 0.35rem;
+              padding: 0.42rem 0.75rem;
+              border-radius: 6px;
+              font-size: 0.78rem;
+              font-weight: 600;
+              border: 1px solid transparent;
+              cursor: pointer;
+              transition: all 0.15s ease;
+              text-decoration: none;
+              line-height: 1;
+            }
+            .btn-card-action.view {
+              background: #EFF6FF;
+              color: #2563EB;
+              border-color: #BFDBFE;
+            }
+            .btn-card-action.view:hover {
+              background: #DBEAFE;
+              color: #1D4ED8;
+            }
+            .btn-card-action.reply {
+              background: #EEF2FF;
+              color: #4F46E5;
+              border-color: #C7D2FE;
+            }
+            .btn-card-action.reply:hover {
+              background: #E0E7FF;
+              color: #4338CA;
+            }
+            .btn-card-action.resolve {
+              background: #ECFDF5;
+              color: #059669;
+              border-color: #A7F3D0;
+            }
+            .btn-card-action.resolve:hover {
+              background: #D1FAE5;
+              color: #047857;
+            }
+            .btn-card-action.delete {
+              background: #FEF2F2;
+              color: #DC2626;
+              border-color: #FECACA;
+              margin-left: auto;
+              padding: 0.42rem 0.6rem;
+            }
+            .btn-card-action.delete:hover {
+              background: #FEE2E2;
+              color: #B91C1C;
+            }
+            .resolved-tag {
+              display: inline-flex;
+              align-items: center;
+              gap: 0.3rem;
+              font-size: 0.75rem;
+              font-weight: 600;
+              color: #059669;
+              padding: 0.35rem 0.6rem;
+              background: #ECFDF5;
+              border: 1px solid #A7F3D0;
+              border-radius: 6px;
+            }
+          </style>
+
           <!-- Summary Header & Status Filter Pills -->
           <div class="admin-toolbar-card" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.25rem;">
             <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
               <button class="subtab-pill active" id="msg-pill-all" onclick="filterMessageStatus('all')">
-                All Messages <span class="pill-badge" id="pill-count-all" style="background:#E2E8F0; color:#334155; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+                All <span class="pill-badge" id="pill-count-all" style="background:#E2E8F0; color:#334155; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
               </button>
               <button class="subtab-pill" id="msg-pill-new" onclick="filterMessageStatus('new')">
                 New <span class="pill-badge" id="pill-count-new" style="background:#FEF3C7; color:#D97706; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
@@ -1346,28 +1555,16 @@
             
             <div class="toolbar-search-input" style="min-width:280px;">
               <i class="fas fa-search"></i>
-              <input type="text" id="messageFilterSearch" placeholder="Search sender, email, subject, mobile..." oninput="debounceMessageSearch()">
+              <input type="text" id="messageFilterSearch" placeholder="Search customer, email, subject, mobile..." oninput="debounceMessageSearch()">
             </div>
           </div>
 
-          <!-- Messages Data Table -->
-          <div class="table-responsive-wrapper">
-            <table class="admin-data-table responsive-table-mobile">
-              <thead>
-                <tr>
-                  <th>Sender</th>
-                  <th>Mobile</th>
-                  <th>Subject</th>
-                  <th>Message Snippet</th>
-                  <th>Received Date</th>
-                  <th>Status</th>
-                  <th style="text-align:right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="admin-messages-tbody">
-                <tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading contact messages...</td></tr>
-              </tbody>
-            </table>
+          <!-- Contact Messages Cards Grid Layout -->
+          <div class="contact-cards-grid" id="admin-messages-cards-container">
+            <div style="grid-column:1 / -1; text-align:center; padding:3rem; color:var(--admin-text-secondary);">
+              <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:var(--admin-primary); margin-bottom:0.5rem; display:block;"></i>
+              Loading contact inquiries...
+            </div>
           </div>
           <!-- Contact Messages Pagination -->
           <div class="pagination-container" id="messages-pagination"></div>
@@ -3376,10 +3573,16 @@
     }
 
     async function loadAdminMessages(page = 1, limit = null) {
-      limit = limit || adminPages.messages.limit || 10;
-      const tbody = document.getElementById('admin-messages-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2.5rem;"><i class="fas fa-spinner fa-spin" style="color:var(--admin-primary); font-size:1.5rem;"></i><div style="margin-top:0.5rem; font-size:0.88rem; color:var(--admin-text-secondary);">Loading contact inquiries...</div></td></tr>';
+      limit = limit || adminPages.messages.limit || 9;
+      const container = document.getElementById('admin-messages-cards-container');
+      if (!container) return;
+      
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--admin-text-secondary);">
+          <i class="fas fa-spinner fa-spin" style="color: var(--admin-primary); font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i>
+          <div>Loading contact inquiries...</div>
+        </div>
+      `;
 
       try {
         const q = (document.getElementById('messageFilterSearch')?.value || '').trim();
@@ -3410,70 +3613,132 @@
           navBadge.style.display = unreadCnt > 0 ? 'inline-block' : 'none';
         }
 
-        if (msgs.length === 0) {
-          tbody.innerHTML = `
-            <tr>
-              <td colspan="7" style="text-align:center; padding:3rem; color:var(--admin-text-secondary);">
-                <i class="fas fa-envelope-open" style="font-size:2rem; color:var(--admin-text-subtle); display:block; margin-bottom:0.5rem;"></i>
-                No ${currentMessageStatusFilter === 'all' ? '' : currentMessageStatusFilter} contact messages found.
-              </td>
-            </tr>
+        // Deduplicate records by unique ID to prevent any duplicate card rendering
+        const seenIds = new Set();
+        const uniqueMsgs = [];
+        for (const m of msgs) {
+          if (!seenIds.has(m.id)) {
+            seenIds.add(m.id);
+            uniqueMsgs.push(m);
+          }
+        }
+
+        if (uniqueMsgs.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column: 1 / -1; text-align: center; padding: 3.5rem 1.5rem; background: #FFFFFF; border-radius: 12px; border: 1px dashed #CBD5E1;">
+              <i class="fas fa-inbox" style="font-size: 2.5rem; color: #94A3B8; margin-bottom: 0.75rem; display: block;"></i>
+              <h3 style="font-size: 1.15rem; color: #1E293B; margin-bottom: 0.25rem;">No ${currentMessageStatusFilter === 'all' ? '' : currentMessageStatusFilter} contact messages found</h3>
+              <p style="font-size: 0.88rem; color: #64748B; margin: 0;">Inbound direct inquiries from the public website will appear here as cards.</p>
+            </div>
           `;
           return;
         }
 
-        tbody.innerHTML = msgs.map(m => {
+        container.innerHTML = uniqueMsgs.map(m => {
           const st = String(m.status || 'new').toLowerCase();
+          const isNew = (st === 'new' || st === 'unread');
+          const isResolved = (st === 'resolved');
+          const isReplied = (st === 'replied');
+          
+          let cardClass = 'contact-msg-card';
+          if (isNew) cardClass += ' is-new';
+          else if (isResolved) cardClass += ' is-resolved';
+          else if (isReplied) cardClass += ' is-replied';
+
           const badgeClass = getMessageBadgeClass(st);
           const badgeLabel = formatMessageStatusLabel(st);
           const rawDate = m.created_at || m.formatted_date || '';
-          const displayDate = rawDate.length >= 16 ? rawDate.substring(0, 16).replace('T', ' ') : rawDate;
-          const phoneStr = m.phone || m.mobile || 'Not Provided';
-          const safeName = (m.name || 'Anonymous').replace(/'/g, "\'");
-          const safeSubject = (m.subject || 'General Inquiry').replace(/'/g, "\'");
-          const snippet = (m.message || '').length > 55 ? (m.message || '').substring(0, 55) + '...' : (m.message || '');
+          const displayDate = rawDate.length >= 16 ? rawDate.substring(0, 16).replace('T', ' ') : (rawDate || 'Recent');
+          const phoneStr = m.phone || m.mobile || '';
+          const safeName = (m.name || 'Anonymous').replace(/'/g, "\\'");
+          const safeEmail = (m.email || '').replace(/'/g, "\\'");
+          const safeSubject = (m.subject || 'General Inquiry').replace(/'/g, "\\'");
+          const messageText = m.message || '';
+          const snippet = messageText.length > 120 ? messageText.substring(0, 120) + '...' : messageText;
 
           return `
-            <tr style="${st === 'new' || st === 'unread' ? 'background:rgba(254, 243, 199, 0.25);' : ''}">
-              <td data-label="Sender">
-                <strong style="color:var(--admin-text-main); font-size:0.9rem;">${m.name || 'Anonymous'}</strong>
-                <div style="font-size:0.75rem; color:var(--admin-text-secondary);"><i class="fas fa-envelope" style="font-size:0.7rem; margin-right:3px;"></i>${m.email || 'N/A'}</div>
-              </td>
-              <td data-label="Mobile">
-                ${m.phone ? `
-                  <a href="tel:${m.phone}" style="color:var(--admin-primary); font-weight:600; text-decoration:none; font-size:0.85rem;">
-                    <i class="fas fa-phone" style="font-size:0.75rem; margin-right:3px;"></i>${m.phone}
-                  </a>
-                ` : `<span style="color:var(--admin-text-subtle); font-size:0.82rem;">N/A</span>`}
-              </td>
-              <td data-label="Subject">
-                <span style="font-weight:600; color:var(--admin-text-main); font-size:0.88rem;">${m.subject || 'General Inquiry'}</span>
-              </td>
-              <td data-label="Message Snippet">
-                <span style="font-size:0.82rem; color:var(--admin-text-secondary);" title="${(m.message || '').replace(/"/g, '&quot;')}">${snippet}</span>
-              </td>
-              <td data-label="Received Date">
-                <span style="font-size:0.8rem; color:var(--admin-text-secondary); white-space:nowrap;">${displayDate}</span>
-              </td>
-              <td data-label="Status">
-                <span class="badge-status ${badgeClass}">${badgeLabel}</span>
-              </td>
-              <td data-label="Actions" style="text-align:right;">
-                <div class="table-action-group" style="justify-content:flex-end;">
-                  <button class="btn-table-action" onclick="viewContactMessageDetails(${m.id})" title="View Complete Message"><i class="fas fa-eye"></i></button>
-                  <button class="btn-table-action primary" onclick="openReplyMessageModal(${m.id}, '${safeName}', '${(m.email || '').replace(/'/g, "\'")}', '${safeSubject}')" title="Reply to Customer"><i class="fas fa-reply"></i></button>
-                  ${st !== 'resolved' ? `<button class="btn-table-action success" onclick="resolveContactMessage(${m.id})" title="Mark as Resolved"><i class="fas fa-circle-check"></i></button>` : ''}
-                  <button class="btn-table-action danger" onclick="deleteContactMsg(${m.id})" title="Delete Inquiry"><i class="fas fa-trash"></i></button>
+            <div class="${cardClass}" data-id="${m.id}">
+              <div>
+                <!-- Card Header: Title Kicker & Status Badge -->
+                <div class="contact-msg-header">
+                  <span class="contact-msg-kicker"><i class="fas fa-envelope-open-text"></i> CONTACT MESSAGE</span>
+                  <span class="badge-status ${badgeClass}">${badgeLabel}</span>
                 </div>
-              </td>
-            </tr>
+
+                <!-- Customer Name -->
+                <h3 class="contact-msg-name">${escapeHtml(m.name || 'Anonymous')}</h3>
+
+                <!-- Meta Details: Email, Mobile, Subject -->
+                <div class="contact-msg-details">
+                  <div class="contact-msg-row">
+                    <span class="contact-msg-label">Email:</span>
+                    <span class="contact-msg-val">
+                      ${m.email ? `<a href="mailto:${escapeHtml(m.email)}" class="contact-msg-link" title="${escapeHtml(m.email)}">${escapeHtml(m.email)}</a>` : '<span style="color:#94a3b8;">Not provided</span>'}
+                    </span>
+                  </div>
+                  <div class="contact-msg-row">
+                    <span class="contact-msg-label">Mobile:</span>
+                    <span class="contact-msg-val">
+                      ${phoneStr ? `
+                        <a href="tel:${escapeHtml(phoneStr)}" class="contact-msg-link">${escapeHtml(phoneStr)}</a>
+                        <a href="https://wa.me/${phoneStr.replace(/\D/g, '')}" target="_blank" style="margin-left: 6px; color: #10B981;" title="Chat on WhatsApp">
+                          <i class="fab fa-whatsapp"></i>
+                        </a>
+                      ` : '<span style="color:#94a3b8;">Not provided</span>'}
+                    </span>
+                  </div>
+                  <div class="contact-msg-row">
+                    <span class="contact-msg-label">Subject:</span>
+                    <span class="contact-msg-val" style="font-weight: 600; color: #1E293B;" title="${escapeHtml(m.subject || 'General Inquiry')}">
+                      ${escapeHtml(m.subject || 'General Inquiry')}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Message Snippet Preview -->
+                <div class="contact-msg-body">
+                  <div class="contact-msg-body-label">Message:</div>
+                  <p class="contact-msg-snippet">${escapeHtml(snippet || 'No message content provided.')}</p>
+                </div>
+              </div>
+
+              <!-- Card Footer: Received Timestamp & Action Buttons -->
+              <div class="contact-msg-footer">
+                <div class="contact-msg-date">
+                  <i class="far fa-clock"></i> Received: <strong>${escapeHtml(displayDate)}</strong>
+                </div>
+                <div class="contact-card-actions">
+                  <button type="button" class="btn-card-action view" onclick="viewContactMessageDetails(${m.id})" title="View Details">
+                    <i class="fas fa-eye"></i> View Details
+                  </button>
+                  <button type="button" class="btn-card-action reply" onclick="openReplyMessageModal(${m.id}, '${safeName}', '${safeEmail}', '${safeSubject}')" title="Reply">
+                    <i class="fas fa-reply"></i> Reply
+                  </button>
+                  ${!isResolved ? `
+                    <button type="button" class="btn-card-action resolve" onclick="resolveContactMessage(${m.id})" title="Resolve">
+                      <i class="fas fa-check"></i> Resolve
+                    </button>
+                  ` : `
+                    <span class="resolved-tag"><i class="fas fa-check-double"></i> Resolved</span>
+                  `}
+                  <button type="button" class="btn-card-action delete" onclick="deleteContactMsg(${m.id})" title="Delete Inquiry">
+                    <i class="fas fa-trash-alt"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
           `;
         }).join('');
 
         renderPagination('messages-pagination', 'messages', res.pagination);
 
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color:var(--admin-danger); text-align:center; padding:2rem;">${err.message}</td></tr>`;
+        container.innerHTML = `
+          <div style="grid-column: 1 / -1; color: var(--admin-danger); text-align: center; padding: 2.5rem; background: #FEF2F2; border-radius: 12px; border: 1px solid #FECACA;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem; margin-bottom: 0.5rem; display: block;"></i>
+            ${err.message}
+          </div>
+        `;
       }
     }
 

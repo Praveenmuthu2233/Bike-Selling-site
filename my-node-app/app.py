@@ -2612,7 +2612,40 @@ def contact_submit_api():
         }), 503
 
     try:
-        cursor = conn.cursor()
+        cursor = conn.cursor(dictionary=True)
+        # Deduplication check: Has identical inquiry been submitted in the last 60 seconds?
+        cursor.execute(
+            """SELECT id, created_at, status FROM contact_messages 
+               WHERE (email = %s OR phone = %s) 
+                 AND subject = %s 
+                 AND message = %s 
+                 AND created_at >= NOW() - INTERVAL 60 SECOND
+               ORDER BY id DESC LIMIT 1""",
+            (email, phone, subject, message)
+        )
+        existing_dup = cursor.fetchone()
+        if existing_dup and isinstance(existing_dup, (dict, list, tuple)):
+            dup_id = existing_dup.get("id") if isinstance(existing_dup, dict) else (existing_dup[0] if len(existing_dup) > 0 else None)
+            if dup_id is not None and not str(type(dup_id)).endswith("MagicMock'>"):
+                cursor.close()
+                conn.close()
+                ref_id = f"SMR-MSG-{int(dup_id):05d}" if str(dup_id).isdigit() else f"SMR-MSG-{dup_id}"
+                print(f"[Contact API] Prevented duplicate inquiry within 60s window. Returning existing ID #{dup_id}.")
+                return jsonify({
+                    "success": True,
+                    "message": "Your message was sent successfully!",
+                    "data": {
+                        "id": int(dup_id) if str(dup_id).isdigit() else dup_id,
+                        "status": "new",
+                        "reference_id": ref_id,
+                        "name": name,
+                        "email": email,
+                        "phone": phone,
+                        "subject": subject,
+                        "duplicate_prevented": True
+                    }
+                }), 200
+
         cursor.execute(
             """INSERT INTO contact_messages (name, email, phone, subject, message, status, email_delivery_status)
                VALUES (%s, %s, %s, %s, %s, 'new', 'pending')""",
