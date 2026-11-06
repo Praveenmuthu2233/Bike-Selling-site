@@ -489,6 +489,7 @@
           <a class="nav-item" id="nav-messages" onclick="switchAdminTab('tab-messages', this)">
             <i class="fas fa-comments"></i>
             <span>Contact Messages</span>
+            <span class="nav-badge" id="nav-badge-messages" style="display:none;">0</span>
           </a>
           <a class="nav-item" id="nav-customer-chat" onclick="switchAdminTab('tab-customer-chat', this)">
             <i class="fas fa-comment-dots"></i>
@@ -1320,23 +1321,42 @@
         </section>
 
         <!-- ==================================================
-             TAB 10: CONTACT MESSAGES
+             TAB 10: CONTACT MESSAGES (Inbound Direct Inquiries)
              ================================================== -->
         <section class="admin-tab-pane" id="tab-messages">
-          <div class="admin-toolbar-card">
-            <div class="toolbar-left-group">
-              <div class="toolbar-search-input">
-                <i class="fas fa-search"></i>
-                <input type="text" id="messageFilterSearch" placeholder="Search message, sender, email..." oninput="debounceMessageSearch()">
-              </div>
+          <!-- Summary Header & Status Filter Pills -->
+          <div class="admin-toolbar-card" style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1.25rem;">
+            <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <button class="subtab-pill active" id="msg-pill-all" onclick="filterMessageStatus('all')">
+                All Messages <span class="pill-badge" id="pill-count-all" style="background:#E2E8F0; color:#334155; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+              </button>
+              <button class="subtab-pill" id="msg-pill-new" onclick="filterMessageStatus('new')">
+                New <span class="pill-badge" id="pill-count-new" style="background:#FEF3C7; color:#D97706; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+              </button>
+              <button class="subtab-pill" id="msg-pill-read" onclick="filterMessageStatus('read')">
+                Read <span class="pill-badge" id="pill-count-read" style="background:#E0F2FE; color:#0284C7; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+              </button>
+              <button class="subtab-pill" id="msg-pill-replied" onclick="filterMessageStatus('replied')">
+                Replied <span class="pill-badge" id="pill-count-replied" style="background:#EDE9FE; color:#7C3AED; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+              </button>
+              <button class="subtab-pill" id="msg-pill-resolved" onclick="filterMessageStatus('resolved')">
+                Resolved <span class="pill-badge" id="pill-count-resolved" style="background:#D1FAE5; color:#059669; padding:2px 7px; border-radius:10px; font-size:0.75rem; margin-left:4px;">0</span>
+              </button>
+            </div>
+            
+            <div class="toolbar-search-input" style="min-width:280px;">
+              <i class="fas fa-search"></i>
+              <input type="text" id="messageFilterSearch" placeholder="Search sender, email, subject, mobile..." oninput="debounceMessageSearch()">
             </div>
           </div>
 
+          <!-- Messages Data Table -->
           <div class="table-responsive-wrapper">
             <table class="admin-data-table responsive-table-mobile">
               <thead>
                 <tr>
                   <th>Sender</th>
+                  <th>Mobile</th>
                   <th>Subject</th>
                   <th>Message Snippet</th>
                   <th>Received Date</th>
@@ -1345,7 +1365,7 @@
                 </tr>
               </thead>
               <tbody id="admin-messages-tbody">
-                <tr><td colspan="6" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading contact messages...</td></tr>
+                <tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading contact messages...</td></tr>
               </tbody>
             </table>
           </div>
@@ -2053,7 +2073,111 @@
     </div>
   </div>
   
+    <!-- ==================================================
+       MODAL: VIEW CONTACT MESSAGE DETAILS
+       ================================================== -->
+  <div class="modal-overlay" id="modal-view-contact-msg">
+    <div class="modal-dialog-card" style="max-width:650px;">
+      <div class="modal-header-bar">
+        <h3 class="modal-title-text"><i class="fas fa-envelope-open" style="color:var(--admin-primary);"></i> Contact Inquiry Details</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-view-contact-msg')">&times;</button>
+      </div>
+      <div class="modal-body-content" style="max-height:calc(85vh - 130px); overflow-y:auto; padding-right:6px;">
+        <input type="hidden" id="view-msg-id">
+        
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem; padding-bottom:1rem; border-bottom:1px solid var(--admin-card-border);">
+          <div>
+            <h4 id="view-msg-sender-name" style="font-size:1.15rem; font-weight:700; color:var(--admin-text-main); margin-bottom:0.25rem;">Sender Name</h4>
+            <div style="font-size:0.85rem; color:var(--admin-text-secondary); display:flex; flex-wrap:wrap; gap:0.75rem;">
+              <span><i class="fas fa-envelope" style="color:var(--admin-primary); margin-right:4px;"></i> <a id="view-msg-sender-email" href="" style="color:inherit; text-decoration:underline;">email</a></span>
+              <span><i class="fas fa-phone" style="color:var(--admin-success); margin-right:4px;"></i> <a id="view-msg-sender-phone" href="" style="color:inherit; font-weight:600;">phone</a></span>
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <span id="view-msg-status-badge" class="badge-status badge-pending">New</span>
+            <div id="view-msg-received-date" style="font-size:0.75rem; color:var(--admin-text-secondary); margin-top:0.35rem;">Date</div>
+          </div>
+        </div>
+
+        <div class="form-group-modern">
+          <label class="form-label-modern" style="font-weight:700; color:var(--admin-text-main);">Inquiry Subject</label>
+          <div id="view-msg-subject" style="padding:0.75rem 1rem; background:#F8FAFC; border-radius:var(--radius-md); border:1px solid var(--admin-card-border); font-weight:600; font-size:0.92rem; color:var(--admin-text-main);"></div>
+        </div>
+
+        <div class="form-group-modern">
+          <label class="form-label-modern" style="font-weight:700; color:var(--admin-text-main);">Customer Message</label>
+          <div id="view-msg-content" style="padding:1rem; background:#FFFFFF; border-radius:var(--radius-md); border:1px solid var(--admin-card-border); white-space:pre-wrap; line-height:1.6; font-size:0.9rem; color:var(--admin-text-main); min-height:100px;"></div>
+        </div>
+
+        <!-- Admin Reply Thread / Past Replies -->
+        <div id="view-msg-replies-container" style="margin-top:1.25rem; display:none;">
+          <h5 style="font-size:0.88rem; font-weight:700; color:var(--admin-text-secondary); text-transform:uppercase; margin-bottom:0.6rem; letter-spacing:0.5px;">
+            <i class="fas fa-reply-all" style="color:var(--admin-info); margin-right:4px;"></i> Official Reply History
+          </h5>
+          <div id="view-msg-replies-list" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+        </div>
+      </div>
+      <div class="modal-footer-bar" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem;">
+        <div>
+          <button class="btn-table-action" id="btn-msg-mark-read" onclick="markCurrentMsgRead()" title="Mark as Read" style="display:none;">
+            <i class="fas fa-check"></i> Mark as Read
+          </button>
+          <button class="btn-table-action success" id="btn-msg-resolve" onclick="resolveCurrentMsg()" title="Mark as Resolved">
+            <i class="fas fa-circle-check"></i> Resolve Inquiry
+          </button>
+        </div>
+        <div style="display:flex; gap:0.5rem;">
+          <button class="btn-table-action" onclick="closeModal('modal-view-contact-msg')">Close</button>
+          <button class="topbar-btn-action" style="background:var(--admin-primary); color:#FFFFFF;" onclick="openReplyFromDetailsModal()">
+            <i class="fas fa-reply"></i> Reply to Customer
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ==================================================
+       MODAL: REPLY TO CONTACT MESSAGE
+       ================================================== -->
+  <div class="modal-overlay" id="modal-reply-contact-msg">
+    <div class="modal-dialog-card" style="max-width:600px;">
+      <div class="modal-header-bar">
+        <h3 class="modal-title-text"><i class="fas fa-reply" style="color:var(--admin-primary);"></i> Reply to Customer Inquiry</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-reply-contact-msg')">&times;</button>
+      </div>
+      <div class="modal-body-content">
+        <input type="hidden" id="reply-msg-id">
+        
+        <div style="padding:0.85rem 1rem; background:#F8FAFC; border-radius:var(--radius-md); border:1px solid var(--admin-card-border); margin-bottom:1rem; font-size:0.85rem;">
+          <div style="font-weight:700; color:var(--admin-text-main); margin-bottom:0.25rem;">
+            To: <span id="reply-msg-recipient">Customer</span> &lt;<span id="reply-msg-recipient-email">email</span>&gt;
+          </div>
+          <div style="color:var(--admin-text-secondary);">
+            Subject: <strong>Re: <span id="reply-msg-original-subject">Inquiry</span></strong>
+          </div>
+        </div>
+
+        <div class="form-group-modern">
+          <label class="form-label-modern">Original Inquiry Snippet</label>
+          <div id="reply-msg-original-preview" style="padding:0.6rem 0.85rem; background:#FFFFFF; border-radius:var(--radius-sm); border:1px solid var(--admin-card-border); font-size:0.82rem; color:var(--admin-text-secondary); max-height:80px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="form-group-modern">
+          <label class="form-label-modern">Your Official Reply Message *</label>
+          <textarea id="reply-contact-text" class="form-textarea-modern" style="min-height:130px;" placeholder="Type your official response to the customer here..."></textarea>
+          <small style="font-size:0.75rem; color:var(--admin-text-secondary);">This response will be saved in SMR Motors records and dispatched to the customer's email.</small>
+        </div>
+      </div>
+      <div class="modal-footer-bar">
+        <button class="btn-table-action" onclick="closeModal('modal-reply-contact-msg')">Cancel</button>
+        <button class="topbar-btn-action" id="btn-submit-contact-reply" style="background:var(--admin-primary); color:#FFFFFF;" onclick="submitContactReply()">
+          <i class="fas fa-paper-plane"></i> Send & Save Reply
+        </button>
+      </div>
+    </div>
+  </div>
+
+<!-- ==================================================
        MODAL: ENQUIRY REPLY
        ================================================== -->
   <div class="modal-overlay" id="modal-enquiry-reply">
@@ -3211,1603 +3335,343 @@
         document.getElementById('stat-total-users').textContent = (s.total_users != null ? s.total_users : 0);
         document.getElementById('stat-total-enquiries').textContent = (s.total_enquiries != null ? s.total_enquiries : 0);
 
-        // Pending badge in sidebar
-        const pendBadge = document.getElementById('nav-badge-pending');
-        if (pendBadge) {
-          pendBadge.textContent = s.pending_bikes || 0;
-          pendBadge.style.display = s.pending_bikes > 0 ? 'inline-block' : 'none';
-        }
-
-        // Financial stats for superadmin
-        if (res.is_superadmin) {
-          const rev = s.total_revenue || 0;
-          const prof = s.total_profit || 0;
-          document.getElementById('fin-stat-revenue').textContent = `₹${rev.toLocaleString('en-IN')}`;
-          document.getElementById('fin-stat-profit').textContent = `₹${prof.toLocaleString('en-IN')}`;
-          const rBadge = document.getElementById('reports-role-badge');
-          if (rBadge) {
-            rBadge.textContent = 'SUPERADMIN FULL ACCESS';
-            rBadge.className = 'badge badge-approved';
-          }
-          const finOpt = document.getElementById('report-opt-financial');
-          if (finOpt) finOpt.disabled = false;
-        } else {
-          const rBadge = document.getElementById('reports-role-badge');
-          if (rBadge) {
-            rBadge.textContent = 'STAFF ADMIN LIMITED ACCESS';
-            rBadge.className = 'badge badge-pending';
-          }
-          const finOpt = document.getElementById('report-opt-financial');
-          if (finOpt) {
-            finOpt.disabled = true;
-            finOpt.textContent = 'Executive Financial & Profit Ledger (Superadmin Only)';
-          }
-        }
-
-        // Inventory Distribution Progress Bars
-        const total = (s.total_bikes || 1);
-        const appPct = Math.round(((s.approved_bikes || 0) / total) * 100);
-        const penPct = Math.round(((s.pending_bikes || 0) / total) * 100);
-        const sldPct = Math.round(((s.sold_bikes || 0) / total) * 100);
-
-        document.getElementById('dist-approved-pct').textContent = `${appPct}% (${s.approved_bikes || 0})`;
-        document.getElementById('dist-pending-pct').textContent = `${penPct}% (${s.pending_bikes || 0})`;
-        document.getElementById('dist-sold-pct').textContent = `${sldPct}% (${s.sold_bikes || 0})`;
-
-        document.getElementById('dist-bar-approved').style.width = `${appPct}%`;
-        document.getElementById('dist-bar-pending').style.width = `${penPct}%`;
-        document.getElementById('dist-bar-sold').style.width = `${sldPct}%`;
-
-        // Render Recent Bikes Table
-        const recentBikes = res.recent_bikes || [];
-        const bikesTbody = document.getElementById('dashboard-recent-bikes-tbody');
-        if (bikesTbody) {
-          if (recentBikes.length === 0) {
-            bikesTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.25rem; color:var(--admin-text-secondary);">No recent listings found.</td></tr>';
-          } else {
-            bikesTbody.innerHTML = recentBikes.slice(0, 5).map(b => {
-              const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
-              const p = parseFloat(b.price || 0).toLocaleString('en-IN');
-              const st = b.status || 'pending';
-              const badgeClass = st === 'approved' ? 'badge-approved' : (st === 'soldout' ? 'badge-sold' : (st === 'rejected' ? 'badge-rejected' : 'badge-pending'));
-              return `
-                <tr>
-                  <td>
-                    <div class="table-bike-item">
-                      <img src="${img}" class="table-bike-thumb" alt="${b.title || 'Bike'}">
-                      <div class="table-bike-info">
-                        <span class="table-bike-title">${b.title || 'Motorcycle'}</span>
-                        <span class="table-bike-meta">${b.brand || ''} ${b.model || ''}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td><strong>₹${p}</strong></td>
-                  <td><span class="badge-status ${badgeClass}">${st}</span></td>
-                  <td><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(b.created_at || '').substring(0, 10)}</span></td>
-                  <td style="text-align:right;">
-                    <button class="btn-table-action" onclick="openEditBikeModal(${b.id})" title="Edit Details"><i class="fas fa-edit"></i></button>
-                  </td>
-                </tr>
-              `;
-            }).join('');
-          }
-        }
-
-        // Render Pending Queue Preview
-        const pendContainer = document.getElementById('dashboard-pending-queue');
-        const pendingBikes = recentBikes.filter(b => b.status === 'pending');
-        if (pendContainer) {
-          if (pendingBikes.length === 0) {
-            pendContainer.innerHTML = '<div style="padding:1.5rem; text-align:center; color:var(--admin-text-secondary); font-size:0.86rem;"><i class="fas fa-check-circle" style="color:var(--admin-success); margin-right:6px;"></i> All motorcycle listings are reviewed and cleared.</div>';
-          } else {
-            pendContainer.innerHTML = pendingBikes.slice(0, 3).map(b => {
-              const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
-              const p = parseFloat(b.requested_price || b.price || 0).toLocaleString('en-IN');
-              return `
-                <div style="padding:0.85rem 1.25rem; border-bottom:1px solid var(--admin-card-border); display:flex; align-items:center; justify-content:space-between; gap:1rem;">
-                  <div style="display:flex; align-items:center; gap:0.75rem;">
-                    <img src="${img}" style="width:48px; height:38px; border-radius:var(--radius-sm); object-fit:cover; border:1px solid var(--admin-card-border);">
-                    <div>
-                      <div style="font-weight:700; font-size:0.88rem; color:var(--admin-text-main);">${b.title}</div>
-                      <div style="font-size:0.75rem; color:var(--admin-text-secondary);">Seller: ${b.seller_name || 'User'} &bull; Req: <strong>₹${p}</strong></div>
-                    </div>
-                  </div>
-                  <div style="display:flex; align-items:center; gap:0.4rem;">
-                    <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve"><i class="fas fa-check"></i></button>
-                    <button class="btn-table-action danger" onclick="openRejectBikeModal(${b.id})" title="Reject"><i class="fas fa-xmark"></i></button>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          }
-        }
-
-        // Render Recent Enquiries
-        const enqList = document.getElementById('dashboard-recent-enquiries-list');
-        const recentEnqs = res.recent_enquiries || [];
-        if (enqList) {
-          if (recentEnqs.length === 0) {
-            enqList.innerHTML = '<div style="padding:1.5rem; text-align:center; color:var(--admin-text-secondary); font-size:0.86rem;">No customer inquiries received yet.</div>';
-          } else {
-            enqList.innerHTML = recentEnqs.slice(0, 4).map(e => `
-              <div style="padding:0.85rem 1.25rem; border-bottom:1px solid var(--admin-card-border); display:flex; align-items:center; justify-content:space-between; gap:1rem;">
-                <div>
-                  <div style="font-weight:700; font-size:0.86rem; color:var(--admin-text-main);">${e.user_name || e.name || 'Customer'}</div>
-                  <div style="font-size:0.78rem; color:var(--admin-text-secondary);"><i class="fas fa-motorcycle" style="margin-right:4px;"></i> ${e.bike_title || 'Motorcycle'} &bull; ${(e.message || '').substring(0, 35)}...</div>
-                </div>
-                <button class="btn-table-action primary" onclick="openEnquiryReplyModal(${e.id})"><i class="fas fa-reply"></i> Reply</button>
-              </div>
-            `).join('');
-          }
-        }
-
-        // Render Activity Stream
-        const actList = document.getElementById('dashboard-activity-stream');
-        const recentActs = res.recent_activity || [];
-        if (actList) {
-          if (recentActs.length === 0) {
-            actList.innerHTML = '<div style="text-align:center; padding:1rem; color:var(--admin-text-secondary); font-size:0.85rem;">No recent administrative activity recorded.</div>';
-          } else {
-            actList.innerHTML = recentActs.slice(0, 5).map(a => `
-              <div style="display:flex; align-items:flex-start; gap:0.65rem; font-size:0.84rem;">
-                <div style="width:8px; height:8px; border-radius:50%; background:var(--admin-primary); margin-top:6px; flex-shrink:0;"></div>
-                <div style="flex:1;">
-                  <span style="font-weight:700; color:var(--admin-text-main);">${a.admin_username || 'Admin'}</span>
-                  <span style="color:var(--admin-text-secondary); margin-left:4px;">${a.details || a.action}</span>
-                  <div style="font-size:0.72rem; color:var(--admin-text-subtle); margin-top:2px;">${(a.created_at || '').substring(0, 16).replace('T', ' ')}</div>
-                </div>
-              </div>
-            `).join('');
-          }
-        }
-
-      } catch (err) {
-        console.error('Failed to load admin dashboard:', err);
-      }
-    }
-
+        // ==================================================
+    // 10. CONTACT MESSAGES (Inbound Direct Inquiries)
     // ==================================================
-    // 2. BIKE MANAGEMENT TAB
-    // ==================================================
-    let bikeSearchTimeout = null;
-    function debounceBikeSearch() {
-      clearTimeout(bikeSearchTimeout);
-      bikeSearchTimeout = setTimeout(() => loadAdminBikes(currentBikeTab, 1), 350);
-    }
-
-    function switchBikeSubTab(tab, btnEl) {
-      currentBikeTab = tab;
-      document.querySelectorAll('#tab-bikes .subtab-pill').forEach(b => b.classList.remove('active'));
-      if (btnEl) btnEl.classList.add('active');
-      loadAdminBikes(tab, 1);
-    }
-
-    async function loadAdminBikes(tab = 'all', page = 1, limit = null) {
-      limit = limit || adminPages.bikes.limit || 10;
-      const tbody = document.getElementById('admin-bikes-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Querying inventory...</td></tr>';
-
-      try {
-        const q = (document.getElementById('bikeFilterSearch')?.value || '').trim();
-        const brand = (document.getElementById('bikeFilterBrand')?.value || '');
-        const sort = (document.getElementById('bikeFilterSort')?.value || 'newest');
-        
-        let url = `/api/admin/bikes?page=${page}&limit=${limit}&tab=${tab}&sort=${sort}`;
-        if (q) url += `&q=${encodeURIComponent(q)}`;
-        if (brand) url += `&brand=${encodeURIComponent(brand)}`;
-
-        const res = await apiRequest(url);
-        const bikes = res.data || [];
-        adminBikesList = bikes;
-        const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
-
-        if (bikes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);">No motorcycles matching the current filter criteria.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = bikes.map(b => {
-          const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
-          const p = parseFloat(b.price || 0).toLocaleString('en-IN');
-          const st = b.status || 'pending';
-          const badgeClass = st === 'approved' ? 'badge-approved' : (st === 'soldout' ? 'badge-sold' : (st === 'rejected' ? 'badge-rejected' : 'badge-pending'));
-
-          return `
-            <tr>
-              <td data-label="Motorcycle">
-                <div class="table-bike-item">
-                  <img src="${img}" class="table-bike-thumb" alt="${b.title}">
-                  <div class="table-bike-info">
-                    <span class="table-bike-title">${b.title}</span>
-                    <span class="table-bike-meta">${b.registration_number || 'Unregistered'} &bull; ${b.location || 'Showroom'}</span>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Brand & Model"><strong>${b.brand}</strong> <span style="color:var(--admin-text-secondary);">${b.model} (${b.year})</span></td>
-              <td data-label="Seller Details">
-                <div>${b.seller_name || 'SMR Motors'}</div>
-                <div style="font-size:0.75rem; color:var(--admin-text-secondary);">${b.seller_phone || ''}</div>
-              </td>
-              <td data-label="Price"><strong>₹${p}</strong></td>
-              <td data-label="Status"><span class="badge-status ${badgeClass}">${st}</span></td>
-              <td data-label="Submission Date"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(b.created_at || '').substring(0, 10)}</span></td>
-              <td data-label="Actions" style="text-align:right;">
-                <div class="table-action-group">
-                  <a href="/admin/sold-bike-details.html?id=${b.id}" class="btn-table-action" title="View Full Details & Financials"><i class="fas fa-eye"></i> View</a>
-                  <button class="btn-table-action" onclick="openAdminBikeDocsModal(${b.id}, '${(b.title || (b.brand + ' ' + b.model)).replace(/'/g, "\\'")}')" title="Verify Ownership Documents"><i class="fas fa-file-shield"></i> Docs</button>
-                  <button class="btn-table-action" onclick="openEditBikeModal(${b.id})" title="Edit Details"><i class="fas fa-edit"></i> Edit</button>
-                  ${st === 'pending' ? `
-                    <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve"><i class="fas fa-check"></i></button>
-                    <button class="btn-table-action danger" onclick="openRejectBikeModal(${b.id})" title="Reject"><i class="fas fa-xmark"></i></button>
-                  ` : ''}
-                  ${(st === 'approved' || st === 'published') ? `
-                    <button class="btn-table-action primary" onclick="openMarkSoldModal(${b.id})" title="Mark as Sold Out"><i class="fas fa-handshake"></i> Sold Out</button>
-                  ` : ''}
-                  <button class="btn-table-action danger" onclick="deleteBikeAction(${b.id})" title="Delete"><i class="fas fa-trash"></i></button>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        renderPagination('bikes-pagination', 'bikes', res.pagination);
-
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--admin-danger);">${err.message}</td></tr>`;
-      }
-    }
-
-    // ==================================================
-    // 3. DEDICATED PENDING APPROVALS VIEW (Section 5)
-    // ==================================================
-    async function loadPendingApprovals() {
-      const c = document.getElementById('pending-approvals-container');
-      if (!c) return;
-      c.innerHTML = '<div style="text-align:center; padding:3rem;"><i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:var(--admin-primary);"></i><div style="margin-top:0.5rem;">Loading pending review cards...</div></div>';
-
-      try {
-        const res = await apiRequest('/api/admin/bikes?tab=pending&limit=30');
-        const pending = res.data || [];
-        pendingApprovalsList = pending;
-
-        if (pending.length === 0) {
-          c.innerHTML = `
-            <div style="text-align:center; padding:3.5rem; background:#FFFFFF; border-radius:var(--radius-xl); border:1px solid var(--admin-card-border);">
-              <i class="fas fa-circle-check" style="font-size:2.5rem; color:var(--admin-success); margin-bottom:1rem;"></i>
-              <h3 style="font-size:1.25rem; font-weight:800; color:var(--admin-text-main); margin-bottom:0.5rem;">All Submissions Cleared!</h3>
-              <p style="font-size:0.86rem; color:var(--admin-text-secondary); max-width:440px; margin:0 auto;">
-                There are no motorcycles awaiting review. New seller listings will automatically appear in this review queue.
-              </p>
-            </div>
-          `;
-          return;
-        }
-
-        c.innerHTML = pending.map(b => {
-          const imgs = (b.images && b.images.length) ? b.images : ['/static/images/IMG-20251204-WA0053.jpg'];
-          const primaryImg = imgs[0];
-          const thumbsHtml = imgs.map((u, i) => `
-            <img src="${u}" class="review-thumb-item" onclick="document.getElementById('p-review-main-${b.id}').src='${u}'" alt="Photo ${i+1}">
-          `).join('');
-
-          const reqPrice = parseFloat(b.requested_price || b.price || 0).toLocaleString('en-IN');
-
-          return `
-            <div class="pending-review-card">
-              <div class="pending-review-header">
-                <div class="pending-bike-header-title">
-                  <span class="badge-status badge-pending">Pending Review</span>
-                  <h4>${b.title}</h4>
-                </div>
-                <div style="font-size:0.82rem; color:var(--admin-text-secondary);">
-                  Submitted on: <strong>${(b.created_at || '').substring(0, 10)}</strong>
-                </div>
-              </div>
-
-              <div class="pending-review-body">
-                <!-- Left: 6-Image Gallery Showcase -->
-                <div class="review-gallery-container">
-                  <img id="p-review-main-${b.id}" src="${primaryImg}" class="review-primary-img" alt="${b.title}">
-                  <div class="review-gallery-thumbs">${thumbsHtml}</div>
-                  <span style="font-size:0.72rem; color:var(--admin-text-subtle); text-align:center;">Click any thumbnail to preview high-resolution</span>
-                </div>
-
-                <!-- Right: Specifications & Seller Breakdown -->
-                <div class="review-details-col">
-                  
-                  <div class="review-seller-banner">
-                    <div class="review-seller-info">
-                      <div class="review-seller-avatar">${(b.seller_name || 'U').charAt(0).toUpperCase()}</div>
-                      <div>
-                        <div style="font-weight:700; font-size:0.9rem; color:#9A3412;">${b.seller_name || 'Seller'}</div>
-                        <div style="font-size:0.78rem; color:#C2410C;"><i class="fas fa-phone" style="margin-right:4px;"></i> ${b.seller_phone || 'Not provided'}</div>
-                      </div>
-                    </div>
-                    <div class="review-price-box">
-                      <span class="review-price-label">Seller Requested Price</span>
-                      <span class="review-price-val">₹${reqPrice}</span>
-                    </div>
-                  </div>
-
-                  <div class="review-specs-grid">
-                    <div class="spec-item"><span class="spec-key">Make / Brand</span><span class="spec-val">${b.brand}</span></div>
-                    <div class="spec-item"><span class="spec-key">Model</span><span class="spec-val">${b.model}</span></div>
-                    <div class="spec-item"><span class="spec-key">Year</span><span class="spec-val">${b.year}</span></div>
-                    <div class="spec-item"><span class="spec-key">Kilometers</span><span class="spec-val">${(b.kilometers_driven || 0).toLocaleString('en-IN')} kms</span></div>
-                    <div class="spec-item"><span class="spec-key">Fuel Type</span><span class="spec-val">${b.fuel_type || 'Petrol'}</span></div>
-                    <div class="spec-item"><span class="spec-key">Transmission</span><span class="spec-val">${b.transmission || 'Manual'}</span></div>
-                    <div class="spec-item"><span class="spec-key">Reg Number</span><span class="spec-val">${b.registration_number || 'N/A'}</span></div>
-                    <div class="spec-item"><span class="spec-key">Showroom Location</span><span class="spec-val">${b.location || 'Showroom'}</span></div>
-                  </div>
-
-                  <div class="review-description-box">
-                    <strong>Seller Notes / Remarks:</strong>
-                    <p style="margin-top:0.25rem;">${b.description || 'No detailed remarks provided by seller.'}</p>
-                  </div>
-
-                </div>
-              </div>
-
-              <!-- Action Bar -->
-              <div class="review-actions-bar">
-                <button class="btn-review-changes" onclick="openEditBikeModal(${b.id})">
-                  <i class="fas fa-sliders"></i> Edit & Propose Counteroffer
-                </button>
-                <button class="btn-review-reject" onclick="openRejectBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}')">
-                  <i class="fas fa-circle-xmark"></i> Reject Listing
-                </button>
-                <button class="btn-review-approve" onclick="openApproveBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}', ${b.requested_price || b.price || 0})">
-                  <i class="fas fa-circle-check"></i> Approve & Publish to Live
-                </button>
-              </div>
-            </div>
-          `;
-        }).join('');
-
-      } catch (err) {
-        c.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--admin-danger);">${err.message}</div>`;
-      }
-    }
-
-    // ==================================================
-    // 4. APPROVED, REJECTED, AND SOLDOUT VIEWS
-    // ==================================================
-    async function loadApprovedBikesView() {
-      const tbody = document.getElementById('approved-bikes-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
-      try {
-        const res = await apiRequest('/api/admin/bikes?tab=approved&limit=25');
-        const bikes = res.data || [];
-        if (bikes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No active approved bikes found.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = bikes.map(b => {
-          const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
-          const p = parseFloat(b.price || 0).toLocaleString('en-IN');
-          return `
-            <tr>
-              <td data-label="Motorcycle">
-                <div class="table-bike-item">
-                  <img src="${img}" class="table-bike-thumb">
-                  <div class="table-bike-info">
-                    <span class="table-bike-title">${b.title}</span>
-                    <span class="table-bike-meta">${b.registration_number || 'N/A'}</span>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Brand & Model">${b.brand} ${b.model} (${b.year})</td>
-              <td data-label="Seller">${b.seller_name || 'SMR Motors'}</td>
-              <td data-label="Price"><strong>₹${p}</strong></td>
-              <td data-label="Approved By">${b.approved_by || 'admin'} &bull; ${(b.approved_at || '').substring(0, 10)}</td>
-              <td data-label="Actions" style="text-align:right;">
-                <button class="btn-table-action" onclick="openEditBikeModal(${b.id})"><i class="fas fa-edit"></i> Edit</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-      } catch (e) { tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">${e.message}</td></tr>`; }
-    }
-
-    async function loadRejectedBikesView() {
-      const tbody = document.getElementById('rejected-bikes-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading...</td></tr>';
-      try {
-        const res = await apiRequest('/api/admin/bikes?tab=rejected&limit=25');
-        const bikes = res.data || [];
-        if (bikes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No rejected listings recorded.</td></tr>';
-          return;
-        }
-        tbody.innerHTML = bikes.map(b => {
-          const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
-          const p = parseFloat(b.requested_price || b.price || 0).toLocaleString('en-IN');
-          return `
-            <tr>
-              <td data-label="Motorcycle">
-                <div class="table-bike-item">
-                  <img src="${img}" class="table-bike-thumb">
-                  <span class="table-bike-title">${b.title}</span>
-                </div>
-              </td>
-              <td data-label="Seller">${b.seller_name || 'Seller'}</td>
-              <td data-label="Requested Price">₹${p}</td>
-              <td data-label="Rejection Reason" style="color:var(--admin-danger); font-weight:600;"><i class="fas fa-circle-exclamation" style="margin-right:4px;"></i> ${b.rejection_reason || 'Guidelines violation'}</td>
-              <td data-label="Rejected By">${b.rejected_by || 'admin'} &bull; ${(b.rejected_at || '').substring(0, 10)}</td>
-              <td data-label="Actions" style="text-align:right;">
-                <button class="btn-table-action" onclick="openEditBikeModal(${b.id})"><i class="fas fa-sliders"></i> Re-evaluate</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-      } catch (e) { tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">${e.message}</td></tr>`; }
-    }
-
-    let soldBikeSearchTimeout = null;
-    function debounceSoldBikeSearch() {
-      clearTimeout(soldBikeSearchTimeout);
-      soldBikeSearchTimeout = setTimeout(() => loadSoldOutBikesView(1), 350);
-    }
-
-    function resetSoldBikeFilters() {
-      const s = document.getElementById('soldBikeFilterSearch');
-      if (s) s.value = '';
-      const b = document.getElementById('soldBikeFilterBrand');
-      if (b) b.value = 'all';
-      const d1 = document.getElementById('soldBikeStartDate');
-      if (d1) d1.value = '';
-      const d2 = document.getElementById('soldBikeEndDate');
-      if (d2) d2.value = '';
-      loadSoldOutBikesView(1);
-    }
-
-    let soldDisplayFormat = 'cards';
-    let soldViewScopeAll = false;
-
-    function setSoldDisplayFormat(fmt) {
-      soldDisplayFormat = fmt;
-      const cardsGrid = document.getElementById('soldout-cards-grid');
-      const tableWrap = document.getElementById('soldout-table-wrapper');
-      const btnCards = document.getElementById('btn-sold-display-cards');
-      const btnTable = document.getElementById('btn-sold-display-table');
-
-      if (fmt === 'table') {
-        if (cardsGrid) cardsGrid.style.display = 'none';
-        if (tableWrap) tableWrap.style.display = 'block';
-        if (btnCards) { btnCards.style.background = '#fff'; btnCards.style.color = '#475569'; }
-        if (btnTable) { btnTable.style.background = '#2563EB'; btnTable.style.color = '#fff'; }
-      } else {
-        if (cardsGrid) cardsGrid.style.display = 'grid';
-        if (tableWrap) tableWrap.style.display = 'none';
-        if (btnCards) { btnCards.style.background = '#2563EB'; btnCards.style.color = '#fff'; }
-        if (btnTable) { btnTable.style.background = '#fff'; btnTable.style.color = '#475569'; }
-      }
-    }
-
-    function toggleSoldViewScope() {
-      soldViewScopeAll = !soldViewScopeAll;
-      const scopeBadge = document.getElementById('soldout-scope-badge');
-      const scopeDesc = document.getElementById('soldout-scope-desc');
-      const toggleBtn = document.getElementById('btn-toggle-sold-view');
-
-      if (soldViewScopeAll) {
-        adminPages.soldout.limit = 24;
-        if (scopeBadge) {
-          scopeBadge.className = 'badge-status badge-pending';
-          scopeBadge.innerHTML = '<i class="fas fa-database"></i> Full Sales Archive';
-        }
-        if (scopeDesc) scopeDesc.textContent = 'Viewing complete historical sales archive with 24 units per page.';
-        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-clock-rotate-left"></i> Latest 6 Units View';
-      } else {
-        adminPages.soldout.limit = 6;
-        if (scopeBadge) {
-          scopeBadge.className = 'badge-status badge-approved';
-          scopeBadge.innerHTML = '<i class="fas fa-clock-rotate-left"></i> Latest 6 Units';
-        }
-        if (scopeDesc) scopeDesc.textContent = 'Showing latest 6 sold motorcycles, sorted newest first. Older sales preserved in full history.';
-        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-list-check"></i> View All Archive';
-      }
-      loadSoldOutBikesView(1, adminPages.soldout.limit);
-    }
-
-    async function loadSoldOutBikesView(page = 1, limit = null) {
-      limit = limit || adminPages.soldout.limit || 6;
-      adminPages.soldout.page = page;
-      adminPages.soldout.limit = limit;
-
-      const cardsGrid = document.getElementById('soldout-cards-grid');
-      const tbody = document.getElementById('soldout-bikes-tbody');
-      if (cardsGrid) cardsGrid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:3rem;"><i class="fas fa-spinner fa-spin" style="font-size:2rem; color:var(--admin-info);"></i></div>';
-      if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading sales archive...</td></tr>';
-
-      const search = (document.getElementById('soldBikeFilterSearch')?.value || '').trim();
-      const brand = document.getElementById('soldBikeFilterBrand')?.value || 'all';
-      const payStatus = document.getElementById('soldBikeFilterPaymentStatus')?.value || 'all';
-      const startDate = document.getElementById('soldBikeStartDate')?.value || '';
-      const endDate = document.getElementById('soldBikeEndDate')?.value || '';
-
-      const params = new URLSearchParams({ page: page, limit: limit });
-      if (search) params.set('search', search);
-      if (brand && brand !== 'all') params.set('brand', brand);
-      if (payStatus && payStatus !== 'all') params.set('payment_status', payStatus);
-      if (startDate) params.set('start_date', startDate);
-      if (endDate) params.set('end_date', endDate);
-
-      try {
-        const res = await apiRequest(`/api/admin/sold-bikes?${params.toString()}`);
-        const list = res.data || [];
-        const isSuper = res.is_superadmin;
-
-        if (list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>No sold out motorcycle records match the current filter.</td></tr>';
-          const pag = document.getElementById('soldout-bikes-pagination');
-          if (pag) pag.innerHTML = '';
-          return;
-        }
-
-        // Render Responsive Cards Grid
-        if (cardsGrid) {
-          cardsGrid.innerHTML = list.map(b => {
-            const img = b.primary_image || (b.images && b.images[0]) || '/static/images/IMG-20251204-WA0053.jpg';
-            const finalPrice = parseFloat(b.final_selling_price || 0).toLocaleString('en-IN');
-            const profit = parseFloat(b.realized_profit || 0).toLocaleString('en-IN');
-            const soldDate = (b.sold_date || '').substring(0, 10);
-
-            return `
-              <div class="admin-soldout-card" style="background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px; padding:1.15rem; box-shadow:0 1px 3px rgba(0,0,0,0.05); display:flex; flex-direction:column; justify-content:space-between; transition:all 0.2s;">
-                <div>
-                  <div style="position:relative; width:100%; height:180px; border-radius:8px; overflow:hidden; margin-bottom:0.85rem; background:#0F172A;">
-                    <img src="${img}" alt="${b.title}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';">
-                    <span style="position:absolute; top:8px; right:8px; background:#DC2626; color:#fff; font-size:0.72rem; font-weight:800; padding:3px 8px; border-radius:4px; letter-spacing:0.5px;">
-                      <i class="fas fa-check-circle"></i> SOLD OUT
-                    </span>
-                  </div>
-
-                  <div style="font-size:0.8rem; color:#64748B; font-weight:700; text-transform:uppercase;">${b.brand} &bull; ${b.model}</div>
-                  <h4 style="font-size:1.05rem; font-weight:800; color:#0F172A; margin:3px 0 6px;">#${b.bike_id} - ${b.title}</h4>
-
-                  <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:0.75rem;">
-                    <span style="font-family:monospace; font-weight:700; font-size:0.75rem; background:#F1F5F9; color:#0F172A; padding:2px 6px; border-radius:4px;">${b.registration_number || 'TN-XX-XXXX'}</span>
-                    <span style="font-size:0.75rem; color:#64748B; background:#F8FAFC; padding:2px 6px; border-radius:4px;"><i class="fas fa-calendar"></i> ${b.year}</span>
-                    <span style="font-size:0.75rem; color:#64748B; background:#F8FAFC; padding:2px 6px; border-radius:4px;"><i class="fas fa-tachometer-alt"></i> ${(b.kilometers_driven||0).toLocaleString()} km</span>
-                  </div>
-
-                  <div style="font-size:0.8rem; color:#64748B; margin-bottom:0.5rem;">
-                    <div><i class="fas fa-user-tag" style="color:#2563EB;"></i> Seller: <strong>${b.seller_name || 'Showroom'}</strong></div>
-                    <div><i class="fas fa-calendar-check" style="color:#16A34A;"></i> Sold: <strong>${soldDate}</strong> by ${b.sold_by || 'admin'}</div>
-                  </div>
-                </div>
-
-                <div style="margin-top:0.75rem; padding-top:0.75rem; border-top:1px solid #E2E8F0; display:flex; justify-content:space-between; align-items:center; gap:8px;">
-                  <div>
-                    <div style="font-size:0.7rem; color:#64748B; text-transform:uppercase; font-weight:800;">Final Price</div>
-                    <div style="font-size:1.2rem; font-weight:900; color:#0F172A;">₹${finalPrice}</div>
-                    ${isSuper ? `<div style="font-size:0.75rem; color:#16A34A; font-weight:700;">Net Profit: ₹${profit}</div>` : ''}
-                  </div>
-                  <a href="/admin-sold-bike-details.html?id=${b.bike_id}" class="btn-table-action" style="background:#2563EB; color:#FFFFFF; font-weight:700; border-radius:6px; padding:7px 14px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
-                    <i class="fas fa-eye"></i> View Details
-                  </a>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Render Desktop Tabular View
-        tbody.innerHTML = list.map(b => {
-          const img = b.primary_image || (b.images && b.images[0]) || '/static/images/IMG-20251204-WA0053.jpg';
-          const finalPrice = parseFloat(b.final_selling_price || 0).toLocaleString('en-IN');
-          const profit = parseFloat(b.realized_profit || 0).toLocaleString('en-IN');
-          const soldDate = (b.sold_date || '').substring(0, 16).replace('T', ' ');
-
-          return `
-            <tr>
-              <td data-label="Motorcycle Details">
-                <div class="table-bike-item">
-                  <img src="${img}" class="table-bike-thumb" alt="${b.title}">
-                  <div class="table-bike-info">
-                    <span class="table-bike-title">#${b.bike_id} - ${b.title}</span>
-                    <span class="table-bike-meta">Listed: ${(b.original_listing_date || '').substring(0, 10)}</span>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Brand & Model"><strong>${b.brand}</strong> <span style="color:var(--admin-text-secondary);">${b.model}</span></td>
-              <td data-label="Registration No."><span style="font-family:monospace; font-weight:700; background:#F1F5F9; padding:2px 6px; border-radius:4px;">${b.registration_number || 'TN-XX-XXXX'}</span></td>
-              <td data-label="Specs">${b.year} &bull; ${(b.kilometers_driven || 0).toLocaleString()} km &bull; ${b.fuel_type || 'Petrol'}</td>
-              <td data-label="Seller Info">
-                <div>${b.seller_name || 'SMR Motors'}</div>
-                <div style="font-size:0.75rem; color:var(--admin-text-secondary);">${b.seller_phone || ''}</div>
-              </td>
-              <td data-label="Sold Date & Time"><span style="font-size:0.82rem; color:var(--admin-text-secondary);">${soldDate}</span></td>
-              <td data-label="Sold By"><strong>${b.sold_by || 'admin'}</strong></td>
-              <td data-label="Final Price"><strong>₹${finalPrice}</strong></td>
-              ${isSuper ? `
-                <td data-label="Net Profit" class="fin-col-superadmin"><strong style="color:var(--admin-success);">₹${profit}</strong></td>
-              ` : `
-                <td class="fin-col-superadmin" style="display:none;">-</td>
-              `}
-              <td data-label="Status"><span class="badge-status badge-sold">SOLD OUT</span></td>
-              <td data-label="Actions" style="text-align:right;">
-                <div class="table-action-group">
-                  <a href="/admin-sold-bike-details.html?id=${b.bike_id}" class="btn-table-action" style="background:#2563EB; color:#fff; text-decoration:none; display:inline-flex; align-items:center; gap:4px; font-weight:700; border-radius:6px; padding:6px 12px;" title="View Complete Historical Snapshot">
-                    <i class="fas fa-eye"></i> View Details
-                  </a>
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        renderPagination('soldout-bikes-pagination', 'soldout', res.pagination);
-
-      } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="11" style="color:var(--admin-danger); text-align:center; padding:2rem;">${e.message}</td></tr>`;
-      }
-    }
-
-    // ==================================================
-    // 5. EDIT BIKE MODAL & 6-IMAGE GALLERY LOGIC
-    // ==================================================
-    function renderEditBikeGalleryPreviews() {
-      const c = document.getElementById('edit-bike-gallery-previews');
-      const counter = document.getElementById('edit-bike-img-counter');
-      if (!c) return;
-
-      if (counter) counter.textContent = `${currentBikeEditImages.length} / 6 Images`;
-      c.innerHTML = currentBikeEditImages.map((url, idx) => `
-        <div style="position:relative; width:100%; height:64px; border-radius:var(--radius-sm); overflow:hidden; border:1px solid var(--admin-card-border); background:#F1F5F9;">
-          <img src="${url}" style="width:100%; height:100%; object-fit:cover;">
-          <button type="button" onclick="removeEditBikeImage(${idx})" style="position:absolute; top:2px; right:2px; width:20px; height:20px; border-radius:50%; background:rgba(220,38,38,0.9); color:#fff; border:none; font-size:10px; cursor:pointer; display:flex; align-items:center; justify-content:center;">&times;</button>
-          ${idx === 0 ? '<span style="position:absolute; bottom:2px; left:2px; font-size:8px; font-weight:800; background:rgba(249,115,22,0.9); color:#fff; padding:1px 3px; border-radius:3px;">COVER</span>' : ''}
-        </div>
-      `).join('');
-    }
-
-    function removeEditBikeImage(idx) {
-      currentBikeEditImages.splice(idx, 1);
-      renderEditBikeGalleryPreviews();
-    }
-
-    async function handleEditBikeFileUpload(input) {
-      if (!input.files || input.files.length === 0) return;
-      const remainingSlots = 6 - currentBikeEditImages.length;
-      if (remainingSlots <= 0) {
-        showToast('Maximum 6 images allowed per motorcycle.', 'error');
-        return;
-      }
-
-      const files = Array.from(input.files).slice(0, remainingSlots);
-      const fd = new FormData();
-      files.forEach(f => fd.append('images', f));
-
-      showToast(`Uploading ${files.length} photo(s)...`, 'info');
-      try {
-        const res = await apiRequest('/api/upload/images', { method: 'POST', body: fd });
-        const uploaded = res.images || [];
-        uploaded.forEach(item => {
-          if (currentBikeEditImages.length < 6) {
-            currentBikeEditImages.push(item.url || item);
-          }
-        });
-        renderEditBikeGalleryPreviews();
-        showToast('Images successfully uploaded!', 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-      input.value = '';
-    }
-
-    async function openEditBikeModal(id) {
-      currentBikeEditImages = [];
-      const titleModal = document.getElementById('modal-edit-bike-title');
-      
-      if (id === 0) {
-        if (titleModal) titleModal.textContent = 'Add New Motorcycle to Dealership';
-        document.getElementById('edit-bike-id').value = '';
-        document.getElementById('edit-bike-title').value = '';
-        document.getElementById('edit-bike-brand').value = '';
-        document.getElementById('edit-bike-model').value = '';
-        document.getElementById('edit-bike-year').value = 2023;
-        document.getElementById('edit-bike-kms').value = 5000;
-        document.getElementById('edit-bike-reg-number').value = '';
-        document.getElementById('edit-bike-location').value = 'Salem Showroom, Tamil Nadu';
-        document.getElementById('edit-bike-description').value = '';
-        document.getElementById('edit-bike-price').value = 100000;
-        document.getElementById('edit-bike-requested-price').value = 100000;
-        document.getElementById('edit-bike-buying-price').value = 85000;
-        document.getElementById('edit-bike-expenses').value = 3000;
-        currentBikeEditImages = ['/static/images/IMG-20251204-WA0053.jpg'];
-        renderEditBikeGalleryPreviews();
-        openModal('modal-edit-bike');
-        return;
-      }
-
-      try {
-        const res = await apiRequest(`/api/admin/bikes/${id}`);
-        const b = res.bike || res.data || {};
-
-        if (titleModal) titleModal.textContent = `Edit Motorcycle: ${b.title || '#' + id}`;
-        document.getElementById('edit-bike-id').value = b.id;
-        document.getElementById('edit-bike-title').value = b.title || '';
-        document.getElementById('edit-bike-brand').value = b.brand || '';
-        document.getElementById('edit-bike-model').value = b.model || '';
-        document.getElementById('edit-bike-year').value = b.year || 2023;
-        document.getElementById('edit-bike-kms').value = b.kilometers_driven || 0;
-        document.getElementById('edit-bike-reg-number').value = b.registration_number || '';
-        document.getElementById('edit-bike-fuel').value = b.fuel_type || 'Petrol';
-        document.getElementById('edit-bike-transmission').value = b.transmission || 'Manual';
-        document.getElementById('edit-bike-location').value = b.location || 'Salem Showroom';
-        document.getElementById('edit-bike-description').value = b.description || '';
-
-        // Financial fields
-        document.getElementById('edit-bike-price').value = b.price || '';
-        document.getElementById('edit-bike-requested-price').value = b.requested_price || b.price || '';
-        document.getElementById('edit-bike-buying-price').value = b.buying_price || '';
-        document.getElementById('edit-bike-expenses').value = b.expenses || 0;
-
-        // Photos gallery
-        currentBikeEditImages = (b.images && Array.isArray(b.images)) ? [...b.images] : [];
-        if (currentBikeEditImages.length === 0) currentBikeEditImages.push('/static/images/IMG-20251204-WA0053.jpg');
-        renderEditBikeGalleryPreviews();
-
-        openModal('modal-edit-bike');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function confirmSaveBikeEdit() {
-      const bikeId = document.getElementById('edit-bike-id').value;
-      const isNew = !bikeId;
-
-      const payload = {
-        title: document.getElementById('edit-bike-title').value.trim(),
-        brand: document.getElementById('edit-bike-brand').value.trim(),
-        model: document.getElementById('edit-bike-model').value.trim(),
-        year: parseInt(document.getElementById('edit-bike-year').value),
-        kilometers_driven: parseInt(document.getElementById('edit-bike-kms').value) || 0,
-        registration_number: document.getElementById('edit-bike-reg-number').value.trim(),
-        fuel_type: document.getElementById('edit-bike-fuel').value,
-        transmission: document.getElementById('edit-bike-transmission').value,
-        location: document.getElementById('edit-bike-location').value.trim(),
-        description: document.getElementById('edit-bike-description').value.trim(),
-        images: currentBikeEditImages
-      };
-
-      if (!payload.title || !payload.brand || !payload.model) {
-        showToast('Please fill in title, brand, and model.', 'error');
-        return;
-      }
-
-      // Add financial fields if Superadmin
-      if (currentAdmin && currentAdmin.role === 'superadmin') {
-        const p = document.getElementById('edit-bike-price').value.trim();
-        const rp = document.getElementById('edit-bike-requested-price').value.trim();
-        const bp = document.getElementById('edit-bike-buying-price').value.trim();
-        const exp = document.getElementById('edit-bike-expenses').value.trim();
-
-        if (p !== '') {
-          const pVal = parseFloat(p);
-          if (isNaN(pVal) || pVal < 0 || pVal > 1000000) {
-            showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
-            document.getElementById('edit-bike-price').focus();
-            return;
-          }
-          payload.price = pVal;
-        }
-
-        if (rp !== '') {
-          const rpVal = parseFloat(rp);
-          if (isNaN(rpVal) || rpVal < 0 || rpVal > 1000000) {
-            showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
-            document.getElementById('edit-bike-requested-price').focus();
-            return;
-          }
-          payload.requested_price = rpVal;
-        }
-
-        if (bp !== '') payload.buying_price = parseFloat(bp);
-        if (exp !== '') payload.expenses = parseFloat(exp);
-      }
-
-      try {
-        if (isNew) {
-          await apiRequest('/api/bikes', { method: 'POST', body: JSON.stringify(payload) });
-          showToast('Motorcycle successfully created!', 'success');
-        } else {
-          await apiRequest(`/api/admin/bikes/${bikeId}`, { method: 'PUT', body: JSON.stringify(payload) });
-          showToast('Motorcycle details updated successfully!', 'success');
-        }
-        closeModal('modal-edit-bike');
-        loadAdminBikes(currentBikeTab, 1);
-        loadAdminDashboard();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    // ==================================================
-    // 6. APPROVAL, REJECTION & DELETE ACTIONS
-    // ==================================================
-    function openApproveBikeModal(id, title = '', currentPrice = '') {
-      document.getElementById('approve-bike-id').value = id;
-      document.getElementById('approve-bike-title-text').textContent = title ? `"${title}"` : `#${id}`;
-      
-      const priceGroup = document.getElementById('approve-price-group');
-      if (priceGroup) priceGroup.style.display = 'block';
-
-      const priceInput = document.getElementById('approve-bike-price');
-      if (priceInput) {
-        let p = currentPrice;
-        if (p === '' || p === undefined || p === null) {
-          if (typeof pendingApprovalsList !== 'undefined' && Array.isArray(pendingApprovalsList)) {
-            const found = pendingApprovalsList.find(b => b.id == id);
-            if (found && (found.requested_price || found.price)) p = found.requested_price || found.price;
-          }
-          if (!p && typeof adminBikesList !== 'undefined' && Array.isArray(adminBikesList)) {
-            const found = adminBikesList.find(b => b.id == id);
-            if (found && found.price) p = found.price;
-          }
-        }
-        priceInput.value = (p !== undefined && p !== null && p !== '') ? parseFloat(p) : '';
-      }
-
-      openModal('modal-approve-bike');
-    }
-
-    async function confirmApproveBike() {
-      const idInput = document.getElementById('approve-bike-id');
-      const id = idInput ? idInput.value.trim() : '';
-      if (!id) {
-        showToast('Invalid bike ID. Please select a motorcycle again.', 'error');
-        return;
-      }
-
-      const approveBtn = document.querySelector('#modal-approve-bike .btn-review-approve');
-      const originalBtnHtml = approveBtn ? approveBtn.innerHTML : '<i class="fas fa-check-double"></i> Confirm & Publish';
-
-      const priceInput = document.getElementById('approve-bike-price');
-      const approvedPrice = priceInput ? priceInput.value.trim() : '';
-      const body = {};
-      if (approvedPrice !== '') {
-        const pVal = parseFloat(approvedPrice);
-        if (isNaN(pVal) || pVal < 0 || pVal > 1000000) {
-          showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
-          if (priceInput) priceInput.focus();
-          return;
-        }
-        body.approved_price = pVal;
-      }
-
-      if (approveBtn) {
-        approveBtn.disabled = true;
-        approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Approving & Publishing...';
-      }
-
-      try {
-        const res = await apiRequest(`/api/admin/bikes/${id}/approve`, {
-          method: 'POST',
-          body: JSON.stringify(body)
-        });
-        showToast(res.message || 'Motorcycle approved and published to live marketplace!', 'success');
-        closeModal('modal-approve-bike');
-        loadAdminBikes(currentBikeTab, 1);
-        loadPendingApprovals();
-        loadAdminDashboard();
-      } catch (err) {
-        console.error('Approval failed:', err);
-        showToast(err.message || 'Failed to approve motorcycle. Check server error.', 'error');
-      } finally {
-        if (approveBtn) {
-          approveBtn.disabled = false;
-          approveBtn.innerHTML = originalBtnHtml;
-        }
-      }
-    }
-
-    function openRejectBikeModal(id, title = '') {
-      document.getElementById('reject-bike-id').value = id;
-      document.getElementById('reject-bike-title-text').textContent = title ? `"${title}"` : `#${id}`;
-      document.getElementById('reject-bike-reason').value = '';
-      openModal('modal-reject-bike');
-    }
-
-    async function confirmRejectBikeAction() {
-      const id = document.getElementById('reject-bike-id').value;
-      const reason = document.getElementById('reject-bike-reason').value.trim();
-      if (!reason) {
-        showToast('Mandatory rejection reason is required.', 'error');
-        return;
-      }
-
-      try {
-        await apiRequest(`/api/admin/bikes/${id}/reject`, { method: 'POST', body: JSON.stringify({ reason }) });
-        showToast('Motorcycle submission rejected. Reason sent to seller.', 'info');
-        closeModal('modal-reject-bike');
-        loadAdminBikes(currentBikeTab, 1);
-        loadPendingApprovals();
-        loadAdminDashboard();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function deleteBikeAction(id) {
-      if (!confirm(`Are you sure you want to permanently delete motorcycle #${id}?`)) return;
-      try {
-        await apiRequest(`/api/admin/bikes/${id}`, { method: 'DELETE' });
-        showToast('Motorcycle removed from system.', 'success');
-        loadAdminBikes(currentBikeTab, 1);
-        loadAdminDashboard();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    // ==================================================
-        // 7. ADVANCED MARK AS SOLD & COMPLETE SALE WORKFLOW
-    // ==================================================
-    async function openMarkSoldModal(id, title = '') {
-      let bike = (adminBikesList || []).find(b => b.id == id);
-      if (!bike) {
-        try {
-          const res = await apiRequest(`/api/admin/bikes/${id}`);
-          if (res && res.data) bike = res.data;
-          else if (res && res.bike) bike = res.bike;
-        } catch (e) {
-          console.warn("Could not fetch bike details for modal:", e);
-        }
-      }
-
-      document.getElementById('sold-bike-id').value = id;
-      document.getElementById('sold-bike-id-display').textContent = `#${id}`;
-
-      const bTitle = bike ? (bike.title || bike.listingTitle) : (title || `Motorcycle #${id}`);
-      document.getElementById('sold-bike-title-text').textContent = bTitle;
-
-      // Primary photo thumbnail
-      let imgs = [];
-      try {
-        imgs = typeof bike?.images === 'string' ? JSON.parse(bike.images) : (bike?.images || []);
-      } catch (e) {
-        imgs = [];
-      }
-      const primaryPhoto = (imgs && imgs.length > 0) ? imgs[0] : '/static/images/IMG-20251204-WA0053.jpg';
-      const imgEl = document.getElementById('sold-bike-img');
-      if (imgEl) imgEl.src = primaryPhoto;
-
-      // Status badge
-      const curStatus = (bike?.listing_status || bike?.status || 'approved').toLowerCase();
-      const statusBadge = document.getElementById('sold-bike-status-badge');
-      if (statusBadge) {
-        statusBadge.textContent = curStatus.toUpperCase();
-        statusBadge.className = `badge-status ${curStatus === 'approved' ? 'badge-approved' : ((curStatus === 'sold' || curStatus === 'soldout') ? 'badge-sold' : 'badge-pending')}`;
-      }
-
-      // Specs display
-      const specsEl = document.getElementById('sold-bike-specs-display');
-      if (specsEl) {
-        specsEl.textContent = `${bike?.year || 2022} • ${(bike?.kilometers_driven || 0).toLocaleString()} km • ${bike?.fuel_type || 'Petrol'}`;
-      }
-
-      // Brand & Model display
-      const bmEl = document.getElementById('sold-bike-brand-model-display');
-      if (bmEl) {
-        bmEl.textContent = `${bike?.brand || 'Motorcycle'} • ${bike?.model || ''}`;
-      }
-
-      // Registration Number display
-      const regEl = document.getElementById('sold-bike-reg-display');
-      if (regEl) {
-        regEl.textContent = bike?.registration_number || bike?.vehicleNumber || 'Unregistered / TN-XX-XXXX';
-      }
-
-      // Pre-fill Sale Date to Today
-      const today = new Date().toISOString().substring(0, 10);
-      document.getElementById('sold-sale-date').value = today;
-
-      // Pre-fill Price
-      const prefillPrice = bike?.public_selling_price || bike?.sellingPrice || bike?.price || 100000;
-      document.getElementById('sold-sale-price').value = prefillPrice;
-      document.getElementById('sold-advance-amount').value = prefillPrice;
-      document.getElementById('sold-remaining-amount').value = 0;
-
-      // Reset buyer fields
-      document.getElementById('sold-buyer-name').value = '';
-      document.getElementById('sold-buyer-phone').value = '';
-      document.getElementById('sold-alt-phone').value = '';
-      document.getElementById('sold-buyer-email').value = '';
-      document.getElementById('sold-buyer-location').value = bike?.location || 'Salem Showroom';
-      document.getElementById('sold-buyer-city').value = 'Salem';
-      document.getElementById('sold-buyer-state').value = 'Tamil Nadu';
-      document.getElementById('sold-buyer-pincode').value = '';
-      document.getElementById('sold-buyer-address').value = '';
-      document.getElementById('sold-sale-notes').value = '';
-
-      // Reset proof fields
-      document.getElementById('sold-proof-type').value = 'Not Provided';
-      document.getElementById('sold-proof-ref').value = '';
-      const proofFileInput = document.getElementById('sold-proof-file');
-      if (proofFileInput) proofFileInput.value = '';
-      document.getElementById('sold-consent-checkbox').checked = true;
-
-      // Superadmin Financial Telemetry Section
-      const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
-      const finContainer = document.getElementById('sold-financial-telemetry-container');
-      if (finContainer) {
-        finContainer.style.display = isSuper ? 'block' : 'none';
-        if (isSuper) {
-          const bp = bike?.buying_price || bike?.price || 0;
-          document.getElementById('sold-buying-price').value = bp;
-          document.getElementById('sold-expense-repair').value = bike?.repair_expenses || 0;
-          document.getElementById('sold-expense-other').value = bike?.other_expenses || 0;
-        }
-      }
-
-      calculateLiveSaleBalances();
-      openModal('modal-mark-sold');
-    }
-
-    function handlePaymentStatusChange() {
-      const st = document.getElementById('sold-payment-status').value;
-      const sp = parseFloat(document.getElementById('sold-sale-price')?.value) || 0;
-      const advInput = document.getElementById('sold-advance-amount');
-      if (st === 'Full Payment') {
-        advInput.value = sp;
-      } else if (st === 'Payment Pending') {
-        advInput.value = 0;
-      }
-      calculateLiveSaleBalances();
-    }
-
-    function calculateLiveSaleBalances() {
-      const sp = parseFloat(document.getElementById('sold-sale-price')?.value) || 0;
-      const adv = parseFloat(document.getElementById('sold-advance-amount')?.value) || 0;
-      const rem = Math.max(0, sp - adv);
-      const remEl = document.getElementById('sold-remaining-amount');
-      if (remEl) remEl.value = rem;
-
-      // Live Financial Telemetry (Superadmin)
-      const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
-      if (isSuper) {
-        const bp = parseFloat(document.getElementById('sold-buying-price')?.value) || 0;
-        const rep = parseFloat(document.getElementById('sold-expense-repair')?.value) || 0;
-        const oth = parseFloat(document.getElementById('sold-expense-other')?.value) || 0;
-        const totalExp = rep + oth;
-        const grossProfit = sp - bp;
-        const netProfit = sp - bp - totalExp;
-        const marginPct = sp > 0 ? ((netProfit / sp) * 100).toFixed(1) : '0.0';
-
-        const elTotExp = document.getElementById('sold-live-total-expenses');
-        if (elTotExp) elTotExp.textContent = `₹${totalExp.toLocaleString('en-IN')}`;
-        const elGross = document.getElementById('sold-live-gross-profit');
-        if (elGross) elGross.textContent = `₹${grossProfit.toLocaleString('en-IN')}`;
-        const elNet = document.getElementById('sold-live-net-profit');
-        if (elNet) elNet.textContent = `₹${netProfit.toLocaleString('en-IN')}`;
-        const elMargin = document.getElementById('sold-live-margin-pct');
-        if (elMargin) elMargin.textContent = `${marginPct}%`;
-      }
-    }
-
-    async function confirmMarkSoldAction() {
-      const confirmBtn = document.getElementById('btn-confirm-mark-sold');
-      if (confirmBtn) {
-        if (confirmBtn.disabled) return;
-        confirmBtn.disabled = true;
-        confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Finalizing Sale...';
-      }
-
-      const id = document.getElementById('sold-bike-id').value;
-      const name = (document.getElementById('sold-buyer-name')?.value || '').trim();
-      const phone = (document.getElementById('sold-buyer-phone')?.value || '').trim();
-      const city = (document.getElementById('sold-buyer-city')?.value || '').trim();
-      const location = (document.getElementById('sold-buyer-location')?.value || '').trim();
-      const saleP = parseFloat(document.getElementById('sold-sale-price')?.value) || 0;
-
-      if (!name) {
-        showToast('Please enter customer full name.', 'error');
-        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check"></i> Finalize Sale & Move to Sold Out'; }
-        return;
-      }
-      if (!phone || phone.length < 10) {
-        showToast('Please enter a valid 10-digit customer mobile number.', 'error');
-        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check"></i> Finalize Sale & Move to Sold Out'; }
-        return;
-      }
-      if (!city) {
-        showToast('Please enter customer city.', 'error');
-        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check"></i> Finalize Sale & Move to Sold Out'; }
-        return;
-      }
-      if (saleP <= 0) {
-        showToast('Final selling price must be greater than zero.', 'error');
-        if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.innerHTML = '<i class="fas fa-check"></i> Finalize Sale & Move to Sold Out'; }
-        return;
-      }
-
-      const fd = new FormData();
-      fd.append('customer_name', name);
-      fd.append('customer_phone', phone);
-      fd.append('alt_phone', (document.getElementById('sold-alt-phone')?.value || '').trim());
-      fd.append('customer_email', (document.getElementById('sold-buyer-email')?.value || '').trim());
-      fd.append('customer_location', location || city);
-      fd.append('customer_city', city);
-      fd.append('customer_state', (document.getElementById('sold-buyer-state')?.value || 'Tamil Nadu').trim());
-      fd.append('customer_pincode', (document.getElementById('sold-buyer-pincode')?.value || '').trim());
-      fd.append('customer_address', (document.getElementById('sold-buyer-address')?.value || '').trim());
-
-      fd.append('proof_type', document.getElementById('sold-proof-type')?.value || 'Not Provided');
-      fd.append('proof_ref_masked', (document.getElementById('sold-proof-ref')?.value || '').trim());
-      fd.append('consent_obtained', document.getElementById('sold-consent-checkbox')?.checked ? '1' : '0');
-
-      const proofFileInput = document.getElementById('sold-proof-file');
-      if (proofFileInput && proofFileInput.files && proofFileInput.files[0]) {
-        fd.append('proof_document', proofFileInput.files[0]);
-      }
-
-      fd.append('sale_date', document.getElementById('sold-sale-date')?.value || new Date().toISOString().substring(0, 10));
-      fd.append('actual_sale_price', saleP);
-      fd.append('payment_method', document.getElementById('sold-payment-method')?.value || 'Cash');
-      fd.append('payment_status', document.getElementById('sold-payment-status')?.value || 'Full Payment');
-      fd.append('advance_amount', parseFloat(document.getElementById('sold-advance-amount')?.value) || 0);
-      fd.append('remaining_amount', parseFloat(document.getElementById('sold-remaining-amount')?.value) || 0);
-      fd.append('notes', (document.getElementById('sold-sale-notes')?.value || '').trim());
-
-      const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
-      if (isSuper) {
-        fd.append('buying_price', parseFloat(document.getElementById('sold-buying-price')?.value) || 0);
-        fd.append('repair_expense', parseFloat(document.getElementById('sold-expense-repair')?.value) || 0);
-        fd.append('other_expense', parseFloat(document.getElementById('sold-expense-other')?.value) || 0);
-      }
-
-      try {
-        const resData = await apiRequest(`/api/admin/bikes/${id}/sold`, {
-          method: 'POST',
-          body: fd
-        });
-
-        showToast(resData.message || 'Motorcycle sale finalized and moved to sales archive!', 'success');
-        closeModal('modal-mark-sold');
-        await Promise.all([
-          loadAdminBikes(currentBikeTab, 1),
-          loadAdminDashboard(),
-          loadSoldOutBikesView(1)
-        ]);
-      } catch (err) {
-        showToast(err.message || 'Failed to complete sale.', 'error');
-      } finally {
-        if (confirmBtn) {
-          confirmBtn.disabled = false;
-          confirmBtn.innerHTML = '<i class="fas fa-check"></i> Finalize Sale & Move to Sold Out';
-        }
-      }
-    }
-
-    // ==================================================
-    // 8. ENQUIRIES, USERS, STAFF, MESSAGES, NOTIFICATIONS
-    // ==================================================
-    let enqSearchTimeout = null;
-    function debounceEnquirySearch() {
-      clearTimeout(enqSearchTimeout);
-      enqSearchTimeout = setTimeout(() => loadAdminEnquiries(currentEnquiryTab, 1), 350);
-    }
-
-    function switchEnquirySubTab(tab, btnEl) {
-      currentEnquiryTab = tab;
-      document.querySelectorAll('#tab-enquiries .subtab-pill').forEach(b => b.classList.remove('active'));
-      if (btnEl) btnEl.classList.add('active');
-      loadAdminEnquiries(tab, 1);
-    }
-
-    async function loadAdminEnquiries(tab = 'all', page = 1, limit = null) {
-      limit = limit || adminPages.enquiries.limit || 10;
-      const tbody = document.getElementById('admin-enquiries-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading customer enquiries...</td></tr>';
-
-      try {
-        const q = (document.getElementById('enquiryFilterSearch')?.value || '').trim();
-        let url = `/api/admin/enquiries?page=${page}&limit=${limit}&tab=${tab}`;
-        if (q) url += `&q=${encodeURIComponent(q)}`;
-
-        const res = await apiRequest(url);
-        const enqs = res.data || [];
-
-        if (enqs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);">No customer enquiries found.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = enqs.map(e => {
-          const st = e.status || 'pending';
-          const badgeClass = st === 'accepted' ? 'badge-approved' : (st === 'rejected' ? 'badge-rejected' : (st === 'replied' ? 'badge-sold' : 'badge-pending'));
-          return `
-            <tr>
-              <td data-label="Customer"><strong>${e.user_name || e.name || 'Customer'}</strong></td>
-              <td data-label="Motorcycle">${e.bike_title || 'Motorcycle #' + e.bike_id}</td>
-              <td data-label="Contact Info">${e.email || ''}<br><span style="font-size:0.75rem; color:var(--admin-text-secondary);">${e.phone || ''}</span></td>
-              <td data-label="Message Snippet"><span style="font-size:0.84rem; color:var(--admin-text-secondary);">${(e.message || '').substring(0, 45)}...</span></td>
-              <td data-label="Date"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(e.created_at || '').substring(0, 10)}</span></td>
-              <td data-label="Status"><span class="badge-status ${badgeClass}">${st}</span></td>
-              <td data-label="Actions" style="text-align:right;">
-                <button class="btn-table-action primary" onclick="openEnquiryReplyModal(${e.id})"><i class="fas fa-reply"></i> Reply</button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        renderPagination('enquiries-pagination', 'enquiries', res.pagination);
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">${err.message}</td></tr>`;
-      }
-    }
-
-    async function openEnquiryReplyModal(id) {
-      document.getElementById('reply-enquiry-id').value = id;
-      document.getElementById('reply-message-text').value = '';
-      const summaryEl = document.getElementById('reply-customer-summary');
-      if (summaryEl) summaryEl.innerHTML = `Loading enquiry #${id}...`;
-
-      try {
-        const res = await apiRequest(`/api/admin/enquiries/${id}/replies`);
-        const enq = res.enquiry || {};
-        if (summaryEl) {
-          summaryEl.innerHTML = `
-            <div><strong>Customer:</strong> ${enq.user_name || enq.name || 'User'} (${enq.email || ''} | ${enq.phone || ''})</div>
-            <div><strong>Motorcycle:</strong> ${enq.bike_title || '#' + enq.bike_id}</div>
-            <div style="margin-top:0.35rem; padding:0.5rem; background:#FFFFFF; border-radius:6px; border:1px solid #E2E8F0;">
-              <em>"${enq.message || 'No inquiry text.'}"</em>
-            </div>
-          `;
-        }
-        openModal('modal-enquiry-reply');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function confirmSendEnquiryReply() {
-      const id = document.getElementById('reply-enquiry-id').value;
-      const message = document.getElementById('reply-message-text').value.trim();
-      const status = document.getElementById('reply-status-select').value;
-
-      if (!message) {
-        showToast('Please type a reply message.', 'error');
-        return;
-      }
-
-      try {
-        await apiRequest(`/api/admin/enquiries/${id}/reply`, {
-          method: 'POST',
-          body: JSON.stringify({ reply_message: message, status })
-        });
-        showToast('Reply dispatched to customer successfully!', 'success');
-        closeModal('modal-enquiry-reply');
-        loadAdminEnquiries(currentEnquiryTab, 1);
-        loadAdminDashboard();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    // User Management
-    let userSearchTimeout = null;
-    function debounceUserSearch() {
-      clearTimeout(userSearchTimeout);
-      userSearchTimeout = setTimeout(() => loadAdminUsers(currentUserTab, 1), 350);
-    }
-
-    function switchUserSubTab(tab, btnEl) {
-      currentUserTab = tab;
-      document.querySelectorAll('#tab-users .subtab-pill').forEach(b => b.classList.remove('active'));
-      if (btnEl) btnEl.classList.add('active');
-      loadAdminUsers(tab, 1);
-    }
-
-    async function loadAdminUsers(tab = 'all', page = 1, limit = null) {
-      limit = limit || adminPages.users.limit || 10;
-      const tbody = document.getElementById('admin-users-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading users...</td></tr>';
-
-      try {
-        const q = (document.getElementById('userFilterSearch')?.value || '').trim();
-        let url = `/api/admin/users?page=${page}&limit=${limit}&tab=${tab}`;
-        if (q) url += `&q=${encodeURIComponent(q)}`;
-
-        const res = await apiRequest(url);
-        const users = res.data || [];
-
-        if (users.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No users found.</td></tr>';
-          return;
-        }
-
-        tbody.innerHTML = users.map(u => {
-          const isActive = u.is_active !== 0 && u.is_active !== false;
-          return `
-            <tr>
-              <td data-label="User Profile">
-                <div style="display:flex; align-items:center; gap:0.65rem;">
-                  <div style="width:34px; height:34px; border-radius:50%; background:#374151; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">
-                    ${(u.name || 'U').charAt(0).toUpperCase()}
-                  </div>
-                  <strong>${u.name || 'User'}</strong>
-                </div>
-              </td>
-              <td data-label="Email">${u.email || ''}</td>
-              <td data-label="Phone">${u.phone || 'N/A'}</td>
-              <td data-label="Registered Date"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(u.created_at || '').substring(0, 10)}</span></td>
-              <td data-label="Bikes Listed"><strong>${u.listings_count || 0}</strong></td>
-              <td data-label="Account Status">
-                <span class="badge-status ${isActive ? 'badge-approved' : 'badge-rejected'}">${isActive ? 'Active' : 'Suspended'}</span>
-              </td>
-              <td data-label="Actions" style="text-align:right;">
-                <button class="btn-table-action ${isActive ? 'danger' : 'success'}" onclick="toggleUserStatusAction(${u.id}, ${isActive ? 0 : 1})">
-                  ${isActive ? 'Suspend' : 'Activate'}
-                </button>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        renderPagination('users-pagination', 'users', res.pagination);
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">${err.message}</td></tr>`;
-      }
-    }
-
-    async function toggleUserStatusAction(id, newStatus) {
-      try {
-        await apiRequest(`/api/admin/users/${id}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ is_active: newStatus })
-        });
-        showToast(`User account status updated.`, 'success');
-        loadAdminUsers(currentUserTab, 1);
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    // Staff Management
-    async function loadAdminStaff(page = 1, limit = null) {
-      limit = limit || adminPages.staff.limit || 10;
-      const tbody = document.getElementById('admin-staff-tbody');
-      if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading staff...</td></tr>';
-
-      try {
-        const res = await apiRequest(`/api/admin/staff?page=${page}&limit=${limit}`);
-        const staff = res.data || [];
-
-        if (staff.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No staff records found.</td></tr>';
-          renderPagination('staff-pagination', 'staff', res.pagination);
-          return;
-        }
-
-        tbody.innerHTML = staff.map(s => {
-          const isSuper = s.role === 'superadmin';
-          const isActive = s.is_active !== 0 && s.is_active !== false;
-          return `
-            <tr>
-              <td data-label="Staff Member">
-                <div style="display:flex; align-items:center; gap:0.65rem;">
-                  <div style="width:34px; height:34px; border-radius:var(--radius-sm); background:${isSuper ? 'var(--admin-primary)' : '#374151'}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700;">
-                    ${(s.full_name || s.username || 'A').charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <strong>${s.full_name || s.username}</strong>
-                  </div>
-                </div>
-              </td>
-              <td data-label="Username"><code>${s.username}</code></td>
-              <td data-label="Email & Phone">${s.email || ''}<br><span style="font-size:0.75rem; color:var(--admin-text-secondary);">${s.phone || ''}</span></td>
-              <td data-label="Role"><span class="badge-status ${isSuper ? 'badge-approved' : 'badge-sold'}">${s.role}</span></td>
-              <td data-label="Status"><span class="badge-status ${isActive ? 'badge-approved' : 'badge-rejected'}">${isActive ? 'Active' : 'Inactive'}</span></td>
-              <td data-label="Last Login"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(s.last_login || 'Never').substring(0, 16).replace('T', ' ')}</span></td>
-              <td data-label="Actions" style="text-align:right;">
-                <div class="table-action-group">
-                  <button class="btn-table-action" onclick="openEditStaffModal(${s.id})" title="Edit Details"><i class="fas fa-edit"></i></button>
-                  <button class="btn-table-action ${isActive ? 'danger' : 'success'}" onclick="toggleStaffStatusAction(${s.id}, ${isActive ? 0 : 1})">
-                    ${isActive ? 'Deactivate' : 'Activate'}
-                  </button>
-                  ${s.username !== 'admin' ? `
-                    <button class="btn-table-action danger" onclick="deleteStaffAction(${s.id})" title="Delete Staff"><i class="fas fa-trash"></i></button>
-                  ` : ''}
-                </div>
-              </td>
-            </tr>
-          `;
-        }).join('');
-
-        renderPagination('staff-pagination', 'staff', res.pagination);
-
-      } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color:red; text-align:center;">${err.message}</td></tr>`;
-      }
-    }
-
-    async function loadStaffActivity(page = 1, limit = null) {
-      limit = limit || adminPages.audit.limit || 10;
-      const c = document.getElementById('staff-activity-list');
-      if (!c) return;
-      try {
-        const res = await apiRequest(`/api/admin/staff/activity?page=${page}&limit=${limit}`);
-        const acts = res.data || [];
-        if (acts.length === 0) {
-          c.innerHTML = '<div style="text-align:center; padding:1rem; color:var(--admin-text-secondary); font-size:0.85rem;">No staff audit activity logged.</div>';
-          renderPagination('staff-activity-pagination', 'audit', res.pagination);
-          return;
-        }
-        c.innerHTML = acts.map(a => `
-          <div style="display:flex; justify-content:space-between; align-items:center; padding:0.6rem 0.85rem; background:#F8FAFC; border-radius:6px; border:1px solid #E2E8F0; font-size:0.84rem;">
-            <div>
-              <strong style="color:var(--admin-primary);">${a.admin_username || 'Admin'}</strong>
-              <span style="color:var(--admin-text-main); margin-left:6px;">${a.details || a.action}</span>
-            </div>
-            <span style="font-size:0.75rem; color:var(--admin-text-subtle);">${(a.created_at || '').substring(0, 16).replace('T', ' ')}</span>
-          </div>
-        `).join('');
-
-        renderPagination('staff-activity-pagination', 'audit', res.pagination);
-      } catch (e) {
-        c.innerHTML = `<div style="color:red; font-size:0.8rem;">${e.message}</div>`;
-      }
-    }
-
-    function openAddStaffModal() {
-      document.getElementById('modal-staff-title').innerHTML = '<i class="fas fa-user-plus" style="color:var(--admin-primary);"></i> Add Staff Member';
-      document.getElementById('staff-edit-id').value = '';
-      document.getElementById('staff-username').value = '';
-      document.getElementById('staff-username').disabled = false;
-      document.getElementById('staff-fullname').value = '';
-      document.getElementById('staff-email').value = '';
-      document.getElementById('staff-phone').value = '';
-      document.getElementById('staff-role').value = 'staff';
-      document.getElementById('staff-password').value = '';
-      document.getElementById('staff-password-label').textContent = 'Password *';
-      document.getElementById('staff-password').required = true;
-      openModal('modal-staff');
-    }
-
-    async function openEditStaffModal(id) {
-      try {
-        const res = await apiRequest('/api/admin/staff');
-        const staff = (res.data || []).find(s => s.id === id);
-        if (!staff) return;
-
-        document.getElementById('modal-staff-title').innerHTML = '<i class="fas fa-user-pen" style="color:var(--admin-primary);"></i> Edit Staff Member';
-        document.getElementById('staff-edit-id').value = staff.id;
-        document.getElementById('staff-username').value = staff.username;
-        document.getElementById('staff-username').disabled = true;
-        document.getElementById('staff-fullname').value = staff.full_name || '';
-        document.getElementById('staff-email').value = staff.email || '';
-        document.getElementById('staff-phone').value = staff.phone || '';
-        document.getElementById('staff-role').value = staff.role || 'staff';
-        document.getElementById('staff-password').value = '';
-        document.getElementById('staff-password-label').textContent = 'Password (leave blank to keep unchanged)';
-        document.getElementById('staff-password').required = false;
-        openModal('modal-staff');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function confirmSaveStaff() {
-      const editId = document.getElementById('staff-edit-id').value;
-      const isNew = !editId;
-
-      const payload = {
-        username: document.getElementById('staff-username').value.trim(),
-        full_name: document.getElementById('staff-fullname').value.trim(),
-        email: document.getElementById('staff-email').value.trim(),
-        phone: document.getElementById('staff-phone').value.trim(),
-        role: document.getElementById('staff-role').value
-      };
-
-      const pass = document.getElementById('staff-password').value;
-      if (pass) payload.password = pass;
-
-      if (!payload.email || (isNew && (!payload.username || !pass))) {
-        showToast('Please fill in all mandatory staff fields.', 'error');
-        return;
-      }
-
-      try {
-        if (isNew) {
-          await apiRequest('/api/admin/staff', { method: 'POST', body: JSON.stringify(payload) });
-          showToast('Staff member successfully registered!', 'success');
-        } else {
-          await apiRequest(`/api/admin/staff/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
-          showToast('Staff member details updated!', 'success');
-        }
-        closeModal('modal-staff');
-        loadAdminStaff();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function toggleStaffStatusAction(id, newStatus) {
-      try {
-        await apiRequest(`/api/admin/staff/${id}/status`, {
-          method: 'PUT',
-          body: JSON.stringify({ is_active: newStatus })
-        });
-        showToast('Staff status updated.', 'success');
-        loadAdminStaff();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    async function deleteStaffAction(id) {
-      if (!confirm(`Are you sure you want to delete staff account #${id}?`)) return;
-      try {
-        await apiRequest(`/api/admin/staff/${id}`, { method: 'DELETE' });
-        showToast('Staff account removed.', 'success');
-        loadAdminStaff();
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    }
-
-    // Contact Messages
+    let currentMessageStatusFilter = 'all';
+    let currentActiveMsgData = null;
     let msgSearchTimeout = null;
+
     function debounceMessageSearch() {
       clearTimeout(msgSearchTimeout);
       msgSearchTimeout = setTimeout(() => loadAdminMessages(1), 350);
+    }
+
+    function filterMessageStatus(status) {
+      currentMessageStatusFilter = status;
+      ['all', 'new', 'read', 'replied', 'resolved'].forEach(st => {
+        const pill = document.getElementById(`msg-pill-${st}`);
+        if (pill) {
+          if (st === status) pill.classList.add('active');
+          else pill.classList.remove('active');
+        }
+      });
+      loadAdminMessages(1);
+    }
+
+    function getMessageBadgeClass(status) {
+      const st = String(status || 'new').toLowerCase();
+      if (st === 'resolved') return 'badge-success';
+      if (st === 'replied') return 'badge-approved';
+      if (st === 'read') return 'badge-info';
+      return 'badge-pending'; // new or unread
+    }
+
+    function formatMessageStatusLabel(status) {
+      const st = String(status || 'new').toLowerCase();
+      if (st === 'resolved') return '<i class="fas fa-circle-check" style="margin-right:3px;"></i> Resolved';
+      if (st === 'replied') return '<i class="fas fa-reply" style="margin-right:3px;"></i> Replied';
+      if (st === 'read') return '<i class="fas fa-envelope-open" style="margin-right:3px;"></i> Read';
+      return '<i class="fas fa-bell" style="margin-right:3px;"></i> New';
     }
 
     async function loadAdminMessages(page = 1, limit = null) {
       limit = limit || adminPages.messages.limit || 10;
       const tbody = document.getElementById('admin-messages-tbody');
       if (!tbody) return;
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem;"><i class="fas fa-spinner fa-spin"></i> Loading messages...</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:2.5rem;"><i class="fas fa-spinner fa-spin" style="color:var(--admin-primary); font-size:1.5rem;"></i><div style="margin-top:0.5rem; font-size:0.88rem; color:var(--admin-text-secondary);">Loading contact inquiries...</div></td></tr>';
 
       try {
         const q = (document.getElementById('messageFilterSearch')?.value || '').trim();
-        let url = `/api/admin/messages?page=${page}&limit=${limit}`;
+        let url = `/api/admin/contact-messages?page=${page}&limit=${limit}&status=${encodeURIComponent(currentMessageStatusFilter)}`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
 
         const res = await apiRequest(url);
         const msgs = res.data || [];
+        const counts = res.counts || {};
+
+        // Update count badges
+        const elAll = document.getElementById('pill-count-all');
+        const elNew = document.getElementById('pill-count-new');
+        const elRead = document.getElementById('pill-count-read');
+        const elReplied = document.getElementById('pill-count-replied');
+        const elResolved = document.getElementById('pill-count-resolved');
+        if (elAll) elAll.textContent = counts.total != null ? counts.total : 0;
+        if (elNew) elNew.textContent = counts.new != null ? counts.new : 0;
+        if (elRead) elRead.textContent = counts.read != null ? counts.read : 0;
+        if (elReplied) elReplied.textContent = counts.replied != null ? counts.replied : 0;
+        if (elResolved) elResolved.textContent = counts.resolved != null ? counts.resolved : 0;
+
+        // Update sidebar nav badge
+        const navBadge = document.getElementById('nav-badge-messages');
+        if (navBadge) {
+          const unreadCnt = counts.new != null ? counts.new : 0;
+          navBadge.textContent = unreadCnt;
+          navBadge.style.display = unreadCnt > 0 ? 'inline-block' : 'none';
+        }
 
         if (msgs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:2rem; color:var(--admin-text-secondary);">No messages found.</td></tr>';
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="7" style="text-align:center; padding:3rem; color:var(--admin-text-secondary);">
+                <i class="fas fa-envelope-open" style="font-size:2rem; color:var(--admin-text-subtle); display:block; margin-bottom:0.5rem;"></i>
+                No ${currentMessageStatusFilter === 'all' ? '' : currentMessageStatusFilter} contact messages found.
+              </td>
+            </tr>
+          `;
           return;
         }
 
-        tbody.innerHTML = msgs.map(m => `
-          <tr>
-            <td data-label="Sender"><strong>${m.name || 'Anonymous'}</strong><br><span style="font-size:0.75rem; color:var(--admin-text-secondary);">${m.email || ''}</span></td>
-            <td data-label="Subject">${m.subject || 'Inquiry'}</td>
-            <td data-label="Message Snippet"><span style="font-size:0.84rem; color:var(--admin-text-secondary);">${(m.message || '').substring(0, 50)}...</span></td>
-            <td data-label="Date"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(m.created_at || '').substring(0, 10)}</span></td>
-            <td data-label="Status"><span class="badge-status ${m.status === 'replied' ? 'badge-approved' : 'badge-pending'}">${m.status || 'new'}</span></td>
-            <td data-label="Actions" style="text-align:right;">
-              <button class="btn-table-action danger" onclick="deleteContactMsg(${m.id})"><i class="fas fa-trash"></i></button>
-            </td>
-          </tr>
-        `).join('');
+        tbody.innerHTML = msgs.map(m => {
+          const st = String(m.status || 'new').toLowerCase();
+          const badgeClass = getMessageBadgeClass(st);
+          const badgeLabel = formatMessageStatusLabel(st);
+          const rawDate = m.created_at || m.formatted_date || '';
+          const displayDate = rawDate.length >= 16 ? rawDate.substring(0, 16).replace('T', ' ') : rawDate;
+          const phoneStr = m.phone || m.mobile || 'Not Provided';
+          const safeName = (m.name || 'Anonymous').replace(/'/g, "\'");
+          const safeSubject = (m.subject || 'General Inquiry').replace(/'/g, "\'");
+          const snippet = (m.message || '').length > 55 ? (m.message || '').substring(0, 55) + '...' : (m.message || '');
+
+          return `
+            <tr style="${st === 'new' || st === 'unread' ? 'background:rgba(254, 243, 199, 0.25);' : ''}">
+              <td data-label="Sender">
+                <strong style="color:var(--admin-text-main); font-size:0.9rem;">${m.name || 'Anonymous'}</strong>
+                <div style="font-size:0.75rem; color:var(--admin-text-secondary);"><i class="fas fa-envelope" style="font-size:0.7rem; margin-right:3px;"></i>${m.email || 'N/A'}</div>
+              </td>
+              <td data-label="Mobile">
+                ${m.phone ? `
+                  <a href="tel:${m.phone}" style="color:var(--admin-primary); font-weight:600; text-decoration:none; font-size:0.85rem;">
+                    <i class="fas fa-phone" style="font-size:0.75rem; margin-right:3px;"></i>${m.phone}
+                  </a>
+                ` : `<span style="color:var(--admin-text-subtle); font-size:0.82rem;">N/A</span>`}
+              </td>
+              <td data-label="Subject">
+                <span style="font-weight:600; color:var(--admin-text-main); font-size:0.88rem;">${m.subject || 'General Inquiry'}</span>
+              </td>
+              <td data-label="Message Snippet">
+                <span style="font-size:0.82rem; color:var(--admin-text-secondary);" title="${(m.message || '').replace(/"/g, '&quot;')}">${snippet}</span>
+              </td>
+              <td data-label="Received Date">
+                <span style="font-size:0.8rem; color:var(--admin-text-secondary); white-space:nowrap;">${displayDate}</span>
+              </td>
+              <td data-label="Status">
+                <span class="badge-status ${badgeClass}">${badgeLabel}</span>
+              </td>
+              <td data-label="Actions" style="text-align:right;">
+                <div class="table-action-group" style="justify-content:flex-end;">
+                  <button class="btn-table-action" onclick="viewContactMessageDetails(${m.id})" title="View Complete Message"><i class="fas fa-eye"></i></button>
+                  <button class="btn-table-action primary" onclick="openReplyMessageModal(${m.id}, '${safeName}', '${(m.email || '').replace(/'/g, "\'")}', '${safeSubject}')" title="Reply to Customer"><i class="fas fa-reply"></i></button>
+                  ${st !== 'resolved' ? `<button class="btn-table-action success" onclick="resolveContactMessage(${m.id})" title="Mark as Resolved"><i class="fas fa-circle-check"></i></button>` : ''}
+                  <button class="btn-table-action danger" onclick="deleteContactMsg(${m.id})" title="Delete Inquiry"><i class="fas fa-trash"></i></button>
+                </div>
+              </td>
+            </tr>
+          `;
+        }).join('');
 
         renderPagination('messages-pagination', 'messages', res.pagination);
+
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="color:var(--admin-danger); text-align:center; padding:2rem;">${err.message}</td></tr>`;
+      }
+    }
+
+    // View Complete Message Details
+    async function viewContactMessageDetails(msgId) {
+      try {
+        const res = await apiRequest(`/api/admin/contact-messages/${msgId}`);
+        const m = res.data || res.message_data;
+        if (!m) throw new Error('Could not load message details.');
+
+        currentActiveMsgData = m;
+        document.getElementById('view-msg-id').value = m.id;
+        document.getElementById('view-msg-sender-name').textContent = m.name || 'Valued Visitor';
+        
+        const emailLink = document.getElementById('view-msg-sender-email');
+        if (emailLink) {
+          emailLink.textContent = m.email || 'Not provided';
+          emailLink.href = m.email ? `mailto:${m.email}` : '#';
+        }
+
+        const phoneLink = document.getElementById('view-msg-sender-phone');
+        if (phoneLink) {
+          phoneLink.textContent = m.phone || 'Not provided';
+          phoneLink.href = m.phone ? `tel:${m.phone}` : '#';
+        }
+
+        const rawDate = m.created_at || '';
+        document.getElementById('view-msg-received-date').textContent = rawDate.length >= 16 ? rawDate.substring(0, 16).replace('T', ' ') : rawDate;
+
+        const st = String(m.status || 'read').toLowerCase();
+        const badgeEl = document.getElementById('view-msg-status-badge');
+        if (badgeEl) {
+          badgeEl.className = `badge-status ${getMessageBadgeClass(st)}`;
+          badgeEl.innerHTML = formatMessageStatusLabel(st);
+        }
+
+        document.getElementById('view-msg-subject').textContent = m.subject || 'General Inquiry';
+        document.getElementById('view-msg-content').textContent = m.message || 'No message content provided.';
+
+        // Display previous replies if available
+        const repliesContainer = document.getElementById('view-msg-replies-container');
+        const repliesList = document.getElementById('view-msg-replies-list');
+        const replies = res.replies || [];
+        if (replies.length > 0) {
+          repliesContainer.style.display = 'block';
+          repliesList.innerHTML = replies.map(r => `
+            <div style="padding:0.75rem 1rem; background:#F8FAFC; border-radius:var(--radius-md); border-left:3px solid var(--admin-primary); font-size:0.85rem;">
+              <div style="display:flex; justify-content:space-between; color:var(--admin-text-secondary); font-size:0.78rem; margin-bottom:0.25rem;">
+                <strong>${r.admin_username || 'Showroom Admin'}</strong>
+                <span>${(r.created_at || '').substring(0, 16).replace('T', ' ')}</span>
+              </div>
+              <div style="color:var(--admin-text-main); white-space:pre-wrap;">${r.reply_message}</div>
+            </div>
+          `).join('');
+        } else if (m.admin_reply) {
+          repliesContainer.style.display = 'block';
+          repliesList.innerHTML = `
+            <div style="padding:0.75rem 1rem; background:#F8FAFC; border-radius:var(--radius-md); border-left:3px solid var(--admin-primary); font-size:0.85rem;">
+              <div style="display:flex; justify-content:space-between; color:var(--admin-text-secondary); font-size:0.78rem; margin-bottom:0.25rem;">
+                <strong>Showroom Support</strong>
+                <span>${(m.replied_at || '').substring(0, 16).replace('T', ' ')}</span>
+              </div>
+              <div style="color:var(--admin-text-main); white-space:pre-wrap;">${m.admin_reply}</div>
+            </div>
+          `;
+        } else {
+          repliesContainer.style.display = 'none';
+        }
+
+        // Action buttons inside view modal
+        const resolveBtn = document.getElementById('btn-msg-resolve');
+        if (resolveBtn) {
+          resolveBtn.style.display = (st === 'resolved') ? 'none' : 'inline-flex';
+        }
+
+        openModal('modal-view-contact-msg');
+
+        // Refresh list in background to reflect 'read' status
+        loadAdminMessages(adminPages.messages.page, adminPages.messages.limit);
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    // Open Reply Modal
+    function openReplyMessageModal(msgId, senderName = '', senderEmail = '', subject = '') {
+      document.getElementById('reply-msg-id').value = msgId;
+      document.getElementById('reply-msg-recipient').textContent = senderName || 'Customer';
+      document.getElementById('reply-msg-recipient-email').textContent = senderEmail || '';
+      document.getElementById('reply-msg-original-subject').textContent = subject || 'Inquiry';
+      document.getElementById('reply-contact-text').value = '';
+      
+      const prevEl = document.getElementById('reply-msg-original-preview');
+      if (prevEl && currentActiveMsgData && currentActiveMsgData.id === msgId) {
+        prevEl.textContent = currentActiveMsgData.message || '';
+      } else if (prevEl) {
+        prevEl.textContent = 'Inquiry #' + msgId;
+      }
+
+      openModal('modal-reply-contact-msg');
+    }
+
+    function openReplyFromDetailsModal() {
+      if (!currentActiveMsgData) return;
+      closeModal('modal-view-contact-msg');
+      openReplyMessageModal(
+        currentActiveMsgData.id,
+        currentActiveMsgData.name,
+        currentActiveMsgData.email,
+        currentActiveMsgData.subject
+      );
+    }
+
+    // Submit Official Reply
+    async function submitContactReply() {
+      const msgId = document.getElementById('reply-msg-id').value;
+      const replyText = (document.getElementById('reply-contact-text')?.value || '').trim();
+
+      if (!replyText || replyText.length < 5) {
+        showToast('Please type a reply of at least 5 characters.', 'error');
+        document.getElementById('reply-contact-text')?.focus();
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-contact-reply');
+      const origHtml = submitBtn ? submitBtn.innerHTML : '<i class="fas fa-paper-plane"></i> Send & Save Reply';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Dispatching Reply...';
+      }
+
+      try {
+        const res = await apiRequest(`/api/admin/contact-messages/${msgId}/reply`, {
+          method: 'POST',
+          body: { reply_message: replyText }
+        });
+
+        showToast(res.message || 'Reply dispatched and inquiry marked as Replied.', 'success');
+        closeModal('modal-reply-contact-msg');
+        loadAdminMessages(adminPages.messages.page, adminPages.messages.limit);
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = origHtml;
+        }
+      }
+    }
+
+    // Mark as Resolved
+    async function resolveContactMessage(msgId) {
+      try {
+        await apiRequest(`/api/admin/contact-messages/${msgId}/status`, {
+          method: 'PATCH',
+          body: { status: 'resolved' }
+        });
+        showToast(`Inquiry #${msgId} marked as Resolved.`, 'success');
+        loadAdminMessages(adminPages.messages.page, adminPages.messages.limit);
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    }
+
+    async function resolveCurrentMsg() {
+      const id = document.getElementById('view-msg-id').value;
+      if (!id) return;
+      await resolveContactMessage(id);
+      closeModal('modal-view-contact-msg');
+    }
+
+    async function markCurrentMsgRead() {
+      const id = document.getElementById('view-msg-id').value;
+      if (!id) return;
+      try {
+        await apiRequest(`/api/admin/contact-messages/${id}/status`, {
+          method: 'PATCH',
+          body: { status: 'read' }
+        });
+        showToast(`Inquiry #${id} marked as Read.`, 'info');
+        closeModal('modal-view-contact-msg');
+        loadAdminMessages(adminPages.messages.page, adminPages.messages.limit);
+        loadAdminDashboard();
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     }
 
     async function deleteContactMsg(id) {
-      if (!confirm(`Delete contact message #${id}?`)) return;
+      if (!confirm(`Are you sure you want to delete contact message #${id}? This action cannot be undone.`)) return;
       try {
-        await apiRequest(`/api/admin/messages/${id}`, { method: 'DELETE' });
-        showToast('Message deleted.', 'success');
-        loadAdminMessages(1);
+        await apiRequest(`/api/admin/contact-messages/${id}`, { method: 'DELETE' });
+        showToast(`Message #${id} deleted.`, 'success');
+        loadAdminMessages(adminPages.messages.page, adminPages.messages.limit);
+        loadAdminDashboard();
       } catch (err) {
         showToast(err.message, 'error');
       }
