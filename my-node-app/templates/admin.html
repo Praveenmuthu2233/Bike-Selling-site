@@ -1818,7 +1818,7 @@
         <p style="font-size:0.88rem; color:var(--admin-text-secondary); margin-bottom:1.25rem;">
           Approving <strong id="approve-bike-title-text" style="color:var(--admin-text-main);">#</strong> will immediately publish it to the live marketplace and notify the seller.
         </p>
-        <div class="form-group-modern" id="approve-price-group" style="display:none;">
+        <div class="form-group-modern" id="approve-price-group" style="display:block;">
           <label class="form-label-modern">Final Approved Selling Price (₹)</label>
           <input type="number" id="approve-bike-price" class="form-input-modern" min="0" max="1000000" step="1" placeholder="Max ₹10,00,000">
           <small style="font-size:0.75rem; color:var(--admin-text-secondary);">Allowed: ₹0 to ₹10,00,000</small>
@@ -2926,6 +2926,7 @@
     let currentAdmin = null;
     let currentBikeTab = 'all';
     let adminBikesList = [];
+    let pendingApprovalsList = [];
     let currentEnquiryTab = 'all';
     let currentUserTab = 'all';
     let currentBikeEditImages = [];
@@ -3410,6 +3411,7 @@
       try {
         const res = await apiRequest('/api/admin/bikes?tab=pending&limit=30');
         const pending = res.data || [];
+        pendingApprovalsList = pending;
 
         if (pending.length === 0) {
           c.innerHTML = `
@@ -3497,7 +3499,7 @@
                 <button class="btn-review-reject" onclick="openRejectBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}')">
                   <i class="fas fa-circle-xmark"></i> Reject Listing
                 </button>
-                <button class="btn-review-approve" onclick="openApproveBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}')">
+                <button class="btn-review-approve" onclick="openApproveBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}', ${b.requested_price || b.price || 0})">
                   <i class="fas fa-circle-check"></i> Approve & Publish to Live
                 </button>
               </div>
@@ -3972,9 +3974,29 @@
     // ==================================================
     // 6. APPROVAL, REJECTION & DELETE ACTIONS
     // ==================================================
-    function openApproveBikeModal(id, title = '') {
+    function openApproveBikeModal(id, title = '', currentPrice = '') {
       document.getElementById('approve-bike-id').value = id;
       document.getElementById('approve-bike-title-text').textContent = title ? `"${title}"` : `#${id}`;
+      
+      const priceGroup = document.getElementById('approve-price-group');
+      if (priceGroup) priceGroup.style.display = 'block';
+
+      const priceInput = document.getElementById('approve-bike-price');
+      if (priceInput) {
+        let p = currentPrice;
+        if (p === '' || p === undefined || p === null) {
+          if (typeof pendingApprovalsList !== 'undefined' && Array.isArray(pendingApprovalsList)) {
+            const found = pendingApprovalsList.find(b => b.id == id);
+            if (found && (found.requested_price || found.price)) p = found.requested_price || found.price;
+          }
+          if (!p && typeof adminBikesList !== 'undefined' && Array.isArray(adminBikesList)) {
+            const found = adminBikesList.find(b => b.id == id);
+            if (found && found.price) p = found.price;
+          }
+        }
+        priceInput.value = (p !== undefined && p !== null && p !== '') ? parseFloat(p) : '';
+      }
+
       openModal('modal-approve-bike');
     }
 
