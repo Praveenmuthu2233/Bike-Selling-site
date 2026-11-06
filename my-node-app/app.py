@@ -7128,13 +7128,12 @@ def create_chat_conversation():
             """, (caller_id, bike_id))
             existing = cursor.fetchone()
         else:
-            five_mins_ago = (datetime.datetime.utcnow() - datetime.timedelta(minutes=5)).strftime("%Y-%m-%d %H:%M:%S")
+            # For general support inquiries (no bike_id), reuse existing open support chat for this user
             cursor.execute("""
                 SELECT id FROM chat_conversations
-                WHERE user_id = %s AND bike_id IS NULL AND status = 'open' AND subject = %s
-                AND created_at >= %s
+                WHERE user_id = %s AND bike_id IS NULL AND status = 'open'
                 ORDER BY id DESC LIMIT 1
-            """, (caller_id, subject, five_mins_ago))
+            """, (caller_id,))
             existing = cursor.fetchone()
 
         if existing:

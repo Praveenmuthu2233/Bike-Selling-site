@@ -1766,6 +1766,8 @@
     // SMR MOTORS - USER CHAT SYSTEM (REAL-TIME & TIDB PERSISTENT)
     // ---------------------------------------------------------------------------
     let currentUserChatConvId = null;
+    let userChatActiveRequestToken = 0;
+    let userChatAbortController = null;
     let userChatLastMsgId = 0;
     let userChatPollTimer = null;
     let userChatLoadedConvs = [];
@@ -1787,7 +1789,7 @@
       }
     }
 
-    async function loadUserChat(autoOpenId = null) {
+    async function loadUserChat(keepActiveId = null) {
       const convList = document.getElementById('userChatConvList');
       if (!convList) return;
       try {
@@ -1796,11 +1798,24 @@
         renderUserChatConvList(userChatLoadedConvs);
 
         const urlParams = new URLSearchParams(window.location.search);
-        const convIdParam = autoOpenId || urlParams.get('conv_id');
-        if (convIdParam) {
-          openUserConversation(parseInt(convIdParam));
+        const urlConv = urlParams.get('conv_id');
+        const targetId = keepActiveId || currentUserChatConvId || (urlConv ? parseInt(urlConv, 10) : null);
+
+        if (targetId && userChatLoadedConvs.some(c => Number(c.id) === Number(targetId))) {
+          openUserConversation(Number(targetId));
         } else if (userChatLoadedConvs.length > 0 && window.innerWidth > 768 && !currentUserChatConvId) {
           openUserConversation(userChatLoadedConvs[0].id);
+        } else if (userChatLoadedConvs.length === 0) {
+          currentUserChatConvId = null;
+          pauseUserChatPolling();
+          const placeholder = document.getElementById('userChatPlaceholder');
+          if (placeholder) placeholder.style.display = 'block';
+          const header = document.getElementById('userChatHeader');
+          if (header) header.style.display = 'none';
+          const inputBar = document.getElementById('userChatInputBar');
+          if (inputBar) inputBar.style.display = 'none';
+          const pinnedBike = document.getElementById('userChatPinnedBike');
+          if (pinnedBike) pinnedBike.style.display = 'none';
         }
       } catch (e) {
         convList.innerHTML = `<div style="text-align:center; padding:2.5rem 1rem; color:var(--color-danger);">${escapeHtml(e.message)}</div>`;
@@ -1824,7 +1839,7 @@
       }
 
       convList.innerHTML = convs.map(c => {
-        const isActive = c.id === currentUserChatConvId ? 'active' : '';
+        const isActive = Number(c.id) === Number(currentUserChatConvId) ? 'active' : '';
         const timeStr = formatChatTime(c.last_message_at || c.created_at);
         const thumbHtml = c.bike_image 
           ? `<img src="${escapeHtml(c.bike_image)}" alt="Bike" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg'">`
@@ -1834,7 +1849,7 @@
           : '';
 
         return `
-          <div class="chat-conv-item ${isActive}" onclick="openUserConversation(${c.id})">
+          <div class="chat-conv-item ${isActive}" data-conv-id="${c.id}" onclick="openUserConversation(${c.id})">
             <div class="chat-conv-avatar">${thumbHtml}</div>
             <div class="chat-conv-info">
               <div class="chat-conv-top">
@@ -1852,33 +1867,76 @@
     }
 
     async function openUserConversation(convId) {
+      convId = parseInt(convId, 10);
+      if (isNaN(convId) || convId <= 0) return;
+
+      pauseUserChatPolling();
+      if (userChatAbortController) {
+        try { userChatAbortController.abort(); } catch (e) {}
+      }
+      userChatAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const reqToken = ++userChatActiveRequestToken;
+
       currentUserChatConvId = convId;
       userChatLastMsgId = 0;
-      pauseUserChatPolling();
+
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'messages');
+        newUrl.searchParams.set('conv_id', convId);
+        window.history.replaceState({ convId: convId }, '', newUrl.toString());
+      } catch (e) {}
+
+      document.querySelectorAll('#userChatConvList .chat-conv-item').forEach(el => el.classList.remove('active'));
+      const activeEl = document.querySelector(`#userChatConvList .chat-conv-item[data-conv-id="${convId}"]`);
+      if (activeEl) {
+        activeEl.classList.add('active');
+        const badge = activeEl.querySelector('.chat-unread-badge');
+        if (badge) badge.remove();
+      }
+
+      const convObj = userChatLoadedConvs.find(c => Number(c.id) === Number(convId));
+      if (convObj) convObj.unread_count = 0;
+      updateUserChatUnreadBadge();
 
       const container = document.getElementById('userChatContainer');
       if (container) container.classList.add('chat-active-mobile');
 
-      document.querySelectorAll('#userChatConvList .chat-conv-item').forEach(el => el.classList.remove('active'));
-      const activeEl = document.querySelector(`#userChatConvList .chat-conv-item[onclick*="${convId}"]`);
-      if (activeEl) activeEl.classList.add('active');
-
-      document.getElementById('userChatPlaceholder').style.display = 'none';
+      const placeholder = document.getElementById('userChatPlaceholder');
+      if (placeholder) placeholder.style.display = 'none';
       document.getElementById('userChatHeader').style.display = 'flex';
       document.getElementById('userChatInputBar').style.display = 'flex';
 
       const stream = document.getElementById('userChatMessagesStream');
-      stream.innerHTML = '<div style="text-align:center; padding:3rem; color:var(--text-muted);"><i class="fas fa-spinner fa-spin"></i> Loading messages...</div>';
+      stream.innerHTML = `
+        <div style="text-align:center; padding:3rem; color:var(--text-muted);">
+          <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:var(--accent-primary); margin-bottom:0.5rem;"></i>
+          <p style="margin:0; font-size:0.85rem;">Loading messages...</p>
+        </div>
+      `;
 
       try {
-        const res = await apiRequest(`/api/chat/conversations/${convId}/messages`);
+        const fetchOptions = {
+          signal: userChatAbortController ? userChatAbortController.signal : undefined
+        };
+        const res = await apiRequest(`/api/chat/conversations/${convId}/messages`, fetchOptions);
+
+        if (reqToken !== userChatActiveRequestToken || currentUserChatConvId !== convId) {
+          return;
+        }
+
         const conv = res.conversation;
+        if (!conv || Number(conv.id) !== Number(convId)) {
+          return;
+        }
         const messages = res.messages || [];
 
         document.getElementById('userChatHeaderName').innerText = conv.subject || 'SMR Motors Support Team';
         const statusChip = document.getElementById('userChatStatusChip');
-        statusChip.innerText = conv.status || 'open';
-        statusChip.className = `chat-status-chip ${conv.status || 'open'}`;
+        if (statusChip) {
+          statusChip.innerText = conv.status || 'open';
+          statusChip.className = `chat-status-chip ${conv.status || 'open'}`;
+        }
 
         const pinnedCard = document.getElementById('userChatPinnedBike');
         if (conv.bike_id && conv.bike_title) {
@@ -1894,9 +1952,10 @@
         stream.innerHTML = '';
         renderMessagesBatch(messages, stream, false);
         scrollChatToBottom();
-        updateUserChatUnreadBadge();
         startUserChatDeltaPolling();
       } catch (e) {
+        if (e.name === 'AbortError') return;
+        if (reqToken !== userChatActiveRequestToken || currentUserChatConvId !== convId) return;
         stream.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--color-danger);">${escapeHtml(e.message)}</div>`;
       }
     }
@@ -1963,14 +2022,19 @@
     function startUserChatDeltaPolling() {
       pauseUserChatPolling();
       userChatPollTimer = setInterval(async () => {
-        if (!currentUserChatConvId || document.visibilityState === 'hidden') return;
+        const pollConvId = currentUserChatConvId;
+        if (!pollConvId || document.visibilityState === 'hidden') return;
         try {
-          const res = await apiRequest(`/api/chat/conversations/${currentUserChatConvId}/messages?since_id=${userChatLastMsgId}`, { skipAuthRedirect: true });
+          const res = await apiRequest(`/api/chat/conversations/${pollConvId}/messages?since_id=${userChatLastMsgId}`, { skipAuthRedirect: true });
+          if (currentUserChatConvId !== pollConvId) return;
           if (res.success && res.messages && res.messages.length > 0) {
-            const stream = document.getElementById('userChatMessagesStream');
-            renderMessagesBatch(res.messages, stream, true);
-            scrollChatToBottom();
-            updateUserChatUnreadBadge();
+            const matching = res.messages.filter(m => Number(m.conversation_id) === Number(pollConvId));
+            if (matching.length > 0) {
+              const stream = document.getElementById('userChatMessagesStream');
+              renderMessagesBatch(matching, stream, true);
+              scrollChatToBottom();
+              updateUserChatUnreadBadge();
+            }
           }
         } catch (err) {
           // Polling fails safely
@@ -1986,7 +2050,8 @@
     }
 
     async function sendUserChatMessage() {
-      if (!currentUserChatConvId) return;
+      const sendConvId = currentUserChatConvId;
+      if (!sendConvId) return;
       const input = document.getElementById('userChatMessageInput');
       const text = input.value.trim();
       if (!text) return;
@@ -1995,17 +2060,19 @@
       btn.disabled = true;
 
       try {
-        const res = await apiRequest(`/api/chat/conversations/${currentUserChatConvId}/messages`, {
+        const res = await apiRequest(`/api/chat/conversations/${sendConvId}/messages`, {
           method: 'POST',
           body: { message: text }
         });
 
         if (res.success && res.message) {
           input.value = '';
-          const stream = document.getElementById('userChatMessagesStream');
-          renderMessagesBatch([res.message], stream, true);
-          scrollChatToBottom();
-          loadUserChat();
+          if (currentUserChatConvId === sendConvId) {
+            const stream = document.getElementById('userChatMessagesStream');
+            renderMessagesBatch([res.message], stream, true);
+            scrollChatToBottom();
+          }
+          loadUserChat(sendConvId);
         } else {
           showToast(res.message || 'Failed to send message', 'error');
         }
@@ -2029,6 +2096,11 @@
       if (container) container.classList.remove('chat-active-mobile');
       pauseUserChatPolling();
       currentUserChatConvId = null;
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('conv_id');
+        window.history.replaceState({}, '', newUrl.toString());
+      } catch (e) {}
     }
 
     function scrollChatToBottom() {
@@ -2157,9 +2229,6 @@
           showToast('Inquiry sent to SMR Support!', 'success');
           switchUserTab('user-tab-messages', document.getElementById('user-nav-messages'));
           await loadUserChat(res.conversation_id);
-          if (res.conversation_id) {
-            openUserConversation(res.conversation_id);
-          }
         } else {
           showToast(res.message || 'Failed to create inquiry', 'error');
         }

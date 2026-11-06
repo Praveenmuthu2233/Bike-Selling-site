@@ -2156,6 +2156,8 @@
     }
 
     let currentAdminChatConvId = null;
+    let adminChatActiveRequestToken = 0;
+    let adminChatAbortController = null;
     let currentAdminChatFilter = 'all';
     let adminChatSearchTimer = null;
     let adminChatPollTimer = null;
@@ -2182,19 +2184,20 @@
 
     let adminChatLoading = false;
 
-    async function loadAdminChat() {
+    async function loadAdminChat(keepActiveId = null) {
       const convList = document.getElementById('adminChatConvList');
       if (!convList) return;
       if (adminChatLoading) return;
       adminChatLoading = true;
 
-      // Show spinner while fetching
-      convList.innerHTML = `
-        <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
-          <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #ea580c; margin-bottom: 0.5rem;"></i>
-          <p style="margin: 0; font-size: 0.85rem;">Loading customer conversations...</p>
-        </div>
-      `;
+      if (!adminChatConversations || adminChatConversations.length === 0) {
+        convList.innerHTML = `
+          <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #ea580c; margin-bottom: 0.5rem;"></i>
+            <p style="margin: 0; font-size: 0.85rem;">Loading customer conversations...</p>
+          </div>
+        `;
+      }
 
       const search = (document.getElementById('adminChatSearch')?.value || '').trim();
 
@@ -2209,15 +2212,17 @@
         // Load staff members for assignment dropdown if Superadmin
         loadAdminStaffForChat();
 
-        // Check URL query param conv_id
         const urlParams = new URLSearchParams(window.location.search);
         const convParam = urlParams.get('conv_id');
-        if (convParam) {
-          openAdminConversation(parseInt(convParam));
+        const targetId = keepActiveId || currentAdminChatConvId || (convParam ? parseInt(convParam, 10) : null);
+
+        if (targetId && adminChatConversations.some(c => Number(c.id) === Number(targetId))) {
+          openAdminConversation(Number(targetId));
         } else if (adminChatConversations.length > 0 && window.innerWidth > 900 && !currentAdminChatConvId) {
           openAdminConversation(adminChatConversations[0].id);
         } else if (adminChatConversations.length === 0) {
-          // Reset right pane placeholder if no conversation
+          currentAdminChatConvId = null;
+          pauseAdminChatPolling();
           const placeholder = document.getElementById('adminChatPlaceholder');
           if (placeholder) placeholder.style.display = 'block';
           const header = document.getElementById('adminChatHeader');
@@ -2228,6 +2233,8 @@
           if (quickReplies) quickReplies.style.display = 'none';
           const pinnedBike = document.getElementById('adminChatPinnedBike');
           if (pinnedBike) pinnedBike.style.display = 'none';
+          const stream = document.getElementById('adminChatMessagesStream');
+          if (stream) stream.innerHTML = '<div class="admin-chat-placeholder" id="adminChatPlaceholder"><i class="fas fa-comments"></i><h4>Real-Time Support Messenger</h4><p>Select a customer conversation from the left to read messages, provide assistance, and answer bike inquiries.</p></div>';
         }
       } catch (e) {
         const isAuthErr = /session|unauthorized|log in/i.test(e.message || '');
@@ -2253,13 +2260,13 @@
       currentAdminChatFilter = filter;
       document.querySelectorAll('.admin-chat-filter-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
-      loadAdminChat();
+      loadAdminChat(currentAdminChatConvId);
     }
 
     function debounceAdminChatSearch() {
       if (adminChatSearchTimer) clearTimeout(adminChatSearchTimer);
       adminChatSearchTimer = setTimeout(() => {
-        loadAdminChat();
+        loadAdminChat(currentAdminChatConvId);
       }, 350);
     }
 
@@ -2279,7 +2286,7 @@
       }
 
       convList.innerHTML = convs.map(c => {
-        const isActive = c.id === currentAdminChatConvId ? 'active' : '';
+        const isActive = Number(c.id) === Number(currentAdminChatConvId) ? 'active' : '';
         const timeStr = formatChatTime(c.last_message_at || c.created_at);
         const custName = (c.customer && c.customer.name) ? c.customer.name : 'Customer';
         const avatarLetter = custName.charAt(0).toUpperCase();
@@ -2295,7 +2302,7 @@
         const statusClass = c.status === 'resolved' ? 'color:#94a3b8;' : 'color:#10b981;';
 
         return `
-          <div class="admin-chat-conv-item ${isActive}" onclick="openAdminConversation(${c.id})">
+          <div class="admin-chat-conv-item ${isActive}" data-conv-id="${c.id}" onclick="openAdminConversation(${c.id})">
             <div class="admin-chat-avatar">${avatarHtml}</div>
             <div class="admin-chat-conv-info">
               <div class="admin-chat-conv-top">
@@ -2317,28 +2324,69 @@
     }
 
     async function openAdminConversation(convId) {
+      convId = parseInt(convId, 10);
+      if (isNaN(convId) || convId <= 0) return;
+
+      pauseAdminChatPolling();
+      if (adminChatAbortController) {
+        try { adminChatAbortController.abort(); } catch (e) {}
+      }
+      adminChatAbortController = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const reqToken = ++adminChatActiveRequestToken;
+
       currentAdminChatConvId = convId;
       adminChatLastMsgId = 0;
-      pauseAdminChatPolling();
+
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('tab', 'customer-chat');
+        newUrl.searchParams.set('conv_id', convId);
+        window.history.replaceState({ convId: convId }, '', newUrl.toString());
+      } catch (e) {}
+
+      document.querySelectorAll('#adminChatConvList .admin-chat-conv-item').forEach(el => el.classList.remove('active'));
+      const activeEl = document.querySelector(`#adminChatConvList .admin-chat-conv-item[data-conv-id="${convId}"]`);
+      if (activeEl) {
+        activeEl.classList.add('active');
+        const badge = activeEl.querySelector('.admin-chat-unread-badge');
+        if (badge) badge.remove();
+      }
+
+      const convObj = adminChatConversations.find(c => Number(c.id) === Number(convId));
+      if (convObj) convObj.unread_count = 0;
+      updateAdminChatUnreadBadge();
 
       const container = document.getElementById('adminChatContainer');
       if (container) container.classList.add('chat-active-mobile');
 
-      document.querySelectorAll('#adminChatConvList .admin-chat-conv-item').forEach(el => el.classList.remove('active'));
-      const activeEl = document.querySelector(`#adminChatConvList .admin-chat-conv-item[onclick*="${convId}"]`);
-      if (activeEl) activeEl.classList.add('active');
-
-      document.getElementById('adminChatPlaceholder').style.display = 'none';
+      const placeholder = document.getElementById('adminChatPlaceholder');
+      if (placeholder) placeholder.style.display = 'none';
       document.getElementById('adminChatHeader').style.display = 'flex';
       document.getElementById('adminChatQuickReplies').style.display = 'flex';
       document.getElementById('adminChatInputBar').style.display = 'flex';
 
       const stream = document.getElementById('adminChatMessagesStream');
-      stream.innerHTML = '<div style="text-align:center; padding:3rem; color:#94a3b8;"><i class="fas fa-spinner fa-spin"></i> Loading conversation...</div>';
+      stream.innerHTML = `
+        <div style="text-align:center; padding:3rem; color:#94a3b8;">
+          <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#ea580c; margin-bottom:0.5rem;"></i>
+          <p style="margin:0; font-size:0.85rem;">Loading conversation...</p>
+        </div>
+      `;
 
       try {
-        const res = await apiRequest(`/api/admin/chat/conversations/${convId}/messages`);
+        const fetchOptions = {
+          signal: adminChatAbortController ? adminChatAbortController.signal : undefined
+        };
+        const res = await apiRequest(`/api/admin/chat/conversations/${convId}/messages`, fetchOptions);
+
+        if (reqToken !== adminChatActiveRequestToken || currentAdminChatConvId !== convId) {
+          return;
+        }
+
         const conv = res.conversation;
+        if (!conv || Number(conv.id) !== Number(convId)) {
+          return;
+        }
         currentActiveConvData = conv;
         const messages = res.messages || [];
 
@@ -2390,9 +2438,10 @@
         stream.innerHTML = '';
         renderAdminMessagesBatch(messages, stream, false);
         scrollAdminChatToBottom();
-        updateAdminChatUnreadBadge();
         startAdminChatDeltaPolling();
       } catch (e) {
+        if (e.name === 'AbortError') return;
+        if (reqToken !== adminChatActiveRequestToken || currentAdminChatConvId !== convId) return;
         stream.innerHTML = `<div style="text-align:center; padding:2rem; color:var(--admin-danger);">${escapeHtml(e.message)}</div>`;
       }
     }
@@ -2453,14 +2502,19 @@
     function startAdminChatDeltaPolling() {
       pauseAdminChatPolling();
       adminChatPollTimer = setInterval(async () => {
-        if (!currentAdminChatConvId || document.visibilityState === 'hidden') return;
+        const pollConvId = currentAdminChatConvId;
+        if (!pollConvId || document.visibilityState === 'hidden') return;
         try {
-          const res = await apiRequest(`/api/admin/chat/conversations/${currentAdminChatConvId}/messages?since_id=${adminChatLastMsgId}`, { skipAuthRedirect: true });
+          const res = await apiRequest(`/api/admin/chat/conversations/${pollConvId}/messages?since_id=${adminChatLastMsgId}`, { skipAuthRedirect: true });
+          if (currentAdminChatConvId !== pollConvId) return;
           if (res.success && res.messages && res.messages.length > 0) {
-            const stream = document.getElementById('adminChatMessagesStream');
-            renderAdminMessagesBatch(res.messages, stream, true);
-            scrollAdminChatToBottom();
-            updateAdminChatUnreadBadge();
+            const matching = res.messages.filter(m => Number(m.conversation_id) === Number(pollConvId));
+            if (matching.length > 0) {
+              const stream = document.getElementById('adminChatMessagesStream');
+              renderAdminMessagesBatch(matching, stream, true);
+              scrollAdminChatToBottom();
+              updateAdminChatUnreadBadge();
+            }
           }
         } catch (e) {
           // Poll fails safely
@@ -2476,7 +2530,8 @@
     }
 
     async function sendAdminChatMessage() {
-      if (!currentAdminChatConvId) return;
+      const sendConvId = currentAdminChatConvId;
+      if (!sendConvId) return;
       const input = document.getElementById('adminChatMessageInput');
       const text = input.value.trim();
       if (!text) return;
@@ -2485,17 +2540,19 @@
       btn.disabled = true;
 
       try {
-        const res = await apiRequest(`/api/admin/chat/conversations/${currentAdminChatConvId}/messages`, {
+        const res = await apiRequest(`/api/admin/chat/conversations/${sendConvId}/messages`, {
           method: 'POST',
           body: { message: text }
         });
 
         if (res.success && res.message) {
           input.value = '';
-          const stream = document.getElementById('adminChatMessagesStream');
-          renderAdminMessagesBatch([res.message], stream, true);
-          scrollAdminChatToBottom();
-          loadAdminChat();
+          if (currentAdminChatConvId === sendConvId) {
+            const stream = document.getElementById('adminChatMessagesStream');
+            renderAdminMessagesBatch([res.message], stream, true);
+            scrollAdminChatToBottom();
+          }
+          loadAdminChat(sendConvId);
         } else {
           showAdminToast(res.message || 'Failed to send message', 'error');
         }
@@ -2533,7 +2590,7 @@
         if (res.success) {
           showAdminToast(`Conversation marked as ${newStatus}`, 'success');
           openAdminConversation(currentAdminChatConvId);
-          loadAdminChat();
+          loadAdminChat(currentAdminChatConvId);
         } else {
           showAdminToast(res.message || 'Failed to update status', 'error');
         }
@@ -2574,7 +2631,7 @@
         });
         if (res.success) {
           showAdminToast('Staff assigned successfully', 'success');
-          loadAdminChat();
+          loadAdminChat(currentAdminChatConvId);
         } else {
           showAdminToast(res.message || 'Assignment failed', 'error');
         }
@@ -2588,13 +2645,17 @@
       if (container) container.classList.remove('chat-active-mobile');
       pauseAdminChatPolling();
       currentAdminChatConvId = null;
+      try {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.delete('conv_id');
+        window.history.replaceState({}, '', newUrl.toString());
+      } catch (e) {}
     }
 
     function scrollAdminChatToBottom() {
       const stream = document.getElementById('adminChatMessagesStream');
       if (stream) stream.scrollTop = stream.scrollHeight;
     }
-
 
     // Global State & Core Handlers
 
