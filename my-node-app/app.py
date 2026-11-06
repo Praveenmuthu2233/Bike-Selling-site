@@ -810,7 +810,6 @@ def initialize_database():
           `bike_id` INT NULL,
           `status` VARCHAR(50) NOT NULL DEFAULT 'open',
           `assigned_admin_id` INT NULL,
-          `last_message_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
           `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
           INDEX `idx_conv_user` (`user_id`),
@@ -912,12 +911,7 @@ def initialize_database():
         except Exception:
             pass
 
-        try:
-            cursor.execute("ALTER TABLE `chat_conversations` ADD COLUMN `last_message_at` TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP")
-            conn.commit()
-            print("[Database Schema] Added last_message_at column to chat_conversations.")
-        except Exception:
-            pass
+
 
         conn.commit()
 
@@ -5086,10 +5080,11 @@ def admin_approve_bike(bike_id):
     2. Atomically updates status to 'approved', listing_status to 'accepted', isSoldout to 0.
     3. Updates price and published_at timestamp so it appears at top of inventory.
     4. Records status history in listing_status_history.
-    5. Creates or reuses existing seller chat conversation and sends 4-point document request message.
-    6. Safely updates conversation timestamp using actual schema.
-    7. Creates user in-app dashboard notification.
-    8. Transactional rollback protection: completely rolls back on any error.
+    5. Commits the bike approval immediately so listing publishing cannot fail due to chat/telemetry.
+    6. In an isolated safe block: finds or creates seller chat conversation, sends 4-point document request message.
+    7. Updates conversation updated_at timestamp using actual schema.
+    8. Creates user in-app dashboard notification.
+    9. Returns proper JSON response with full bike data.
     """
     data = request.get_json(silent=True) or request.form.to_dict() or {}
     admin_username = g.admin.get("username", "admin")
@@ -5113,9 +5108,9 @@ def admin_approve_bike(bike_id):
     try:
         cursor = conn.cursor(dictionary=True)
 
-        # 2. Query bike submission record
+        # 2. Query existing bike submission record (Notice: bikes table uses seller_id, NOT user_id)
         cursor.execute("""
-            SELECT id, title, brand, model, price, status, listing_status, seller_id, seller_name, seller_phone, user_id
+            SELECT id, title, brand, model, price, requested_price, status, listing_status, seller_id, seller_name, seller_phone
             FROM bikes WHERE id = %s
         """, (bike_id,))
         bike_row = cursor.fetchone()
@@ -5130,10 +5125,17 @@ def admin_approve_bike(bike_id):
         bike_title = bike_row.get("title") or f"Motorcycle #{bike_id}"
         bike_brand = bike_row.get("brand") or "Motorcycle"
         bike_model = bike_row.get("model") or ""
-        seller_id = bike_row.get("seller_id") or bike_row.get("user_id")
+        seller_id = bike_row.get("seller_id")
         seller_name = bike_row.get("seller_name")
         seller_phone = bike_row.get("seller_phone")
-        final_price = approved_price if approved_price is not None else float(bike_row.get("price") or 0.0)
+
+        orig_price = bike_row.get("price") or bike_row.get("requested_price") or 0.0
+        try:
+            orig_price = float(orig_price)
+        except (ValueError, TypeError):
+            orig_price = 0.0
+
+        final_price = approved_price if approved_price is not None else orig_price
 
         # If seller_id is missing, look up users table by seller_phone
         if not seller_id and seller_phone:
@@ -5191,7 +5193,10 @@ def admin_approve_bike(bike_id):
         except Exception:
             pass
 
-        # 5. Customer Notification & Document Request Message
+        # Commit bike approval atomically first so marketplace status is permanently saved
+        conn.commit()
+
+        # 5. Customer Notification & Document Request Message (Protected isolated block)
         cust_name = seller_name or "Rider"
         acceptance_msg = f"""Hello {cust_name},
 
@@ -5210,64 +5215,63 @@ Please upload clear copies through your SMR Motors account or contact our team f
 Thank you,
 SMR Motors Team"""
 
+        chat_delivered = False
         if seller_id:
-            # Check for existing conversation for this customer and bike
-            cursor.execute("""
-                SELECT id FROM chat_conversations
-                WHERE user_id = %s AND (bike_id = %s OR (bike_id IS NULL AND subject LIKE %s))
-                ORDER BY id DESC LIMIT 1
-            """, (seller_id, bike_id, f"%{bike_brand}%"))
-            conv_row = cursor.fetchone()
-
-            if conv_row:
-                conv_id = conv_row["id"]
-                cursor.execute("UPDATE chat_conversations SET bike_id = %s, status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = %s", (bike_id, conv_id))
-            else:
+            try:
+                # Check for existing conversation for this customer and bike
                 cursor.execute("""
-                    INSERT INTO chat_conversations (user_id, bike_id, subject, status)
-                    VALUES (%s, %s, %s, 'open')
-                """, (seller_id, bike_id, f"Inquiry about {bike_brand} {bike_model}"))
-                conv_id = cursor.lastrowid
+                    SELECT id FROM chat_conversations
+                    WHERE user_id = %s AND (bike_id = %s OR (bike_id IS NULL AND subject LIKE %s))
+                    ORDER BY id DESC LIMIT 1
+                """, (seller_id, bike_id, f"%{bike_brand}%"))
+                conv_row = cursor.fetchone()
 
-            # Avoid duplicate messages on repeated clicks
-            cursor.execute("""
-                SELECT id FROM chat_messages
-                WHERE conversation_id = %s AND message LIKE %s
-                LIMIT 1
-            """, (conv_id, "%has been accepted by SMR Motors%"))
-            already_sent = cursor.fetchone()
-
-            if not already_sent and conv_id:
-                cursor.execute("""
-                    INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
-                    VALUES (%s, %s, 'admin', %s, 0)
-                """, (conv_id, admin_id, acceptance_msg))
-
-                # Update conversation timestamp safely using actual schema
-                try:
+                if conv_row:
+                    conv_id = conv_row["id"]
+                    cursor.execute("UPDATE chat_conversations SET bike_id = %s, status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = %s", (bike_id, conv_id))
+                else:
                     cursor.execute("""
-                        UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP, last_message_at = CURRENT_TIMESTAMP WHERE id = %s
-                    """, (conv_id,))
-                except Exception:
+                        INSERT INTO chat_conversations (user_id, bike_id, subject, status)
+                        VALUES (%s, %s, %s, 'open')
+                    """, (seller_id, bike_id, f"Inquiry about {bike_brand} {bike_model}"))
+                    conv_id = cursor.lastrowid
+
+                # Avoid duplicate messages on repeated clicks
+                cursor.execute("""
+                    SELECT id FROM chat_messages
+                    WHERE conversation_id = %s AND message LIKE %s
+                    LIMIT 1
+                """, (conv_id, "%has been accepted by SMR Motors%"))
+                already_sent = cursor.fetchone()
+
+                if not already_sent and conv_id:
+                    cursor.execute("""
+                        INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                        VALUES (%s, %s, 'admin', %s, 0)
+                    """, (conv_id, admin_id, acceptance_msg))
+
                     cursor.execute("""
                         UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s
                     """, (conv_id,))
 
-            # In-app dashboard notification
-            try:
-                create_notification(
-                    title="Bike Submission Accepted! Documents Required",
-                    message=f"Good news! Your {bike_brand} {bike_model} submission has been accepted. Please upload ownership documents to proceed.",
-                    user_id=seller_id,
-                    target_role="user",
-                    notif_type="success",
-                    link=f"/profile.html?tab=listings&bike_id={bike_id}&action=upload_docs"
-                )
-            except Exception:
-                pass
+                # In-app dashboard notification
+                try:
+                    create_notification(
+                        title="Bike Submission Accepted! Documents Required",
+                        message=f"Good news! Your {bike_brand} {bike_model} submission has been accepted. Please upload ownership documents to proceed.",
+                        user_id=seller_id,
+                        target_role="user",
+                        notif_type="success",
+                        link=f"/profile.html?tab=listings&bike_id={bike_id}&action=upload_docs"
+                    )
+                except Exception:
+                    pass
 
-        # Commit transaction atomically
-        conn.commit()
+                conn.commit()
+                chat_delivered = True
+            except Exception as chat_err:
+                print(f"[Approval Chat Warning] Failed to update chat for bike #{bike_id}: {chat_err}")
+
         cursor.close()
         conn.close()
 
@@ -5275,7 +5279,15 @@ SMR Motors Team"""
 
         return jsonify({
             "success": True,
-            "message": "Motorcycle submission accepted and published to live marketplace! Document request sent to seller."
+            "message": "Motorcycle submission accepted and published to live marketplace! Document request sent to seller.",
+            "data": {
+                "bike_id": bike_id,
+                "title": bike_title,
+                "price": final_price,
+                "status": "approved",
+                "listing_status": "accepted",
+                "chat_delivered": chat_delivered
+            }
         })
 
     except Exception as e:
@@ -5285,6 +5297,7 @@ SMR Motors Team"""
                 conn.close()
             except Exception:
                 pass
+        print(f"[Admin Approve Bike Error] #{bike_id}: {str(e)}")
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
 @app.route("/api/admin/bikes/<int:bike_id>/reject", methods=["POST", "PUT"])
@@ -8270,14 +8283,9 @@ Your uploaded document ({doc_type_label}) has been {chat_status_text} by SMR Mot
                 INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
                 VALUES (%s, %s, 'admin', %s, 0)
             """, (conv_id, g.admin.get("id") or 1, chat_msg))
-            try:
-                cursor.execute("""
-                    UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP, last_message_at = CURRENT_TIMESTAMP WHERE id = %s
-                """, (conv_id,))
-            except Exception:
-                cursor.execute("""
-                    UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s
-                """, (conv_id,))
+            cursor.execute("""
+                UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s
+            """, (conv_id,))
 
             # In-app notification
             create_notification(

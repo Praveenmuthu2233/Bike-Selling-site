@@ -3133,9 +3133,27 @@
         }
         throw new Error('Session expired. Please log in again.');
       }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || 'Server request failed');
-      return data;
+
+      // Safely read response text and attempt JSON parse
+      let data = null;
+      let rawText = '';
+      try {
+        rawText = await res.text();
+        if (rawText) {
+          data = JSON.parse(rawText);
+        }
+      } catch (parseErr) {
+        data = { message: rawText || `HTTP ${res.status}: ${res.statusText || 'Server Error'}` };
+      }
+
+      if (!res.ok) {
+        const errorMsg = (data && (data.message || data.error)) || rawText || `Server request failed (HTTP ${res.status})`;
+        const err = new Error(errorMsg);
+        err.status = res.status;
+        err.data = data;
+        throw err;
+      }
+      return data || {};
     }
 
     // ==================================================
@@ -4001,28 +4019,52 @@
     }
 
     async function confirmApproveBike() {
-      const id = document.getElementById('approve-bike-id').value;
-      const approvedPrice = document.getElementById('approve-bike-price').value.trim();
+      const idInput = document.getElementById('approve-bike-id');
+      const id = idInput ? idInput.value.trim() : '';
+      if (!id) {
+        showToast('Invalid bike ID. Please select a motorcycle again.', 'error');
+        return;
+      }
+
+      const approveBtn = document.querySelector('#modal-approve-bike .btn-review-approve');
+      const originalBtnHtml = approveBtn ? approveBtn.innerHTML : '<i class="fas fa-check-double"></i> Confirm & Publish';
+
+      const priceInput = document.getElementById('approve-bike-price');
+      const approvedPrice = priceInput ? priceInput.value.trim() : '';
       const body = {};
       if (approvedPrice !== '') {
         const pVal = parseFloat(approvedPrice);
         if (isNaN(pVal) || pVal < 0 || pVal > 1000000) {
           showToast("Bike price must be between ₹0 and ₹10,00,000.", 'error');
-          document.getElementById('approve-bike-price').focus();
+          if (priceInput) priceInput.focus();
           return;
         }
         body.approved_price = pVal;
       }
 
+      if (approveBtn) {
+        approveBtn.disabled = true;
+        approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Approving & Publishing...';
+      }
+
       try {
-        await apiRequest(`/api/admin/bikes/${id}/approve`, { method: 'POST', body: JSON.stringify(body) });
-        showToast('Motorcycle approved and published to live marketplace!', 'success');
+        const res = await apiRequest(`/api/admin/bikes/${id}/approve`, {
+          method: 'POST',
+          body: JSON.stringify(body)
+        });
+        showToast(res.message || 'Motorcycle approved and published to live marketplace!', 'success');
         closeModal('modal-approve-bike');
         loadAdminBikes(currentBikeTab, 1);
         loadPendingApprovals();
         loadAdminDashboard();
       } catch (err) {
-        showToast(err.message, 'error');
+        console.error('Approval failed:', err);
+        showToast(err.message || 'Failed to approve motorcycle. Check server error.', 'error');
+      } finally {
+        if (approveBtn) {
+          approveBtn.disabled = false;
+          approveBtn.innerHTML = originalBtnHtml;
+        }
       }
     }
 

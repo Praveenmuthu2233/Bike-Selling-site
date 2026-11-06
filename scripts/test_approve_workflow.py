@@ -29,7 +29,7 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
 
     def test_price_validation_negative(self):
         resp = self.client.post(
-            "/api/admin/bikes/99/approve",
+            "/api/admin/bikes/660001/approve",
             json={"approved_price": -500},
             headers=self.headers
         )
@@ -40,7 +40,7 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
 
     def test_price_validation_exceeds_max(self):
         resp = self.client.post(
-            "/api/admin/bikes/99/approve",
+            "/api/admin/bikes/660001/approve",
             json={"approved_price": 1000001},
             headers=self.headers
         )
@@ -51,8 +51,8 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
 
     def test_price_validation_invalid_type(self):
         resp = self.client.post(
-            "/api/admin/bikes/99/approve",
-            json={"approved_price": "abc_invalid"},
+            "/api/admin/bikes/660001/approve",
+            json={"approved_price": "invalid_abc"},
             headers=self.headers
         )
         self.assertEqual(resp.status_code, 400)
@@ -61,11 +61,10 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         self.assertIn("valid number", data["message"])
 
     @patch("app.get_db")
-    def test_approval_workflow_success_with_fallback_when_last_message_at_missing(self, mock_get_db):
+    def test_approval_workflow_success_for_bike_660001(self, mock_get_db):
         """
-        Simulates TiDB throwing Error 1054 Unknown column 'last_message_at' on UPDATE chat_conversations.
-        The backend must catch this and fall back to UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP
-        without failing the request!
+        Tests approving bike 660001. Verifies that bikes table uses seller_id (not user_id),
+        and chat_conversations uses updated_at (never last_message_at).
         """
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -76,17 +75,17 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         mock_cursor.fetchone.side_effect = [
             # 1. Bike query
             {
-                "id": 101,
-                "title": "Royal Enfield Hunter 350",
+                "id": 660001,
+                "title": "Royal Enfield Hunter 350 Dapper Ash",
                 "brand": "Royal Enfield",
                 "model": "Hunter 350",
                 "price": 149000,
+                "requested_price": 149000,
                 "status": "pending",
                 "listing_status": "pending",
                 "seller_id": 42,
                 "seller_name": "Ramesh",
-                "seller_phone": "9876543210",
-                "user_id": 42
+                "seller_phone": "9876543210"
             },
             # 2. Existing chat_conversations query (returns None so it inserts new)
             None,
@@ -98,15 +97,12 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
 
         executed_queries = []
         def track_execute(query, params=None):
-            executed_queries.append(query)
-            # Simulate TiDB error 1054 when query has last_message_at
-            if "last_message_at" in query and "UPDATE chat_conversations" in query:
-                raise Exception("1054 (42S22): Unknown column 'last_message_at' in 'field list'")
+            executed_queries.append((query, params))
 
         mock_cursor.execute.side_effect = track_execute
 
         resp = self.client.post(
-            "/api/admin/bikes/101/approve",
+            "/api/admin/bikes/660001/approve",
             json={"approved_price": 145000},
             headers=self.headers
         )
@@ -114,18 +110,23 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         data = resp.get_json()
         self.assertTrue(data["success"])
         self.assertIn("accepted and published", data["message"])
+        self.assertEqual(data["data"]["bike_id"], 660001)
+        self.assertEqual(data["data"]["price"], 145000.0)
 
         # Check commit was called
         mock_conn.commit.assert_called()
 
-        # Check that fallback query without last_message_at was executed!
-        fallback_queries = [q for q in executed_queries if "UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s" in q]
-        self.assertTrue(len(fallback_queries) > 0, "Fallback query without last_message_at was not executed!")
+        # Check that NO query references last_message_at
+        for q, _ in executed_queries:
+            self.assertNotIn("last_message_at", q, f"Query incorrectly references last_message_at: {q}")
+            if "FROM bikes" in q:
+                self.assertNotIn("user_id", q, f"Query on bikes incorrectly references user_id: {q}")
 
     @patch("app.get_db")
     def test_approval_idempotency_prevents_duplicate_messages(self, mock_get_db):
         """
-        If the admin clicks 'Confirm & Publish' again, the acceptance document request message must NOT be duplicated.
+        If the admin clicks 'Confirm & Publish' repeatedly on bike 660001,
+        the acceptance document request message must NOT be duplicated.
         """
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -135,17 +136,16 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         mock_cursor.fetchone.side_effect = [
             # 1. Bike query
             {
-                "id": 102,
-                "title": "Yamaha MT-15",
-                "brand": "Yamaha",
-                "model": "MT-15",
-                "price": 120000,
+                "id": 660001,
+                "title": "Royal Enfield Hunter 350 Dapper Ash",
+                "brand": "Royal Enfield",
+                "model": "Hunter 350",
+                "price": 145000,
                 "status": "approved",
                 "listing_status": "accepted",
-                "seller_id": 55,
-                "seller_name": "Suresh",
-                "seller_phone": "9998887776",
-                "user_id": 55
+                "seller_id": 42,
+                "seller_name": "Ramesh",
+                "seller_phone": "9876543210"
             },
             # 2. Existing chat_conversations query (found conversation 500)
             {"id": 500},
@@ -160,8 +160,8 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         mock_cursor.execute.side_effect = track_execute
 
         resp = self.client.post(
-            "/api/admin/bikes/102/approve",
-            json={"approved_price": 120000},
+            "/api/admin/bikes/660001/approve",
+            json={"approved_price": 145000},
             headers=self.headers
         )
         self.assertEqual(resp.status_code, 200)
@@ -171,9 +171,10 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         self.assertEqual(len(insert_msg_queries), 0, "Duplicate chat message was mistakenly inserted!")
 
     @patch("app.get_db")
-    def test_doc_verify_workflow_with_fallback_when_last_message_at_missing(self, mock_get_db):
+    def test_chat_failure_does_not_break_bike_approval(self, mock_get_db):
         """
-        Simulates document verification when last_message_at column is missing.
+        If chat insertion fails (e.g., temporary lock or message failure),
+        the bike approval must STILL succeed and commit without HTTP 500.
         """
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
@@ -181,41 +182,33 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
         mock_conn.cursor.return_value = mock_cursor
 
         mock_cursor.fetchone.side_effect = [
-            # 1. Document record query
+            # 1. Bike query
             {
-                "id": 10,
-                "bike_id": 101,
-                "user_id": 42,
-                "document_type": "rc_book",
+                "id": 660001,
+                "title": "Royal Enfield Hunter 350 Dapper Ash",
+                "brand": "Royal Enfield",
+                "model": "Hunter 350",
+                "price": 145000,
                 "status": "pending",
-                "customer_name": "Ramesh",
-                "bike_brand": "Royal Enfield",
-                "bike_model": "Hunter 350"
+                "listing_status": "pending",
+                "seller_id": 42,
+                "seller_name": "Ramesh",
+                "seller_phone": "9876543210"
             },
-            # 2. Existing chat_conversations query
-            {"id": 888}
+            # 2. Query conversation throws exception
+            Exception("Simulated chat database lock")
         ]
 
-        executed_queries = []
-        def track_execute(query, params=None):
-            executed_queries.append(query)
-            if "last_message_at" in query and "UPDATE chat_conversations" in query:
-                raise Exception("1054 (42S22): Unknown column 'last_message_at' in 'field list'")
-
-        mock_cursor.execute.side_effect = track_execute
-
         resp = self.client.post(
-            "/api/admin/bikes/101/documents/10/verify",
-            json={"status": "approved", "remarks": "RC book verified and clear"},
+            "/api/admin/bikes/660001/approve",
+            json={"approved_price": 145000},
             headers=self.headers
         )
         self.assertEqual(resp.status_code, 200)
         data = resp.get_json()
         self.assertTrue(data["success"])
-        self.assertIn("approved", data["message"].lower())
-
-        fallback_queries = [q for q in executed_queries if "UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s" in q]
-        self.assertTrue(len(fallback_queries) > 0, "Fallback query without last_message_at was not executed in doc verify!")
+        self.assertEqual(data["data"]["status"], "approved")
+        self.assertFalse(data["data"]["chat_delivered"])
 
 if __name__ == "__main__":
     unittest.main()
