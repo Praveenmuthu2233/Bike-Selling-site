@@ -16,19 +16,19 @@
   --admin-bg: #F5F7FB;
   --admin-sidebar-bg: #111827;
   --admin-sidebar-hover: #1F2937;
-  --admin-sidebar-active: rgba(249, 115, 22, 0.12);
+  --admin-sidebar-active: rgba(37, 99, 235, 0.15);
   --admin-sidebar-border: rgba(255, 255, 255, 0.06);
   --admin-sidebar-text: #9CA3AF;
   --admin-sidebar-text-active: #FFFFFF;
-  --admin-sidebar-accent: #F97316;
+  --admin-sidebar-accent: #2563EB;
   
   --admin-topbar-bg: #FFFFFF;
   --admin-topbar-border: #E2E8F0;
   
-  --admin-primary: #F97316;
-  --admin-primary-hover: #EA580C;
-  --admin-primary-light: #FFF7ED;
-  --admin-primary-border: #FDBA74;
+  --admin-primary: #2563EB;
+  --admin-primary-hover: #1D4ED8;
+  --admin-primary-light: #EFF6FF;
+  --admin-primary-border: #BFDBFE;
   
   --admin-card-bg: #FFFFFF;
   --admin-card-border: #E2E8F0;

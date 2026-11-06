@@ -62,8 +62,8 @@
       color: #0f172a;
     }
     .admin-chat-filter-btn.active {
-      background: #ea580c;
-      border-color: #ea580c;
+      background: #2563EB;
+      border-color: #2563EB;
       color: #ffffff;
     }
     .admin-chat-conv-list {
@@ -85,7 +85,7 @@
     }
     .admin-chat-conv-item.active {
       background: #fff7ed;
-      border-left: 4px solid #ea580c;
+      border-left: 4px solid #2563EB;
     }
     .admin-chat-avatar {
       width: 44px;
@@ -137,8 +137,8 @@
     .admin-chat-bike-tag {
       font-size: 0.72rem;
       font-weight: 600;
-      color: #ea580c;
-      background: rgba(234, 88, 12, 0.08);
+      color: #2563EB;
+      background: rgba(37, 99, 235, 0.08);
       padding: 0.1rem 0.45rem;
       border-radius: 4px;
       white-space: nowrap;
@@ -161,7 +161,7 @@
       flex: 1;
     }
     .admin-chat-unread-badge {
-      background: #ea580c;
+      background: #2563EB;
       color: #ffffff;
       font-size: 0.72rem;
       font-weight: 700;
@@ -250,7 +250,7 @@
     .admin-chat-pinned-price {
       font-size: 0.82rem;
       font-weight: 700;
-      color: #ea580c;
+      color: #2563EB;
     }
     .admin-chat-messages-stream {
       flex: 1;
@@ -290,7 +290,7 @@
       color: #0f172a;
       border-top-left-radius: 2px;
       border: 1px solid #e2e8f0;
-      border-left: 3px solid #ea580c;
+      border-left: 3px solid #2563EB;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
     .admin-chat-sender-tag {
@@ -299,7 +299,7 @@
       margin-bottom: 0.2rem;
     }
     .admin-chat-bubble.incoming .admin-chat-sender-tag {
-      color: #ea580c;
+      color: #2563EB;
     }
     .admin-chat-bubble.outgoing .admin-chat-sender-tag {
       color: #38bdf8;
@@ -337,7 +337,7 @@
     }
     .admin-chat-quick-pill:hover {
       background: #fff7ed;
-      color: #ea580c;
+      color: #2563EB;
       border-color: #fed7aa;
     }
     .admin-chat-input-bar {
@@ -360,14 +360,14 @@
       max-height: 100px;
     }
     .admin-chat-input-bar textarea:focus {
-      border-color: #ea580c;
-      box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
+      border-color: #2563EB;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     }
     .admin-chat-send-btn {
       width: 42px;
       height: 42px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #ea580c, #f97316);
+      background: linear-gradient(135deg, #2563EB, #1D4ED8);
       border: none;
       color: #ffffff;
       font-size: 1rem;
@@ -380,7 +380,7 @@
     }
     .admin-chat-send-btn:hover {
       transform: scale(1.05);
-      box-shadow: 0 0 10px rgba(234, 88, 12, 0.4);
+      box-shadow: 0 0 10px rgba(37, 99, 235, 0.4);
     }
     .admin-chat-placeholder {
       margin: auto;
@@ -2193,7 +2193,7 @@
       if (!adminChatConversations || adminChatConversations.length === 0) {
         convList.innerHTML = `
           <div style="text-align: center; padding: 3rem 1rem; color: #94a3b8;">
-            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #ea580c; margin-bottom: 0.5rem;"></i>
+            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem; color: #2563EB; margin-bottom: 0.5rem;"></i>
             <p style="margin: 0; font-size: 0.85rem;">Loading customer conversations...</p>
           </div>
         `;
@@ -2368,7 +2368,7 @@
       const stream = document.getElementById('adminChatMessagesStream');
       stream.innerHTML = `
         <div style="text-align:center; padding:3rem; color:#94a3b8;">
-          <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#ea580c; margin-bottom:0.5rem;"></i>
+          <i class="fas fa-spinner fa-spin" style="font-size:1.5rem; color:#2563EB; margin-bottom:0.5rem;"></i>
           <p style="margin:0; font-size:0.85rem;">Loading conversation...</p>
         </div>
       `;
