@@ -2126,6 +2126,35 @@
     // ---------------------------------------------------------------------------
     // SMR MOTORS - ADMIN CHAT MANAGEMENT SYSTEM (REAL-TIME & TIDB PERSISTENT)
     // ---------------------------------------------------------------------------
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatChatTime(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(String(dateStr).replace(' ', 'T'));
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return String(dateStr);
+      }
+    }
+
+    function showAdminToast(message, type = 'info') {
+      if (typeof showToast === 'function') {
+        showToast(message, type);
+      } else {
+        console.log(`[AdminToast ${type}]: ${message}`);
+      }
+    }
+
     let currentAdminChatConvId = null;
     let currentAdminChatFilter = 'all';
     let adminChatSearchTimer = null;
@@ -2201,13 +2230,18 @@
           if (pinnedBike) pinnedBike.style.display = 'none';
         }
       } catch (e) {
+        const isAuthErr = /session|unauthorized|log in/i.test(e.message || '');
         convList.innerHTML = `
           <div style="text-align:center; padding:2.5rem 1rem;">
-            <i class="fas fa-exclamation-triangle" style="font-size:2rem; color:#ef4444; margin-bottom:0.75rem;"></i>
-            <p style="margin:0 0 0.75rem; color:#ef4444; font-size:0.88rem; font-weight:600;">${escapeHtml(e.message || 'Failed to load conversations')}</p>
-            <button class="btn btn-sm btn-outline" onclick="loadAdminChat()" style="margin-top:0.25rem;">
-              <i class="fas fa-redo"></i> Retry
-            </button>
+            <i class="fas fa-exclamation-circle" style="font-size:2rem; color:#ef4444; margin-bottom:0.75rem;"></i>
+            <p style="margin:0 0 0.5rem; color:#1e293b; font-size:0.95rem; font-weight:700;">Could not load conversations</p>
+            <p style="margin:0 0 1rem; color:#64748b; font-size:0.82rem;">${escapeHtml(e.message || 'Network error or backend unreachable')}</p>
+            <div style="display:flex; justify-content:center; gap:0.5rem;">
+              <button class="btn btn-sm btn-outline" onclick="loadAdminChat()">
+                <i class="fas fa-redo"></i> Retry
+              </button>
+              ${isAuthErr ? '<a href="/admin/login.html" class="btn btn-sm btn-primary"><i class="fas fa-sign-in-alt"></i> Log In</a>' : ''}
+            </div>
           </div>
         `;
       } finally {
@@ -2758,14 +2792,20 @@
       const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken');
       const headers = options.headers || {};
       if (token) headers['Authorization'] = `Bearer ${token}`;
-      if (!headers['Content-Type'] && !(options.body instanceof FormData)) {
+      const isFormData = (typeof FormData !== 'undefined') && (options.body instanceof FormData);
+      if (!headers['Content-Type'] && !isFormData) {
         headers['Content-Type'] = 'application/json';
+      }
+      if (options.body && typeof options.body === 'object' && !isFormData) {
+        options.body = JSON.stringify(options.body);
       }
       options.headers = headers;
       
       const res = await fetch(url, options);
       if (res.status === 401) {
-        adminLogout();
+        if (!options.skipAuthRedirect) {
+          adminLogout();
+        }
         throw new Error('Session expired. Please log in again.');
       }
       const data = await res.json();
@@ -4545,6 +4585,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       const admin = checkAdminAuth();
       if (admin) {
+        const urlParams = new URLSearchParams(window.location.search);
         const hash = window.location.hash ? window.location.hash.substring(1) : '';
         const navMap = {
           'tab-dashboard': 'nav-dashboard',
@@ -4576,7 +4617,6 @@
         }
         loadAdminNotifications();
 
-        const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('modal') === 'sold') {
           const bId = urlParams.get('bike_id') || 1;
           setTimeout(() => {
