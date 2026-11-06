@@ -3,14 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Motorcycle Inspection & Deal Details | SMR Motors Admin</title>
+  <title>Sold Out Motorcycle Deal Details | SMR Motors Admin</title>
   <link rel="icon" type="image/x-icon" href="/static/images/IMG-20251204-WA0051.jpg">
+  
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="/static/css/admin.css">
+
   <style>
     :root {
       --bg-page: #F8FAFC;
@@ -18,9 +20,9 @@
       --text-main: #0F172A;
       --text-muted: #64748B;
       --border-color: #E2E8F0;
-      --primary: #F97316;
-      --primary-hover: #EA580C;
-      --dark-navy: #0F172A;
+      --primary: #2563EB;
+      --primary-hover: #1D4ED8;
+      --accent: #F97316;
       --success: #16A34A;
       --danger: #DC2626;
       --warning: #F59E0B;
@@ -90,24 +92,11 @@
       border: none;
       transition: all 0.2s;
     }
-    .export-btn.pdf {
-      background: #DC2626;
-      color: #FFFFFF;
-    }
-    .export-btn.excel {
-      background: #16A34A;
-      color: #FFFFFF;
-    }
-    .export-btn.edit-fin {
-      background: #2563EB;
-      color: #FFFFFF;
-    }
-    .export-btn:hover {
-      opacity: 0.92;
-      transform: translateY(-1px);
-    }
+    .export-btn.pdf { background: #DC2626; color: #FFFFFF; }
+    .export-btn.excel { background: #16A34A; color: #FFFFFF; }
+    .export-btn.edit-fin { background: #2563EB; color: #FFFFFF; }
+    .export-btn:hover { opacity: 0.92; transform: translateY(-1px); }
 
-    /* Dynamic Banner */
     .hero-banner {
       background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%);
       color: #FFFFFF;
@@ -120,7 +109,7 @@
       flex-wrap: wrap;
       gap: 1.25rem;
       box-shadow: var(--shadow-md);
-      border-left: 6px solid var(--primary);
+      border-left: 6px solid #2563EB;
     }
     .status-badge-hero {
       display: inline-flex;
@@ -137,16 +126,6 @@
       background: rgba(220, 38, 38, 0.2);
       color: #FCA5A5;
       border: 1px solid rgba(220, 38, 38, 0.4);
-    }
-    .status-badge-hero.approved {
-      background: rgba(22, 163, 74, 0.2);
-      color: #86EFAC;
-      border: 1px solid rgba(22, 163, 74, 0.4);
-    }
-    .status-badge-hero.pending {
-      background: rgba(245, 158, 11, 0.2);
-      color: #FCD34D;
-      border: 1px solid rgba(245, 158, 11, 0.4);
     }
     .hero-banner-title {
       font-size: 1.55rem;
@@ -167,7 +146,6 @@
       gap: 6px;
     }
 
-    /* Grid Layout */
     .grid-layout {
       display: grid;
       grid-template-columns: 1.25fr 1fr;
@@ -175,9 +153,7 @@
       margin-bottom: 1.5rem;
     }
     @media (max-width: 960px) {
-      .grid-layout {
-        grid-template-columns: 1fr;
-      }
+      .grid-layout { grid-template-columns: 1fr; }
     }
 
     .card-box {
@@ -257,9 +233,7 @@
       gap: 0.85rem;
     }
     @media (max-width: 520px) {
-      .specs-grid {
-        grid-template-columns: 1fr;
-      }
+      .specs-grid { grid-template-columns: 1fr; }
     }
     .spec-item {
       background: #F8FAFC;
@@ -300,205 +274,116 @@
       background: #F0FDF4;
       border-color: #BBF7D0;
     }
-    .fin-tile.highlight-buying {
-      background: #EFF6FF;
-      border-color: #BFDBFE;
-    }
     .fin-tile.highlight-selling {
       background: #FFF7ED;
       border-color: #FED7AA;
     }
+    .fin-tile.highlight-buying {
+      background: #EFF6FF;
+      border-color: #BFDBFE;
+    }
     .fin-tile-label {
       font-size: 0.72rem;
-      font-weight: 800;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-weight: 800;
       color: var(--text-muted);
+      letter-spacing: 0.5px;
     }
     .fin-tile-val {
       font-size: 1.35rem;
       font-weight: 900;
-      margin-top: 4px;
       color: var(--text-main);
+      margin: 4px 0 2px;
     }
     .fin-tile-sub {
-      font-size: 0.78rem;
+      font-size: 0.75rem;
       color: var(--text-muted);
-      margin-top: 4px;
       display: flex;
       justify-content: space-between;
     }
 
-    /* Timeline */
-    .timeline-list {
-      list-style: none;
-      padding: 0;
-      margin: 0;
-      position: relative;
-    }
-    .timeline-list::before {
-      content: '';
-      position: absolute;
-      top: 10px;
-      bottom: 10px;
-      left: 15px;
-      width: 2px;
-      background: #E2E8F0;
-    }
-    .timeline-item {
-      position: relative;
-      padding-left: 38px;
-      margin-bottom: 1.25rem;
-    }
-    .timeline-item:last-child {
-      margin-bottom: 0;
-    }
-    .timeline-bullet {
-      position: absolute;
-      left: 7px;
-      top: 3px;
-      width: 18px;
-      height: 18px;
-      border-radius: 50%;
-      background: #FFFFFF;
-      border: 3px solid var(--primary);
-    }
-    .timeline-bullet.sold {
-      border-color: var(--danger);
-      background: var(--danger);
-    }
-    .timeline-bullet.approved {
-      border-color: var(--success);
-    }
-    .timeline-content-title {
-      font-size: 0.88rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-    .timeline-content-desc {
-      font-size: 0.8rem;
-      color: var(--text-muted);
-      margin-top: 2px;
-    }
-
-    /* Enquiries Table */
-    .enquiries-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.85rem;
-    }
-    .enquiries-table th {
-      text-align: left;
-      padding: 0.65rem 0.75rem;
-      background: #F8FAFC;
-      color: var(--text-muted);
-      font-weight: 800;
-      border-bottom: 1px solid var(--border-color);
-      font-size: 0.75rem;
-      text-transform: uppercase;
-    }
-    .enquiries-table td {
-      padding: 0.75rem;
-      border-bottom: 1px solid #F1F5F9;
-    }
-
-    /* Modal Overlay */
+    /* Modal styling */
     .modal-overlay {
       position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, 0.6);
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(15, 23, 42, 0.65);
       backdrop-filter: blur(4px);
-      z-index: 1000;
+      z-index: 9999;
       display: none;
       align-items: center;
       justify-content: center;
       padding: 1rem;
     }
-    .modal-overlay.active {
-      display: flex;
-    }
     .modal-dialog-card {
       background: #FFFFFF;
       border-radius: var(--radius-lg);
-      width: 100%;
       max-width: 540px;
-      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+      width: 100%;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+      border: 1px solid var(--border-color);
       overflow: hidden;
-      animation: modalFadeIn 0.2s ease-out;
-    }
-    @keyframes modalFadeIn {
-      from { opacity: 0; transform: translateY(12px) scale(0.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
     }
     .modal-header-bar {
-      padding: 1.15rem 1.4rem;
+      padding: 1.25rem 1.5rem;
       border-bottom: 1px solid var(--border-color);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #F8FAFC;
     }
     .modal-title-text {
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       font-weight: 800;
+      color: var(--text-main);
       margin: 0;
-      display: flex;
-      align-items: center;
-      gap: 8px;
     }
     .modal-close-btn {
       background: none;
       border: none;
-      font-size: 1.4rem;
-      color: var(--text-muted);
+      font-size: 1.5rem;
       cursor: pointer;
-      line-height: 1;
-    }
-    .modal-close-btn:hover {
-      color: var(--text-main);
+      color: var(--text-muted);
     }
     .modal-body-content {
-      padding: 1.25rem 1.4rem;
+      padding: 1.5rem;
     }
     .modal-footer-bar {
-      padding: 1rem 1.4rem;
+      padding: 1rem 1.5rem;
       background: #F8FAFC;
       border-top: 1px solid var(--border-color);
       display: flex;
       justify-content: flex-end;
       gap: 10px;
     }
-
-    /* Toast Notification */
     #detail-toast {
       position: fixed;
-      bottom: 24px;
-      right: 24px;
-      padding: 0.85rem 1.25rem;
+      bottom: 2rem;
+      right: 2rem;
       background: #0F172A;
       color: #FFFFFF;
+      padding: 0.85rem 1.25rem;
       border-radius: var(--radius-md);
-      font-size: 0.88rem;
-      font-weight: 700;
-      box-shadow: var(--shadow-md);
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
       display: none;
-      z-index: 1200;
       align-items: center;
       gap: 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      z-index: 10000;
     }
-    #detail-toast.success { background: #16A34A; }
-    #detail-toast.error { background: #DC2626; }
+    #detail-toast.success { border-left: 5px solid #16A34A; }
+    #detail-toast.error { border-left: 5px solid #DC2626; }
   </style>
 </head>
 <body>
+
   <div class="details-container">
     
-    <!-- Top Navigation -->
+    <!-- Top Action Bar -->
     <div class="top-nav-bar">
-      <a href="/admin.html" class="back-btn" id="btn-back">
-        <i class="fas fa-arrow-left"></i> Back to Admin Dashboard
+      <a href="/admin.html#tab-soldout-bikes" class="back-btn" id="btn-back">
+        <i class="fas fa-arrow-left"></i> Back to Sold-Out Management
       </a>
-      <div class="export-btn-group">
+      <div class="export-btn-group" id="top-export-group">
         <button class="export-btn edit-fin" id="btn-edit-financials" style="display:none;" onclick="openEditFinancialsModal()">
           <i class="fas fa-edit"></i> Edit Deal Financials
         </button>
@@ -514,7 +399,7 @@
     <!-- Loading State -->
     <div id="loading-state" style="text-align:center; padding:5rem 2rem;">
       <i class="fas fa-spinner fa-spin" style="font-size:2.4rem; color:var(--primary);"></i>
-      <p style="margin-top:1.25rem; color:var(--text-muted); font-weight:700; font-size:1rem;">Loading motorcycle details and financial ledger from TiDB...</p>
+      <p style="margin-top:1.25rem; color:var(--text-muted); font-weight:700; font-size:1rem;">Loading verified motorcycle record from TiDB Cloud...</p>
     </div>
 
     <!-- Error State -->
@@ -526,37 +411,37 @@
         <button onclick="document.getElementById('error-state').style.display='none'; document.getElementById('loading-state').style.display='block'; loadBikeFullDetails();" class="back-btn" style="background:var(--primary); color:#FFFFFF; border-color:var(--primary);">
           <i class="fas fa-sync-alt"></i> Retry Connection
         </button>
-        <a href="/admin.html" class="back-btn">Return to Inventory</a>
+        <a href="/admin.html#tab-soldout-bikes" class="back-btn">Return to Sold Out Bikes</a>
       </div>
     </div>
 
     <!-- Main Content Container -->
     <div id="main-content" style="display:none;">
 
-      <!-- Dynamic Hero Banner -->
+      <!-- Hero Banner -->
       <div class="hero-banner" id="hero-banner-box">
         <div>
-          <span class="status-badge-hero" id="hero-status-badge"><i class="fas fa-tag"></i> INVENTORY</span>
+          <span class="status-badge-hero sold" id="hero-status-badge"><i class="fas fa-check-circle"></i> SOLD OUT</span>
           <h1 class="hero-banner-title" id="hero-title">Motorcycle Title</h1>
           <div class="hero-banner-meta">
-            <span><i class="fas fa-hashtag"></i> ID: <strong id="hero-bike-id">#0</strong></span>
+            <span><i class="fas fa-hashtag"></i> Bike ID: <strong id="hero-bike-id">#0</strong></span>
             <span><i class="fas fa-id-card"></i> Reg: <strong id="hero-reg-no" style="font-family:monospace; color:#F8FAFC;">TN-XX-XXXX</strong></span>
-            <span id="hero-date-item"><i class="fas fa-calendar"></i> Listed: <strong id="hero-date-val">Today</strong></span>
-            <span id="hero-actor-item"><i class="fas fa-user-shield"></i> Handler: <strong id="hero-actor-val">admin</strong></span>
+            <span id="hero-date-item"><i class="fas fa-calendar-check"></i> Sold: <strong id="hero-date-val">-</strong></span>
+            <span id="hero-actor-item"><i class="fas fa-user-shield"></i> Sold By: <strong id="hero-actor-val">admin</strong></span>
           </div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:0.78rem; text-transform:uppercase; color:#94A3B8; font-weight:800;" id="hero-price-label">Price</div>
-          <div style="font-size:1.85rem; font-weight:900; color:var(--primary);" id="hero-selling-price">₹0</div>
+          <div style="font-size:0.78rem; text-transform:uppercase; color:#94A3B8; font-weight:800;" id="hero-price-label">FINAL SELLING PRICE</div>
+          <div style="font-size:1.85rem; font-weight:900; color:#EF4444;" id="hero-selling-price">₹0</div>
         </div>
       </div>
 
-      <!-- Main Layout -->
+      <!-- Main Layout Grid -->
       <div class="grid-layout">
         
-        <!-- Left Column: Gallery & Specs & Enquiries -->
+        <!-- Left Column: Section 1 Bike Details & Section 3 Documents -->
         <div>
-          <!-- Image Gallery (1 to 6 images) -->
+          <!-- Section 1: Motorcycle Image Gallery -->
           <div class="card-box">
             <div class="card-box-header">
               <h3 class="card-box-title"><i class="fas fa-images" style="color:var(--primary);"></i> Motorcycle Gallery</h3>
@@ -568,11 +453,11 @@
             <div class="thumbs-row" id="thumbs-container"></div>
           </div>
 
-          <!-- Motorcycle Specifications -->
+          <!-- Section 1: Specifications -->
           <div class="card-box">
             <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-motorcycle" style="color:var(--primary);"></i> Complete Specifications</h3>
-              <span id="spec-status-pill" style="font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:9999px; background:#F1F5F9; color:#475569;">STATUS</span>
+              <h3 class="card-box-title"><i class="fas fa-motorcycle" style="color:var(--primary);"></i> 1. Motorcycle Specifications</h3>
+              <span id="spec-status-pill" style="font-size:0.75rem; font-weight:800; padding:3px 10px; border-radius:9999px; background:#FEF2F2; color:#DC2626;">SOLD OUT</span>
             </div>
             <div class="specs-grid">
               <div class="spec-item">
@@ -584,116 +469,130 @@
                 <div class="spec-val" id="spec-year">-</div>
               </div>
               <div class="spec-item">
-                <div class="spec-label">Kilometers Driven</div>
-                <div class="spec-val" id="spec-kms">-</div>
+                <div class="spec-label">Registration Number</div>
+                <div class="spec-val" id="spec-reg" style="font-family:monospace; font-weight:800;">-</div>
               </div>
               <div class="spec-item">
-                <div class="spec-label">Registration Number</div>
-                <div class="spec-val" id="spec-reg" style="font-family:monospace;">-</div>
+                <div class="spec-label">Kilometers Driven</div>
+                <div class="spec-val" id="spec-kms">-</div>
               </div>
               <div class="spec-item">
                 <div class="spec-label">Fuel Type</div>
                 <div class="spec-val" id="spec-fuel">-</div>
               </div>
               <div class="spec-item">
-                <div class="spec-label">Transmission</div>
+                <div class="spec-label">Transmission / Ownership</div>
                 <div class="spec-val" id="spec-trans">-</div>
               </div>
               <div class="spec-item">
                 <div class="spec-label">Showroom Location</div>
-                <div class="spec-val" id="spec-loc">-</div>
+                <div class="spec-val" id="spec-loc">Salem Showroom</div>
               </div>
               <div class="spec-item">
-                <div class="spec-label">Listing Selling Price</div>
-                <div class="spec-val" id="spec-price" style="color:var(--primary); font-weight:800;">-</div>
+                <div class="spec-label">Purchase Date</div>
+                <div class="spec-val" id="spec-purchase-date">-</div>
+              </div>
+              <div class="spec-item">
+                <div class="spec-label">Sold Date</div>
+                <div class="spec-val" id="spec-sold-date">-</div>
+              </div>
+              <div class="spec-item">
+                <div class="spec-label">Sale Status</div>
+                <div class="spec-val" id="spec-sale-status" style="color:#DC2626; font-weight:800;">SOLD OUT</div>
               </div>
             </div>
-            <div style="margin-top:1rem; padding-top:1rem; border-top:1px solid #E2E8F0;">
-              <div class="spec-label">Condition & Description</div>
-              <p style="font-size:0.9rem; color:var(--text-main); margin-top:5px; line-height:1.55;" id="spec-desc">No description available.</p>
+            <div style="margin-top:1rem; padding-top:0.85rem; border-top:1px solid var(--border-color);">
+              <span class="spec-label">Vehicle Description</span>
+              <p style="font-size:0.88rem; color:var(--text-main); margin-top:4px; line-height:1.6;" id="spec-desc">-</p>
             </div>
           </div>
 
-          <!-- Customer Enquiry History -->
-          <div class="card-box">
+          <!-- Section 3: Documents (RC Book, Insurance, Identity Proof, Additional Docs) -->
+          <div class="card-box" id="ownership-docs-card-box">
             <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-comments" style="color:var(--primary);"></i> Customer Enquiry Leads</h3>
-              <span id="enquiry-count-badge" style="font-size:0.8rem; font-weight:800; color:var(--text-muted);">0 Leads</span>
+              <h3 class="card-box-title"><i class="fas fa-file-shield" style="color:var(--primary);"></i> 3. Verification Documents</h3>
+              <span id="ownership-doc-count" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#EFF6FF; color:#1E40AF;">0 DOCS</span>
             </div>
-            <div style="overflow-x:auto;">
-              <table class="enquiries-table">
-                <thead>
-                  <tr>
-                    <th>Lead Name</th>
-                    <th>Contact</th>
-                    <th>Message</th>
-                    <th>Date</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="enquiries-tbody">
-                  <tr><td colspan="5" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No enquiries recorded for this listing.</td></tr>
-                </tbody>
-              </table>
+            <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1rem;">
+              Seller ownership documents & sale proof files stored securely in TiDB Cloud. Access restricted strictly to authorized staff.
+            </div>
+            <div id="ownership-docs-list" style="display:flex; flex-direction:column; gap:8px;">
+              <div style="text-align:center; padding:1.5rem; color:var(--text-muted); background:#F8FAFC; border-radius:8px; border:1px dashed #CBD5E1;">
+                No private documents uploaded for this unit yet.
+              </div>
             </div>
           </div>
 
         </div>
 
-        <!-- Right Column: Superadmin Financials, Buyer/Sale details, Seller & Lifecycle -->
+        <!-- Right Column: Section 4 Financials (Superadmin Only), Section 2 Customer/Seller Details, Lifecycle -->
         <div>
           
-          <!-- Superadmin Financial Ledger Card -->
+          <!-- Section 4: Superadmin Financial Details (Superadmin Only) -->
           <div class="card-box" id="financial-card-box" style="display:none; border-color:#BFDBFE; background:#F8FAFC;">
             <div class="card-box-header" style="border-bottom-color:#DBEAFE;">
-              <h3 class="card-box-title" style="color:#1E40AF;"><i class="fas fa-chart-line" style="color:#2563EB;"></i> Deal Financials (Superadmin Only)</h3>
+              <h3 class="card-box-title" style="color:#1E40AF;"><i class="fas fa-chart-line" style="color:#2563EB;"></i> 4. Financial Details (Superadmin Only)</h3>
               <span id="fin-verified-badge" style="font-size:0.75rem; background:#DCFCE7; color:#166534; padding:3px 9px; border-radius:9999px; font-weight:800;">CONFIDENTIAL</span>
             </div>
 
-            <div class="fin-dashboard-grid">
-              <div class="fin-tile highlight-buying">
-                <div class="fin-tile-label" style="color:#1E40AF;">Original Buying Price</div>
-                <div class="fin-tile-val" id="fin-buying-price">₹0</div>
-                <div class="fin-tile-sub"><span>Purchase Cost</span></div>
-              </div>
-              <div class="fin-tile highlight-selling">
-                <div class="fin-tile-label" style="color:#C2410C;">Selling Price</div>
-                <div class="fin-tile-val" id="fin-selling-price" style="color:#EA580C;">₹0</div>
-                <div class="fin-tile-sub"><span>Realized / Target</span></div>
+            <!-- Prices Row -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; margin-bottom:0.85rem;">
+              <div class="fin-tile">
+                <div class="fin-tile-label">Customer Expected Price</div>
+                <div class="fin-tile-val" id="fin-expected-price" style="font-size:1.15rem; color:#475569;">₹0</div>
+                <div class="fin-tile-sub"><span>Seller Expectation</span></div>
               </div>
               <div class="fin-tile">
-                <div class="fin-tile-label">Total Expenses</div>
+                <div class="fin-tile-label">Admin Suggested Price</div>
+                <div class="fin-tile-val" id="fin-suggested-price" style="font-size:1.15rem; color:#2563EB;">₹0</div>
+                <div class="fin-tile-sub"><span>Showroom Target</span></div>
+              </div>
+            </div>
+
+            <!-- Financial Ledger Tiles -->
+            <div class="fin-dashboard-grid">
+              <div class="fin-tile highlight-buying">
+                <div class="fin-tile-label" style="color:#1E40AF;">Buying Price</div>
+                <div class="fin-tile-val" id="fin-buying-price">₹0</div>
+                <div class="fin-tile-sub"><span>Acquisition Cost</span></div>
+              </div>
+              <div class="fin-tile highlight-selling">
+                <div class="fin-tile-label" style="color:#C2410C;">Final Selling Price</div>
+                <div class="fin-tile-val" id="fin-selling-price" style="color:#EA580C;">₹0</div>
+                <div class="fin-tile-sub"><span>Realized Amount</span></div>
+              </div>
+              <div class="fin-tile">
+                <div class="fin-tile-label">Other Recorded Expenses</div>
                 <div class="fin-tile-val" id="fin-total-expenses">₹0</div>
                 <div class="fin-tile-sub">
-                  <span>Repair: <strong id="fin-repair-exp">₹0</strong></span>
-                  <span>Other: <strong id="fin-other-exp">₹0</strong></span>
+                  <span>Repairs: <strong id="fin-repair-exp">₹0</strong></span>
+                  <span>Overhead: <strong id="fin-other-exp">₹0</strong></span>
                 </div>
               </div>
               <div class="fin-tile highlight-profit">
-                <div class="fin-tile-label" style="color:#166534;">Net Profit & Margin</div>
+                <div class="fin-tile-label" style="color:#166534;">Net Profit</div>
                 <div class="fin-tile-val" id="fin-net-profit" style="color:#16A34A;">₹0</div>
                 <div class="fin-tile-sub">
-                  <span id="fin-gross-profit-sub">Gross: ₹0</span>
-                  <strong id="fin-margin-pct" style="color:#16A34A;">0.0% Margin</strong>
+                  <span>Gross: <strong id="fin-gross-profit-sub">₹0</strong></span>
+                  <strong id="fin-margin-pct" style="color:#16A34A;">0% Margin</strong>
                 </div>
               </div>
             </div>
 
-            <div style="font-size:0.82rem; color:var(--text-muted); background:#FFFFFF; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.75rem 1rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-              <span>Purchase Date: <strong id="fin-purchase-date" style="color:var(--text-main);">-</strong></span>
-              <span>Sale Date: <strong id="fin-sale-date" style="color:var(--text-main);">-</strong></span>
-              <span>Payment Status: <strong id="fin-payment-status" style="color:var(--text-main);">-</strong></span>
+            <div style="font-size:0.8rem; color:var(--text-muted); background:#FFFFFF; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.75rem 1rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
+              <span>Formula: <strong>Net Profit = Final Sale - Buying Price - Expenses</strong></span>
+              <span>Sold By: <strong id="fin-sold-by" style="color:var(--text-main);">admin</strong></span>
             </div>
           </div>
 
-          <!-- Customer / Buyer Information Card -->
+          <!-- Section 2: Customer (Buyer) Details -->
           <div class="card-box" id="buyer-card-box">
             <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-user-check" style="color:var(--primary);"></i> Customer / Buyer Details</h3>
-              <span id="buyer-status-pill" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#F1F5F9; color:#475569;">BUYER</span>
+              <h3 class="card-box-title"><i class="fas fa-user-check" style="color:var(--success);"></i> 2. Customer (Buyer) Details</h3>
+              <span style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#DCFCE7; color:#166534;">PURCHASER</span>
             </div>
             
-            <div id="buyer-active-deal" style="display:none; flex-direction:column; gap:10px;">
+            <div id="buyer-active-deal" style="display:flex; flex-direction:column; gap:10px;">
               <div class="specs-grid">
                 <div>
                   <span class="spec-label">Customer Name</span>
@@ -706,12 +605,12 @@
               </div>
               <div class="specs-grid">
                 <div>
-                  <span class="spec-label">Alternative Phone</span>
-                  <div class="spec-val" id="buyer-alt-phone">-</div>
-                </div>
-                <div>
                   <span class="spec-label">Email Address</span>
                   <div class="spec-val" id="buyer-email">-</div>
+                </div>
+                <div>
+                  <span class="spec-label">Alternative Phone</span>
+                  <div class="spec-val" id="buyer-alt-phone">-</div>
                 </div>
               </div>
               <div class="specs-grid">
@@ -725,79 +624,68 @@
                 </div>
               </div>
               <div>
-                <span class="spec-label">Street Address & PIN Code</span>
+                <span class="spec-label">Full Address & PIN</span>
                 <div class="spec-val" id="buyer-address">-</div>
               </div>
             </div>
 
-            <div id="buyer-not-sold-deal" style="text-align:center; padding:1.5rem 1rem; background:#F8FAFC; border-radius:var(--radius-sm); border:1px solid #E2E8F0;">
+            <div id="buyer-not-sold-deal" style="display:none; text-align:center; padding:1.5rem 1rem; background:#F8FAFC; border-radius:var(--radius-sm); border:1px solid #E2E8F0;">
               <i class="fas fa-warehouse" style="font-size:2rem; color:#94A3B8; margin-bottom:0.5rem;"></i>
-              <div style="font-size:0.95rem; font-weight:800; color:var(--text-main);">Active Dealership Inventory</div>
-              <p style="font-size:0.82rem; color:var(--text-muted); margin:0.35rem 0 0;">This motorcycle has not been sold yet. When marked as Sold Out, customer records and verification proofs will appear here.</p>
+              <div style="font-size:0.95rem; font-weight:800; color:var(--text-main);">No Buyer Record Attached</div>
+              <p style="font-size:0.82rem; color:var(--text-muted); margin:0.35rem 0 0;">Sold out without recorded walk-in retail details.</p>
             </div>
           </div>
 
-          <!-- Section C: Vehicle Ownership Documents (RC, Insurance, ID Proof) -->
-          <div class="card-box" id="ownership-docs-card-box" style="display:none;">
+          <!-- Section 2: Seller Information -->
+          <div class="card-box">
             <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-file-shield" style="color:var(--info);"></i> Vehicle Ownership Documents</h3>
-              <span id="ownership-doc-count" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#EFF6FF; color:#1E40AF;">0 DOCS</span>
+              <h3 class="card-box-title"><i class="fas fa-user-tag" style="color:var(--primary);"></i> 2. Seller Information</h3>
+              <span style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#EFF6FF; color:#1E40AF;">ORIGINAL OWNER</span>
             </div>
-            <div id="ownership-docs-list" style="display:flex; flex-direction:column; gap:8px;">
-              <!-- Populated dynamically via JS -->
-            </div>
-          </div>
-
-          <!-- Identity Verification & Proof Card (Sold Units Only) -->
-          <div class="card-box" id="proof-card-box" style="display:none;">
-            <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-id-card" style="color:var(--info);"></i> Identity Verification & Proof</h3>
-              <span id="proof-doc-type-pill" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#EFF6FF; color:#1E40AF;">ID PROOF</span>
-            </div>
-            
             <div style="display:flex; flex-direction:column; gap:10px;">
               <div class="specs-grid">
                 <div>
-                  <span class="spec-label">Document Type</span>
-                  <div class="spec-val" id="proof-type-val">-</div>
+                  <span class="spec-label">Seller Name</span>
+                  <div class="spec-val" id="seller-name" style="font-weight:800;">-</div>
                 </div>
                 <div>
-                  <span class="spec-label">Masked Reference No.</span>
-                  <div class="spec-val" id="proof-ref-val" style="font-family:monospace;">-</div>
+                  <span class="spec-label">Seller User ID</span>
+                  <div class="spec-val" id="seller-user-id" style="font-family:monospace;">#0</div>
                 </div>
               </div>
-
-              <!-- Attachment Box -->
-              <div id="proof-attachment-box" style="margin-top:0.35rem; padding:0.85rem 1rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-sm); display:flex; align-items:center; justify-content:space-between; gap:10px;">
-                <div style="display:flex; align-items:center; gap:10px; min-width:0;">
-                  <i class="fas fa-file-shield" style="font-size:1.6rem; color:var(--info); flex-shrink:0;"></i>
-                  <div style="min-width:0;">
-                    <div id="proof-file-name" style="font-size:0.85rem; font-weight:800; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">proof_document.pdf</div>
-                    <div id="proof-file-size" style="font-size:0.75rem; color:var(--text-muted);">0 KB • Restricted Document</div>
-                  </div>
+              <div class="specs-grid">
+                <div>
+                  <span class="spec-label">Mobile Number</span>
+                  <div class="spec-val" id="seller-phone">-</div>
                 </div>
-                <div id="proof-action-container">
-                  <a href="#" id="proof-download-btn" class="back-btn" style="padding:0.45rem 0.85rem; font-size:0.78rem; background:var(--info); color:#FFFFFF; border-color:var(--info); display:none;" target="_blank">
-                    <i class="fas fa-download"></i> Download Proof
-                  </a>
-                  <span id="proof-restricted-notice" style="font-size:0.75rem; color:var(--text-muted); font-weight:700; display:none;">
-                    <i class="fas fa-lock"></i> Superadmin Only
-                  </span>
+                <div>
+                  <span class="spec-label">Email Address</span>
+                  <div class="spec-val" id="seller-email">-</div>
+                </div>
+              </div>
+              <div class="specs-grid">
+                <div>
+                  <span class="spec-label">Submission Date</span>
+                  <div class="spec-val" id="seller-submit-date">-</div>
+                </div>
+                <div>
+                  <span class="spec-label">Submission Status</span>
+                  <div class="spec-val" id="seller-submit-status" style="text-transform:uppercase;">APPROVED</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Sale & Payment Details Card (Sold Units Only) -->
-          <div class="card-box" id="sale-payment-card-box" style="display:none;">
+          <!-- Sale & Payment Ledger -->
+          <div class="card-box" id="sale-payment-card-box">
             <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-receipt" style="color:var(--success);"></i> Sale & Payment Breakdown</h3>
+              <h3 class="card-box-title"><i class="fas fa-receipt" style="color:var(--success);"></i> Sale & Payment Record</h3>
               <span id="payment-status-badge" style="font-size:0.75rem; font-weight:800; padding:2px 8px; border-radius:4px; background:#DCFCE7; color:#166534;">FULL PAYMENT</span>
             </div>
             <div class="specs-grid">
               <div class="spec-item">
                 <div class="spec-label">Final Selling Price</div>
-                <div class="spec-val" id="sale-price-val" style="color:var(--primary); font-weight:800;">₹0</div>
+                <div class="spec-val" id="sale-price-val" style="color:#2563EB; font-weight:800;">₹0</div>
               </div>
               <div class="spec-item">
                 <div class="spec-label">Payment Method</div>
@@ -816,51 +704,6 @@
               <span class="spec-label">Sale Remarks & Notes</span>
               <p style="font-size:0.85rem; color:var(--text-main); margin-top:3px;" id="sale-notes-val">No special notes recorded.</p>
             </div>
-          </div>
-
-          <!-- Seller Information -->
-          <div class="card-box">
-            <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-user-tag" style="color:var(--primary);"></i> Seller Information</h3>
-            </div>
-            <div style="display:flex; flex-direction:column; gap:8px;">
-              <div>
-                <span class="spec-label">Seller Name</span>
-                <div class="spec-val" id="seller-name">SMR Motors Dealership</div>
-              </div>
-              <div>
-                <span class="spec-label">Contact Phone</span>
-                <div class="spec-val" id="seller-phone">+91 78452 15164</div>
-              </div>
-              <div>
-                <span class="spec-label">Email Address</span>
-                <div class="spec-val" id="seller-email">sales@smrmotors.com</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Listing & Sale Lifecycle Timeline -->
-          <div class="card-box">
-            <div class="card-box-header">
-              <h3 class="card-box-title"><i class="fas fa-clock-rotate-left" style="color:var(--primary);"></i> Audit & Lifecycle</h3>
-            </div>
-            <ul class="timeline-list">
-              <li class="timeline-item">
-                <div class="timeline-bullet approved"></div>
-                <div class="timeline-content-title">Listing Created</div>
-                <div class="timeline-content-desc" id="timeline-created">Timestamp recorded in database</div>
-              </li>
-              <li class="timeline-item">
-                <div class="timeline-bullet approved"></div>
-                <div class="timeline-content-title">Approved & Published</div>
-                <div class="timeline-content-desc" id="timeline-approved">Approved by administrator</div>
-              </li>
-              <li class="timeline-item" id="timeline-sold-item">
-                <div class="timeline-bullet sold"></div>
-                <div class="timeline-content-title">Marked as Sold Out</div>
-                <div class="timeline-content-desc" id="timeline-sold">Archived from live active inventory</div>
-              </li>
-            </ul>
           </div>
 
         </div>
@@ -952,113 +795,65 @@
 
     async function loadBikeFullDetails() {
       if (!bikeId) {
-        showError('Missing Motorcycle ID', 'Please specify a valid motorcycle ID in the URL parameter (?id=X).');
+        showError('Missing Motorcycle ID', 'Please specify a valid motorcycle ID (?id=X).');
         return;
       }
 
+      // Strict internal admin auth gate
       const token = getAdminToken();
-      if (token) {
-        try {
-          const res = await fetch(`/api/admin/sold-bikes/${bikeId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            if (data && data.success && data.data) {
-              currentBikeData = data.data;
-              isSuperAdmin = !!data.is_superadmin;
-              renderDetails(currentBikeData, 'admin');
-              return;
-            }
-          }
-        } catch (adminErr) {
-          console.warn('Admin fetch notice, falling back to public view:', adminErr);
-        }
+      if (!token) {
+        window.location.href = '/adminLogin.html';
+        return;
       }
 
-      // Public visitor flow: never redirect to login
       try {
-        const res = await fetch(`/api/bikes/${bikeId}`);
-        const data = await res.json();
-        if (res.ok && data) {
-          const bike = data.data || data;
-          currentBikeData = bike;
-          isSuperAdmin = false;
-          renderDetails(currentBikeData, 'public');
-        } else {
-          showError('Motorcycle Not Found', data.message || 'The requested motorcycle is not currently listed.');
+        const res = await fetch(`/api/admin/sold-bikes/${bikeId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.status === 401 || res.status === 403) {
+          window.location.href = '/adminLogin.html';
+          return;
         }
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          showError('Unable to Load Motorcycle', data.message || 'The requested motorcycle record is unavailable.');
+          return;
+        }
+
+        currentBikeData = data.data;
+        isSuperAdmin = !!data.is_superadmin;
+        renderDetails(currentBikeData);
+
       } catch (err) {
         showError('Connection Error', err.message || 'Unable to communicate with the TiDB backend server.');
       }
     }
 
-    function renderDetails(bike, viewRole = 'admin') {
+    function showError(title, desc) {
+      document.getElementById('loading-state').style.display = 'none';
+      document.getElementById('main-content').style.display = 'none';
+      document.getElementById('error-state').style.display = 'block';
+      document.getElementById('error-title').textContent = title;
+      document.getElementById('error-desc').textContent = desc;
+    }
+
+    function renderDetails(bike) {
       document.getElementById('loading-state').style.display = 'none';
       document.getElementById('main-content').style.display = 'block';
-
-      const isSold = !!bike.is_sold;
-      const statusStr = (bike.listing_status || bike.status || 'pending').toLowerCase();
-
-      // Top Back Button & Role Handling
-      const backBtn = document.getElementById('btn-back');
-      const exportGroup = document.querySelector('.export-btn-group');
-      if (viewRole === 'public') {
-        backBtn.href = '/SoldOutPage.html';
-        backBtn.innerHTML = '<i class="fas fa-arrow-left"></i> Back to Sold Gallery';
-        if (exportGroup) exportGroup.style.display = 'none';
-      } else {
-        backBtn.href = '/admin.html';
-        backBtn.innerHTML = isSold ? '<i class="fas fa-arrow-left"></i> Back to Sold Out Bikes' : '<i class="fas fa-arrow-left"></i> Back to Admin Dashboard';
-        if (exportGroup) exportGroup.style.display = 'flex';
-      }
 
       // Hero Banner
       document.getElementById('hero-title').textContent = bike.title || `${bike.brand} ${bike.model}`;
       document.getElementById('hero-bike-id').textContent = `#${bike.bike_id || bike.id}`;
-      if (viewRole === 'public') {
-        document.getElementById('hero-reg-no').textContent = bike.registration_number_masked || 'TN-**-****';
-      } else {
-        document.getElementById('hero-reg-no').textContent = bike.registration_number || 'TN-XX-XXXX';
-      }
+      document.getElementById('hero-reg-no').textContent = bike.registration_number || 'TN-XX-XXXX';
 
-      const statusBadge = document.getElementById('hero-status-badge');
-      const dateVal = document.getElementById('hero-date-val');
-      const dateItem = document.getElementById('hero-date-item');
-      const actorVal = document.getElementById('hero-actor-val');
-      const actorItem = document.getElementById('hero-actor-item');
-      const priceLabel = document.getElementById('hero-price-label');
-      const heroPrice = document.getElementById('hero-selling-price');
+      const saleP = bike.sale_info?.actual_sale_price || bike.price || 0;
+      document.getElementById('hero-selling-price').textContent = `₹${parseFloat(saleP).toLocaleString('en-IN')}`;
+      document.getElementById('hero-date-val').textContent = (bike.sale_info?.sold_at || bike.sold_at || '').substring(0, 10) || 'Archived';
+      document.getElementById('hero-actor-val').textContent = bike.sale_info?.sold_by || bike.sold_by || 'admin';
 
-      if (isSold) {
-        statusBadge.className = 'status-badge-hero sold';
-        statusBadge.innerHTML = '<i class="fas fa-tag"></i> SOLD OUT';
-        priceLabel.textContent = 'FINAL SELLING PRICE';
-        const saleP = bike.sale_info?.actual_sale_price || bike.price || 0;
-        heroPrice.textContent = `₹${parseFloat(saleP).toLocaleString('en-IN')}`;
-        heroPrice.style.color = '#EF4444';
-        dateItem.innerHTML = `<i class="fas fa-calendar-check"></i> Sold: <strong>${(bike.sale_info?.sold_at || '').substring(0, 10) || 'Archived'}</strong>`;
-        actorItem.innerHTML = `<i class="fas fa-user-shield"></i> Sold By: <strong>${bike.sale_info?.sold_by || 'admin'}</strong>`;
-      } else if (statusStr === 'approved') {
-        statusBadge.className = 'status-badge-hero approved';
-        statusBadge.innerHTML = '<i class="fas fa-check-circle"></i> APPROVED INVENTORY';
-        priceLabel.textContent = 'PUBLIC SELLING PRICE';
-        heroPrice.textContent = `₹${parseFloat(bike.public_selling_price || bike.price || 0).toLocaleString('en-IN')}`;
-        heroPrice.style.color = '#10B981';
-        dateItem.innerHTML = `<i class="fas fa-calendar"></i> Approved: <strong>${(bike.approval_history?.approved_at || '').substring(0, 10) || 'Active'}</strong>`;
-        actorItem.innerHTML = `<i class="fas fa-user-check"></i> Approved By: <strong>${bike.approval_history?.approved_by || 'admin'}</strong>`;
-      } else {
-        statusBadge.className = 'status-badge-hero pending';
-        statusBadge.innerHTML = `<i class="fas fa-clock"></i> ${statusStr.toUpperCase()}`;
-        priceLabel.textContent = 'TARGET PRICE';
-        heroPrice.textContent = `₹${parseFloat(bike.price || 0).toLocaleString('en-IN')}`;
-        heroPrice.style.color = '#F59E0B';
-        dateItem.innerHTML = `<i class="fas fa-calendar"></i> Listed: <strong>${(bike.approval_history?.created_at || '').substring(0, 10) || 'Recent'}</strong>`;
-        actorItem.innerHTML = `<i class="fas fa-user"></i> Status: <strong>${statusStr.toUpperCase()}</strong>`;
-      }
-
-      // Gallery Images
+      // Section 1: Gallery Images
       const images = (bike.images && bike.images.length > 0) ? bike.images : ['/static/images/IMG-20251204-WA0053.jpg'];
       document.getElementById('gallery-counter').textContent = `1 / ${images.length} Images`;
       document.getElementById('active-gallery-img').src = images[0];
@@ -1066,66 +861,83 @@
       const thumbsWrap = document.getElementById('thumbs-container');
       thumbsWrap.innerHTML = images.map((imgUrl, i) => `
         <div class="thumb-item ${i === 0 ? 'active' : ''}" onclick="selectThumb(this, '${imgUrl}', ${i+1}, ${images.length})">
-          <img src="${imgUrl}" alt="Thumbnail ${i+1}">
+          <img src="${imgUrl}" alt="Thumbnail ${i+1}" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';">
         </div>
       `).join('');
 
-      // Specs
+      // Section 1: Specifications
       document.getElementById('spec-brand-model').textContent = `${bike.brand} ${bike.model}`;
       document.getElementById('spec-year').textContent = bike.year || 2022;
+      document.getElementById('spec-reg').textContent = bike.registration_number || 'TN-XX-XXXX';
       document.getElementById('spec-kms').textContent = `${(bike.kilometers_driven || 0).toLocaleString()} km`;
-      if (viewRole === 'public') {
-        document.getElementById('spec-reg').textContent = bike.registration_number_masked || 'TN-**-****';
-      } else {
-        document.getElementById('spec-reg').textContent = bike.registration_number || 'TN-XX-XXXX';
-      }
       document.getElementById('spec-fuel').textContent = bike.fuel_type || 'Petrol';
       document.getElementById('spec-trans').textContent = bike.transmission || 'Manual';
       document.getElementById('spec-loc').textContent = bike.location || 'Salem Showroom';
-      document.getElementById('spec-price').textContent = `₹${parseFloat(bike.price || 0).toLocaleString('en-IN')}`;
+      document.getElementById('spec-purchase-date').textContent = (bike.purchase_date || bike.financials?.purchase_date || bike.created_at || '').substring(0, 10) || 'Stock';
+      document.getElementById('spec-sold-date').textContent = (bike.sale_info?.sold_at || bike.sold_at || '').substring(0, 10) || 'Delivered';
       document.getElementById('spec-desc').textContent = bike.description || 'Verified dealership motorcycle. Inspected and verified in showroom.';
-      document.getElementById('spec-status-pill').textContent = statusStr.toUpperCase();
 
-      // Seller Info
-      const s = bike.seller || {};
-      document.getElementById('seller-name').textContent = s.name || 'SMR Motors Dealership';
-      document.getElementById('seller-phone').textContent = s.phone || '+91 78452 15164';
-      document.getElementById('seller-email').textContent = s.email || 'dealership@smrmotors.com';
-
-      // Section D: Superadmin Financials (Superadmin Only)
-      const finBox = document.getElementById('financial-card-box');
-      const editFinBtn = document.getElementById('btn-edit-financials');
-      const enqBox = document.getElementById('enquiry-card-box');
-      if (viewRole === 'admin' && isSuperAdmin && bike.financials) {
-        finBox.style.display = 'block';
-        if (editFinBtn) editFinBtn.style.display = 'inline-flex';
-
-        const f = bike.financials;
-        document.getElementById('fin-buying-price').textContent = f.formatted_buying_price || `₹${parseFloat(f.buying_price || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-selling-price').textContent = f.formatted_selling_price || `₹${parseFloat(f.selling_price || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-total-expenses').textContent = f.formatted_total_expenses || `₹${parseFloat(f.total_expenses || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-repair-exp').textContent = f.formatted_repair_expenses || `₹${parseFloat(f.repair_expenses || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-other-exp').textContent = f.formatted_other_expenses || `₹${parseFloat(f.other_expenses || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-net-profit').textContent = f.formatted_net_profit || `₹${parseFloat(f.net_profit || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-gross-profit-sub').textContent = `Gross: ${f.formatted_gross_profit || '₹0'}`;
-        document.getElementById('fin-margin-pct').textContent = `${f.profit_margin_pct || 0}% Margin`;
-
-        document.getElementById('fin-purchase-date').textContent = (f.purchase_date || bike.approval_history?.created_at || '').substring(0, 10) || 'Dealership Stock';
-        document.getElementById('fin-sale-date').textContent = (f.sale_date || bike.sale_info?.sold_at || '').substring(0, 10) || (isSold ? 'Completed' : 'Inventory Active');
-        document.getElementById('fin-payment-status').textContent = f.payment_status || (isSold ? (bike.sale_info?.payment_status || 'Full Payment') : 'In Stock');
-      } else {
-        finBox.style.display = 'none';
-        if (editFinBtn) editFinBtn.style.display = 'none';
+      // Section 3: Documents (RC, Insurance, Identity Proof, Others)
+      const ownBox = document.getElementById('ownership-docs-card-box');
+      const docsList = document.getElementById('ownership-docs-list');
+      const allDocs = bike.bike_documents || [];
+      if (bike.proof_document) {
+        allDocs.push({
+          doc_type: bike.proof_document.document_type || 'Identity Proof',
+          file_name: bike.proof_document.file_name || 'Buyer_ID_Proof.pdf',
+          created_at: bike.proof_document.uploaded_at,
+          status: 'approved',
+          remarks: 'Verified purchaser identity proof on deal completion',
+          download_url: bike.proof_document.download_url
+        });
       }
 
-      // Section B: Buyer Info Section (Admin/Superadmin Only)
-      const buyerBox = document.getElementById('buyer-card-box');
+      if (allDocs.length > 0) {
+        document.getElementById('ownership-doc-count').textContent = `${allDocs.length} DOCS`;
+        const typeLabels = {
+          'rc_book': 'RC Book (Registration Certificate)',
+          'insurance': 'Insurance Policy',
+          'owner_id': 'Owner Identity Proof',
+          'other': 'Other Vehicle Document'
+        };
+
+        const token = getAdminToken();
+        const tokenParam = encodeURIComponent(token || '');
+
+        docsList.innerHTML = allDocs.map(d => {
+          const typeName = typeLabels[d.doc_type] || d.doc_type;
+          const stBadge = d.status === 'approved' ? '<span class="status-badge-hero" style="background:#DCFCE7; color:#166534; font-size:0.72rem; padding:2px 8px;">VERIFIED</span>' :
+                         (d.status === 'rejected' ? '<span class="status-badge-hero" style="background:#FEE2E2; color:#991B1B; font-size:0.72rem; padding:2px 8px;">REJECTED</span>' :
+                         '<span class="status-badge-hero" style="background:#FEF3C7; color:#92400E; font-size:0.72rem; padding:2px 8px;">PENDING REVIEW</span>');
+          const dlUrl = d.download_url ? `${d.download_url}?token=${tokenParam}` : '#';
+
+          return `
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.85rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:10px;">
+              <div>
+                <div style="font-size:0.88rem; font-weight:800; color:var(--text-main);">${typeName}</div>
+                <div style="font-size:0.75rem; color:var(--text-muted);">${d.file_name} • Uploaded ${(d.created_at || '').substring(0, 10)}</div>
+                ${d.remarks ? `<div style="font-size:0.75rem; color:#DC2626; margin-top:3px;"><strong>Remark:</strong> ${d.remarks}</div>` : ''}
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                ${stBadge}
+                ${d.download_url ? `
+                  <a href="${dlUrl}" target="_blank" class="back-btn" style="padding:0.4rem 0.8rem; font-size:0.78rem; background:var(--primary); color:#FFFFFF; border-color:var(--primary);">
+                    <i class="fas fa-download"></i> View / Download
+                  </a>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        document.getElementById('ownership-doc-count').textContent = '0 DOCS';
+        docsList.innerHTML = '<div style="text-align:center; padding:1.5rem; color:var(--text-muted); background:#F8FAFC; border-radius:8px; border:1px dashed #CBD5E1;">No private ownership documents uploaded for this unit.</div>';
+      }
+
+      // Section 2: Customer (Buyer) Details
       const buyerActiveDeal = document.getElementById('buyer-active-deal');
       const buyerNotSold = document.getElementById('buyer-not-sold-deal');
-
-      if (viewRole === 'public') {
-        if (buyerBox) buyerBox.style.display = 'none';
-      } else if (isSold && bike.customer) {
+      if (bike.customer) {
         buyerActiveDeal.style.display = 'flex';
         buyerNotSold.style.display = 'none';
         const c = bike.customer;
@@ -1141,207 +953,100 @@
         buyerNotSold.style.display = 'block';
       }
 
-      // Section C: Ownership Documents & Proof (Admin/Superadmin Only)
-      const ownBox = document.getElementById('ownership-docs-card-box');
-      const proofCard = document.getElementById('proof-card-box');
+      // Section 2: Seller Details
+      const s = bike.seller || {};
+      document.getElementById('seller-name').textContent = s.name || 'SMR Motors Dealership';
+      document.getElementById('seller-user-id').textContent = s.id ? `#${s.id}` : '#Showroom';
+      document.getElementById('seller-phone').textContent = s.phone || '+91 78452 15164';
+      document.getElementById('seller-email').textContent = s.email || 'dealership@smrmotors.com';
+      document.getElementById('seller-submit-date').textContent = (s.submission_date || bike.created_at || '').substring(0, 10) || 'Inventory Stock';
+      document.getElementById('seller-submit-status').textContent = (s.submission_status || bike.listing_status || 'Sold Out').toUpperCase();
 
-      if (viewRole === 'public') {
-        if (ownBox) ownBox.style.display = 'none';
-        if (proofCard) proofCard.style.display = 'none';
+      // Section 4: Superadmin Financials (Superadmin Only)
+      const finBox = document.getElementById('financial-card-box');
+      const editFinBtn = document.getElementById('btn-edit-financials');
+      if (isSuperAdmin && bike.financials) {
+        finBox.style.display = 'block';
+        if (editFinBtn) editFinBtn.style.display = 'inline-flex';
+
+        const f = bike.financials;
+        document.getElementById('fin-expected-price').textContent = f.formatted_customer_expected_price || `₹${parseFloat(f.customer_expected_price || bike.price || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-suggested-price').textContent = f.formatted_admin_suggested_price || `₹${parseFloat(f.admin_suggested_price || bike.public_selling_price || bike.price || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-buying-price').textContent = f.formatted_buying_price || `₹${parseFloat(f.buying_price || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-selling-price').textContent = f.formatted_selling_price || `₹${parseFloat(f.selling_price || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-total-expenses').textContent = f.formatted_total_expenses || `₹${parseFloat(f.total_expenses || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-repair-exp').textContent = f.formatted_repair_expenses || `₹${parseFloat(f.repair_expenses || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-other-exp').textContent = f.formatted_other_expenses || `₹${parseFloat(f.other_expenses || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-net-profit').textContent = f.formatted_net_profit || `₹${parseFloat(f.net_profit || 0).toLocaleString('en-IN')}`;
+        document.getElementById('fin-gross-profit-sub').textContent = f.formatted_gross_profit || '₹0';
+        document.getElementById('fin-margin-pct').textContent = `${f.profit_margin_pct || 0}% Margin`;
+        document.getElementById('fin-sold-by').textContent = bike.sale_info?.sold_by || 'admin';
       } else {
-        // Render bike_documents
-        const bDocs = bike.bike_documents || [];
-        if (ownBox) {
-          if (bDocs.length > 0) {
-            ownBox.style.display = 'block';
-            document.getElementById('ownership-doc-count').textContent = `${bDocs.length} DOCS`;
-            document.getElementById('ownership-docs-list').innerHTML = bDocs.map(d => {
-              const typeLabel = {
-                'rc_book': 'RC Book (Registration Certificate)',
-                'insurance': 'Insurance Policy',
-                'owner_id': 'Owner Identity Proof',
-                'other': 'Other Vehicle Document'
-              }[d.doc_type] || (d.doc_type || 'Document').toUpperCase();
-
-              const stBadge = d.status === 'approved' ? '<span class="status-badge-hero approved" style="font-size:0.7rem; padding:2px 8px;">VERIFIED</span>' :
-                             (d.status === 'rejected' ? '<span class="status-badge-hero sold" style="font-size:0.7rem; padding:2px 8px;">REJECTED</span>' :
-                             '<span class="status-badge-hero pending" style="font-size:0.7rem; padding:2px 8px;">PENDING REVIEW</span>');
-
-              const tokenParam = encodeURIComponent(getAdminToken() || '');
-              return `
-                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.75rem 1rem; display:flex; justify-content:space-between; align-items:center; gap:10px;">
-                  <div>
-                    <div style="font-size:0.85rem; font-weight:800; color:var(--text-main);">${typeLabel}</div>
-                    <div style="font-size:0.75rem; color:var(--text-muted);">${d.file_name} • Uploaded ${d.created_at.substring(0, 10)}</div>
-                    ${d.remarks ? `<div style="font-size:0.75rem; color:#DC2626; margin-top:2px;">Remark: ${d.remarks}</div>` : ''}
-                  </div>
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    ${stBadge}
-                    <a href="${d.download_url}?token=${tokenParam}" target="_blank" class="back-btn" style="padding:0.35rem 0.65rem; font-size:0.75rem; background:var(--info); color:#FFFFFF; border-color:var(--info);">
-                      <i class="fas fa-download"></i> View
-                    </a>
-                  </div>
-                </div>
-              `;
-            }).join('');
-          } else {
-            ownBox.style.display = 'none';
-          }
-        }
+        finBox.style.display = 'none';
+        if (editFinBtn) editFinBtn.style.display = 'none';
       }
 
-      if (viewRole !== 'public' && isSold && bike.proof_document) {
-        proofCard.style.display = 'block';
-        const p = bike.proof_document;
-        document.getElementById('proof-type-val').textContent = p.document_type || 'Not Provided';
-        document.getElementById('proof-ref-val').textContent = p.document_ref_masked || 'None';
-        document.getElementById('proof-doc-type-pill').textContent = (p.document_type || 'PROOF').toUpperCase();
-
-        if (p.file_name) {
-          document.getElementById('proof-attachment-box').style.display = 'flex';
-          document.getElementById('proof-file-name').textContent = p.file_name;
-          const szKb = (p.file_size / 1024).toFixed(1);
-          document.getElementById('proof-file-size').textContent = `${szKb} KB • Uploaded ${(p.uploaded_at || '').substring(0, 10)}`;
-
-          const dlBtn = document.getElementById('proof-download-btn');
-          const restNotice = document.getElementById('proof-restricted-notice');
-          if (isSuperAdmin && p.download_url) {
-            dlBtn.style.display = 'inline-flex';
-            dlBtn.href = `${p.download_url}?token=${encodeURIComponent(getAdminToken())}`;
-            restNotice.style.display = 'none';
-          } else {
-            dlBtn.style.display = 'none';
-            restNotice.style.display = 'inline-block';
-          }
-        } else {
-          document.getElementById('proof-attachment-box').style.display = 'none';
-        }
-      } else {
-        proofCard.style.display = 'none';
-      }
-
-      // Sale & Payment Card (Staff Admin / Superadmin)
-      const saleCard = document.getElementById('sale-payment-card-box');
-      if (viewRole === 'public') {
-        if (saleCard) saleCard.style.display = 'none';
-      } else if (isSold && bike.sale_info) {
-        saleCard.style.display = 'block';
-        const si = bike.sale_info;
-        document.getElementById('sale-price-val').textContent = si.formatted_sale_price || `₹${parseFloat(si.actual_sale_price || 0).toLocaleString('en-IN')}`;
-        document.getElementById('sale-payment-method-val').textContent = si.payment_method || 'Cash';
-        document.getElementById('payment-status-badge').textContent = (si.payment_status || 'FULL PAYMENT').toUpperCase();
-        document.getElementById('sale-advance-val').textContent = `₹${parseFloat(si.advance_amount || 0).toLocaleString('en-IN')}`;
-        document.getElementById('sale-remaining-val').textContent = `₹${parseFloat(si.remaining_amount || 0).toLocaleString('en-IN')}`;
-        document.getElementById('sale-notes-val').textContent = si.notes || 'No special sale remarks.';
-      } else {
-        saleCard.style.display = 'none';
-      }
-
-      // Lifecycle Timeline
-      const appHistory = bike.approval_history || {};
-      const soldItem = document.getElementById('timeline-sold-item');
-      document.getElementById('timeline-created').textContent = appHistory.created_at ? `Listed on ${appHistory.created_at.substring(0, 16).replace('T', ' ')}` : 'Listing submitted to inspection queue';
-      document.getElementById('timeline-approved').textContent = `Approved by ${appHistory.approved_by || 'admin'} on ${(appHistory.approved_at || '').substring(0, 16).replace('T', ' ')}`;
-      if (isSold) {
-        soldItem.style.display = 'block';
-        document.getElementById('timeline-sold').textContent = `Sold by ${bike.sale_info?.sold_by || 'admin'} on ${(bike.sale_info?.sold_at || '').substring(0, 16).replace('T', ' ')}`;
-      } else {
-        soldItem.style.display = 'none';
-      }
-
-      // Enquiries Table
-      const enqs = bike.enquiries || [];
-      document.getElementById('enquiry-count-badge').textContent = `${enqs.length} Leads`;
-      const enqTbody = document.getElementById('enquiries-tbody');
-      if (enqs.length === 0) {
-        enqTbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:1.5rem; color:var(--text-muted);">No customer enquiries recorded for this motorcycle.</td></tr>';
-      } else {
-        enqTbody.innerHTML = enqs.map(e => `
-          <tr>
-            <td><strong>${e.name || 'Lead'}</strong></td>
-            <td><div>${e.phone || '-'}</div><div style="font-size:0.75rem; color:var(--text-muted);">${e.email || ''}</div></td>
-            <td style="max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.message || '-'}</td>
-            <td><span style="font-size:0.78rem; color:var(--text-muted);">${(e.created_at || '').substring(0, 10)}</span></td>
-            <td><span style="display:inline-block; padding:2px 8px; border-radius:4px; font-size:0.75rem; font-weight:700; text-transform:uppercase; background:#E2E8F0; color:#334155;">${e.status || 'pending'}</span></td>
-          </tr>
-        `).join('');
-      }
+      // Sale & Payment Card
+      const si = bike.sale_info || {};
+      document.getElementById('sale-price-val').textContent = si.formatted_sale_price || `₹${parseFloat(si.actual_sale_price || 0).toLocaleString('en-IN')}`;
+      document.getElementById('sale-payment-method-val').textContent = si.payment_method || 'Cash';
+      document.getElementById('payment-status-badge').textContent = (si.payment_status || 'FULL PAYMENT').toUpperCase();
+      document.getElementById('sale-advance-val').textContent = `₹${parseFloat(si.advance_amount || 0).toLocaleString('en-IN')}`;
+      document.getElementById('sale-remaining-val').textContent = `₹${parseFloat(si.remaining_amount || 0).toLocaleString('en-IN')}`;
+      document.getElementById('sale-notes-val').textContent = si.notes || 'No special notes recorded.';
     }
 
     function selectThumb(el, url, idx, total) {
+      document.getElementById('active-gallery-img').src = url;
       document.querySelectorAll('.thumb-item').forEach(t => t.classList.remove('active'));
       el.classList.add('active');
-      const mainImg = document.getElementById('active-gallery-img');
-      mainImg.src = url;
       document.getElementById('gallery-counter').textContent = `${idx} / ${total} Images`;
     }
 
-    function showError(title, desc) {
-      document.getElementById('loading-state').style.display = 'none';
-      document.getElementById('main-content').style.display = 'none';
-      document.getElementById('error-state').style.display = 'block';
-      document.getElementById('error-title').textContent = title;
-      document.getElementById('error-desc').textContent = desc;
-    }
-
-    function downloadSalePdf() {
-      const token = getAdminToken();
-      window.open(`/api/admin/reports/bikes.pdf?status=sold&token=${encodeURIComponent(token)}`, '_blank');
-    }
-
-    function downloadSaleExcel() {
-      const token = getAdminToken();
-      window.open(`/api/admin/reports/bikes.xlsx?status=sold&token=${encodeURIComponent(token)}`, '_blank');
-    }
-
-    // ==========================================
-    // Superadmin Edit Financials
-    // ==========================================
+    // Modal Edit Financials logic (Superadmin Only)
     function openEditFinancialsModal() {
-      if (!currentBikeData || !isSuperAdmin) return;
+      if (!isSuperAdmin || !currentBikeData) return;
       const f = currentBikeData.financials || {};
       document.getElementById('edit-fin-buying').value = f.buying_price || 0;
       document.getElementById('edit-fin-repair').value = f.repair_expenses || 0;
       document.getElementById('edit-fin-other').value = f.other_expenses || 0;
       recalcEditFinancialsPreview();
-      document.getElementById('modal-edit-financials').classList.add('active');
+      document.getElementById('modal-edit-financials').style.display = 'flex';
     }
 
     function closeEditFinancialsModal() {
-      document.getElementById('modal-edit-financials').classList.remove('active');
+      document.getElementById('modal-edit-financials').style.display = 'none';
     }
 
     function recalcEditFinancialsPreview() {
-      const sp = parseFloat(currentBikeData?.sale_info?.actual_sale_price || currentBikeData?.price || 0);
-      const bp = parseFloat(document.getElementById('edit-fin-buying')?.value) || 0;
-      const rep = parseFloat(document.getElementById('edit-fin-repair')?.value) || 0;
-      const oth = parseFloat(document.getElementById('edit-fin-other')?.value) || 0;
-      const totExp = rep + oth;
-      const netProf = sp - bp - totExp;
-      const margin = sp > 0 ? ((netProf / sp) * 100).toFixed(1) : '0.0';
+      const bp = parseFloat(document.getElementById('edit-fin-buying').value || 0);
+      const rep = parseFloat(document.getElementById('edit-fin-repair').value || 0);
+      const oth = parseFloat(document.getElementById('edit-fin-other').value || 0);
+      const sp = parseFloat(currentBikeData?.financials?.selling_price || currentBikeData?.sale_info?.actual_sale_price || currentBikeData?.price || 0);
 
-      document.getElementById('edit-prev-totexp').textContent = `₹${totExp.toLocaleString('en-IN')}`;
-      const netProfEl = document.getElementById('edit-prev-netprofit');
-      netProfEl.textContent = `₹${netProf.toLocaleString('en-IN')}`;
-      netProfEl.style.color = netProf >= 0 ? '#16A34A' : '#DC2626';
+      const totexp = rep + oth;
+      const net = sp - bp - totexp;
+      const margin = sp > 0 ? ((net / sp) * 100).toFixed(1) : 0;
+
+      document.getElementById('edit-prev-totexp').textContent = `₹${totexp.toLocaleString('en-IN')}`;
+      document.getElementById('edit-prev-netprofit').textContent = `₹${net.toLocaleString('en-IN')}`;
+      document.getElementById('edit-prev-netprofit').style.color = net >= 0 ? '#16A34A' : '#DC2626';
       document.getElementById('edit-prev-margin').textContent = `${margin}%`;
     }
 
     async function saveUpdatedFinancials() {
-      const saveBtn = document.getElementById('btn-save-financials');
-      if (saveBtn) {
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-      }
+      const bp = parseFloat(document.getElementById('edit-fin-buying').value || 0);
+      const rep = parseFloat(document.getElementById('edit-fin-repair').value || 0);
+      const oth = parseFloat(document.getElementById('edit-fin-other').value || 0);
 
-      const bp = parseFloat(document.getElementById('edit-fin-buying')?.value) || 0;
-      const rep = parseFloat(document.getElementById('edit-fin-repair')?.value) || 0;
-      const oth = parseFloat(document.getElementById('edit-fin-other')?.value) || 0;
+      const btn = document.getElementById('btn-save-financials');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
 
       try {
         const token = getAdminToken();
         const res = await fetch(`/api/admin/bikes/${bikeId}/financials`, {
-          method: 'PUT',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`
@@ -1352,23 +1057,30 @@
             other_expenses: oth
           })
         });
-
         const data = await res.json();
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'Failed to update financials.');
+        if (res.ok && data.success) {
+          showDetailToast('Financial ledger updated successfully!', 'success');
+          closeEditFinancialsModal();
+          await loadBikeFullDetails();
+        } else {
+          showDetailToast(data.message || 'Failed to update financials', 'error');
         }
-
-        showDetailToast('Financial ledger updated successfully in TiDB!', 'success');
-        closeEditFinancialsModal();
-        await loadBikeFullDetails();
       } catch (err) {
-        showDetailToast(err.message || 'Failed to save financials.', 'error');
+        showDetailToast(err.message || 'Connection error', 'error');
       } finally {
-        if (saveBtn) {
-          saveBtn.disabled = false;
-          saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Financials';
-        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-save"></i> Save Financials';
       }
+    }
+
+    function downloadSalePdf() {
+      const token = getAdminToken();
+      window.open(`/api/admin/reports/bikes/${bikeId}/pdf?token=${encodeURIComponent(token || '')}`, '_blank');
+    }
+
+    function downloadSaleExcel() {
+      const token = getAdminToken();
+      window.open(`/api/admin/reports/bikes/${bikeId}/excel?token=${encodeURIComponent(token || '')}`, '_blank');
     }
 
     document.addEventListener('DOMContentLoaded', loadBikeFullDetails);

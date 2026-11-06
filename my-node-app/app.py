@@ -13,7 +13,7 @@ from html import escape
 from functools import wraps
 import jwt
 from dotenv import load_dotenv
-from flask import Flask, request, jsonify, render_template, send_from_directory, g, session
+from flask import Flask, request, jsonify, render_template, send_from_directory, g, session, redirect
 from flask_cors import CORS
 from report_generator import generate_pdf_report, generate_excel_report
 
@@ -1313,14 +1313,20 @@ def bike_details():
 def sold_out_page():
     return render_template("SoldOutPage.html")
 
+@app.route("/admin-sold-bike-details.html")
+@app.route("/admin-sold-bike-details")
 @app.route("/admin/sold-bike-details.html")
-@app.route("/sold-bike-details.html")
 @app.route("/admin/sold-bike-details")
 @app.route("/admin/bike-details.html")
 @app.route("/admin/bike-details")
 @app.route("/bike-details-admin")
 def sold_bike_details_page():
-    return render_template("sold-bike-details.html")
+    return render_template("admin-sold-bike-details.html")
+
+@app.route("/sold-bike-details.html")
+def public_sold_details_redirect():
+    # Public sold details page is removed; redirect to public Sold-Out gallery
+    return redirect("/SoldOutPage.html")
 
 @app.route("/about")
 @app.route("/about.html")
@@ -1645,9 +1651,9 @@ def get_sold_bikes_api():
     except (ValueError, TypeError):
         page = 1
     try:
-        limit = max(1, int(request.args.get("limit", 9)))
+        limit = max(1, int(request.args.get("limit", 8)))
     except (ValueError, TypeError):
-        limit = 9
+        limit = 8
 
     search = (request.args.get("search") or "").lower().strip()
     brand = request.args.get("brand")
@@ -2320,9 +2326,9 @@ def admin_enquiries_api():
     except (ValueError, TypeError):
         page = 1
     try:
-        limit = max(1, int(request.args.get("limit", 10)))
+        limit = max(1, int(request.args.get("limit", 6)))
     except (ValueError, TypeError):
-        limit = 10
+        limit = 6
 
     all_enquiries = []
     conn = get_db()
@@ -5704,6 +5710,10 @@ def admin_sold_bike_detail_api(bike_id):
     rep = float(bike.get("repair_expenses") or (sold_record.get("repair_expense") if sold_record else 0.0) or 0.0)
     oth = float(bike.get("other_expenses") or (sold_record.get("other_expense") if sold_record else (bike.get("expenses") or 0.0)) or 0.0)
     fin_data = calculate_bike_financials(bp, sp, rep, oth)
+    fin_data["customer_expected_price"] = float(bike.get("price") or 0.0)
+    fin_data["admin_suggested_price"] = float(bike.get("suggested_price") or bike.get("public_selling_price") or bike.get("price") or 0.0)
+    fin_data["formatted_customer_expected_price"] = f"₹{float(bike.get('price') or 0.0):,.0f}"
+    fin_data["formatted_admin_suggested_price"] = f"₹{float(bike.get('suggested_price') or bike.get('public_selling_price') or bike.get('price') or 0.0):,.0f}"
     fin_data["purchase_date"] = str(bike.get("purchase_date") or "")
     fin_data["sale_date"] = str(bike.get("sold_at") or (sold_record.get("sold_at") if sold_record else "") or "")
     fin_data["payment_status"] = (sold_record.get("payment_status") if sold_record else None) or bike.get("payment_status") or "Full Payment"
