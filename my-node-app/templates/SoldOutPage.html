@@ -161,7 +161,7 @@
     window.cardSliderState = window.cardSliderState || {};
 
     function getSuperadminToken() {
-      const adminToken = localStorage.getItem('smr_admin_token') || sessionStorage.getItem('smr_admin_token');
+      const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || localStorage.getItem('smr_admin_token') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken') || sessionStorage.getItem('smr_admin_token');
       if (adminToken) {
         try {
           const payload = JSON.parse(atob(adminToken.split('.')[1]));

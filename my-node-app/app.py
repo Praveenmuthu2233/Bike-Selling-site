@@ -968,16 +968,23 @@ def admin_required(f):
         parts = header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
+        token_str = parts[1].strip()
+        if not token_str or token_str.lower() in ("null", "undefined", "none", "false", ""):
+            return jsonify({"success": False, "message": "Admin authorization token is missing or invalid. Please log in."}), 401
         try:
             import jwt
-            decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+            decoded = jwt.decode(token_str, JWT_SECRET, algorithms=["HS256"])
             role = normalize_admin_role(decoded.get("role"))
             if not role:
                 return jsonify({"success": False, "message": "Access Forbidden: Administrative privileges required."}), 403
             decoded["role"] = role
             g.admin = decoded
-        except Exception:
-            return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({"success": False, "message": "Admin session has expired. Please log in again."}), 401
+        except jwt.InvalidTokenError as ite:
+            return jsonify({"success": False, "message": f"Invalid admin authorization token: {str(ite)}"}), 401
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Admin authentication error: {str(e)}"}), 401
         return f(*args, **kwargs)
     return wrapper
 
@@ -991,9 +998,12 @@ def superadmin_required(f):
         parts = header.split()
         if len(parts) != 2 or parts[0].lower() != "bearer":
             return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
+        token_str = parts[1].strip()
+        if not token_str or token_str.lower() in ("null", "undefined", "none", "false", ""):
+            return jsonify({"success": False, "message": "Admin authorization token is missing or invalid. Please log in."}), 401
         try:
             import jwt
-            decoded = jwt.decode(parts[1], JWT_SECRET, algorithms=["HS256"])
+            decoded = jwt.decode(token_str, JWT_SECRET, algorithms=["HS256"])
             role = normalize_admin_role(decoded.get("role"))
             if role != "superadmin":
                 return jsonify({
@@ -1002,8 +1012,12 @@ def superadmin_required(f):
                 }), 403
             decoded["role"] = role
             g.admin = decoded
-        except Exception:
-            return jsonify({"success": False, "message": "Expired or invalid admin session"}), 401
+        except jwt.ExpiredSignatureError:
+            return jsonify({"success": False, "message": "Admin session has expired. Please log in again."}), 401
+        except jwt.InvalidTokenError as ite:
+            return jsonify({"success": False, "message": f"Invalid admin authorization token: {str(ite)}"}), 401
+        except Exception as e:
+            return jsonify({"success": False, "message": f"Admin authentication error: {str(e)}"}), 401
         return f(*args, **kwargs)
     return wrapper
 

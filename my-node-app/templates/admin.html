@@ -3043,9 +3043,19 @@
       else if (typeof pauseAdminChatPolling === 'function') pauseAdminChatPolling();
     }
 
+    // Centralized Admin Token Helper (inspects all standard & legacy keys)
+    function getAdminToken() {
+      return localStorage.getItem('admin_token') ||
+             localStorage.getItem('adminToken') ||
+             localStorage.getItem('smr_admin_token') ||
+             sessionStorage.getItem('admin_token') ||
+             sessionStorage.getItem('adminToken') ||
+             sessionStorage.getItem('smr_admin_token') || '';
+    }
+
     // Authentication Guard
     function checkAdminAuth() {
-      const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken');
+      const token = getAdminToken();
       const userStr = localStorage.getItem('admin_user') || localStorage.getItem('adminUser') || sessionStorage.getItem('admin_user') || sessionStorage.getItem('adminUser');
       
       if (!token) {
@@ -3103,10 +3113,12 @@
     function adminLogout() {
       localStorage.removeItem('admin_token');
       localStorage.removeItem('adminToken');
+      localStorage.removeItem('smr_admin_token');
       localStorage.removeItem('admin_user');
       localStorage.removeItem('adminUser');
       sessionStorage.removeItem('admin_token');
       sessionStorage.removeItem('adminToken');
+      sessionStorage.removeItem('smr_admin_token');
       sessionStorage.removeItem('admin_user');
       sessionStorage.removeItem('adminUser');
       window.location.href = '/admin/login.html?logout=true';
@@ -3114,9 +3126,11 @@
 
     // Authenticated API Fetcher
     async function apiRequest(url, options = {}) {
-      const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken');
+      const token = getAdminToken();
       const headers = options.headers || {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (token && !headers['Authorization']) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
       const isFormData = (typeof FormData !== 'undefined') && (options.body instanceof FormData);
       if (!headers['Content-Type'] && !isFormData) {
         headers['Content-Type'] = 'application/json';
@@ -3125,13 +3139,15 @@
         options.body = JSON.stringify(options.body);
       }
       options.headers = headers;
-      
-      const res = await fetch(url, options);
-      if (res.status === 401) {
-        if (!options.skipAuthRedirect) {
-          adminLogout();
-        }
-        throw new Error('Session expired. Please log in again.');
+
+      let res;
+      try {
+        res = await fetch(url, options);
+      } catch (netErr) {
+        const err = new Error('Network or connection error. Please check your internet connection.');
+        err.status = 0;
+        err.originalError = netErr;
+        throw err;
       }
 
       // Safely read response text and attempt JSON parse
@@ -3146,8 +3162,32 @@
         data = { message: rawText || `HTTP ${res.status}: ${res.statusText || 'Server Error'}` };
       }
 
+      if (res.status === 401) {
+        const errMsg = (data && (data.message || data.error)) || 'Session expired or unauthorized. Please log in again.';
+        const err = new Error(errMsg);
+        err.status = 401;
+        err.data = data;
+        if (options.forceAuthRedirect) {
+          adminLogout();
+        }
+        throw err;
+      }
+
+      if (res.status === 403) {
+        const errMsg = (data && (data.message || data.error)) || 'Access Forbidden: Insufficient permissions for this action.';
+        const err = new Error(errMsg);
+        err.status = 403;
+        err.data = data;
+        throw err;
+      }
+
       if (!res.ok) {
-        const errorMsg = (data && (data.message || data.error)) || rawText || `Server request failed (HTTP ${res.status})`;
+        let errorMsg = (data && (data.message || data.error)) || rawText;
+        if (!errorMsg) {
+          if (res.status === 400) errorMsg = 'Invalid request parameters. Please verify input fields.';
+          else if (res.status === 500) errorMsg = 'Internal server error. Please try again.';
+          else errorMsg = `Server request failed (HTTP ${res.status})`;
+        }
         const err = new Error(errorMsg);
         err.status = res.status;
         err.data = data;
@@ -4324,18 +4364,12 @@
       }
 
       try {
-        const token = localStorage.getItem('smr_admin_token') || sessionStorage.getItem('smr_admin_token');
-        const res = await fetch(`/api/admin/bikes/${id}/sold`, {
+        const resData = await apiRequest(`/api/admin/bikes/${id}/sold`, {
           method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
           body: fd
         });
-        const resData = await res.json();
-        if (!res.ok || !resData.success) {
-          throw new Error(resData.message || 'Sale registration failed.');
-        }
 
-        showToast('Motorcycle sale finalized and moved to sales archive!', 'success');
+        showToast(resData.message || 'Motorcycle sale finalized and moved to sales archive!', 'success');
         closeModal('modal-mark-sold');
         await Promise.all([
           loadAdminBikes(currentBikeTab, 1),

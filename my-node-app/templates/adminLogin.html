@@ -124,10 +124,12 @@
         if (res.token) {
           localStorage.setItem('admin_token', res.token);
           localStorage.setItem('adminToken', res.token);
+          localStorage.setItem('smr_admin_token', res.token);
           localStorage.setItem('admin_user', JSON.stringify(res.admin));
           localStorage.setItem('adminUser', JSON.stringify(res.admin));
           sessionStorage.setItem('admin_token', res.token);
           sessionStorage.setItem('adminToken', res.token);
+          sessionStorage.setItem('smr_admin_token', res.token);
           sessionStorage.setItem('admin_user', JSON.stringify(res.admin));
           sessionStorage.setItem('adminUser', JSON.stringify(res.admin));
           showToast('Admin authentication confirmed!', 'success');
