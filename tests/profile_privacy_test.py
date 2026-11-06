@@ -84,7 +84,7 @@ class TestProfilePrivacyFooter(unittest.TestCase):
             # Check footer requirements
             self.assertIn("SMR MOTORS", html)
             self.assertIn("Verified Pre-Owned Motorcycles Marketplace", html)
-            self.assertIn("praveenmuthu9500@gmail.com", html)
+            self.assertIn("praja055@gmail.com", html)
             self.assertIn("9:30 AM – 8:30 PM", html)
             self.assertIn("2026 SMR Motors. All Rights Reserved.", html)
         print("[PASS] Test 02: Privacy Policy page content and professional footer verified.")
@@ -103,7 +103,7 @@ class TestProfilePrivacyFooter(unittest.TestCase):
             self.assertIn("Documentation, RC Transfer", html)
             self.assertIn("Pricing Variations & Inventory Availability", html)
             self.assertIn("Limitation of Liability", html)
-            self.assertIn("praveenmuthu9500@gmail.com", html)
+            self.assertIn("praja055@gmail.com", html)
             self.assertIn("2026 SMR Motors. All Rights Reserved.", html)
         print("[PASS] Test 03: Disclaimer page advisory clauses and footer links verified.")
 

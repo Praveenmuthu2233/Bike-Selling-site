@@ -262,6 +262,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         name: formData.get('name'),
         email: formData.get('email'),
         phone: formData.get('phone'),
+        subject: formData.get('subject') || 'General Inquiry',
         message: formData.get('message')
       };
 

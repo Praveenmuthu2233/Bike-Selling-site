@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS bikes (
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS bikesforsale (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    brand TEXT NOT NULL,
-    model TEXT NOT NULL,
-    price REAL NOT NULL,
-    images TEXT
+    listingTitle TEXT,
+    makedFrom TEXT,
+    bikeModel TEXT,
+    sellingPrice REAL,
+    bikePrice REAL
 )
 """)
 
@@ -110,7 +110,7 @@ cursor.execute("INSERT INTO admins (id, username, role) VALUES (1, 'admin', 'sup
 
 # Seed bikes
 cursor.execute("INSERT INTO bikes (id, title, brand, model, price, images) VALUES (10, 'Yamaha R15 V4', 'Yamaha', 'R15', 185000, '[]')")
-cursor.execute("INSERT INTO bikesforsale (id, title, brand, model, price, images) VALUES (20, 'KTM Duke 390', 'KTM', 'Duke 390', 295000, '[]')")
+cursor.execute("INSERT INTO bikesforsale (id, listingTitle, makedFrom, bikeModel, sellingPrice) VALUES (20, 'KTM Duke 390', 'KTM', 'Duke 390', 295000)")
 
 # Conversation 1: Karthik - Open, Unread (bike 10)
 cursor.execute("INSERT INTO chat_conversations (id, user_id, bike_id, subject, status) VALUES (1, 1, 10, 'Yamaha R15 Test Ride', 'open')")

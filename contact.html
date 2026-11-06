@@ -81,31 +81,61 @@
             <h2 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Send Us a Message</h2>
             <p style="color: var(--text-secondary); margin-bottom: 2rem;">We typically respond within 2-4 business hours.</p>
 
-            <form id="contact-form">
+            <form id="contact-form" onsubmit="handleContactSubmit(event)" novalidate>
               <div style="display: flex; flex-direction: column; gap: 1.25rem;">
+                <!-- Full Name -->
                 <div>
-                  <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Name *</label>
-                  <input type="text" name="name" class="form-control" required placeholder="e.g. Rahul Sharma">
+                  <label for="contact-name" style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">
+                    Full Name <span style="color: var(--accent-primary);">*</span>
+                  </label>
+                  <input type="text" id="contact-name" name="name" class="form-control" required placeholder="e.g. Rahul Sharma" autocomplete="name">
+                  <div class="field-error" id="err-name" style="display: none; color: #EF4444; font-size: 0.78rem; margin-top: 0.25rem;">Please enter your full name (minimum 2 characters).</div>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                <!-- Email & Mobile Row -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;" class="contact-inputs-row">
                   <div>
-                    <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Email Address *</label>
-                    <input type="email" name="email" class="form-control" required placeholder="name@example.com">
+                    <label for="contact-email" style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">
+                      Email Address <span style="color: var(--accent-primary);">*</span>
+                    </label>
+                    <input type="email" id="contact-email" name="email" class="form-control" required placeholder="name@example.com" autocomplete="email">
+                    <div class="field-error" id="err-email" style="display: none; color: #EF4444; font-size: 0.78rem; margin-top: 0.25rem;">Please enter a valid email address.</div>
                   </div>
+
                   <div>
-                    <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Phone Number</label>
-                    <input type="tel" name="phone" class="form-control" placeholder="10-digit mobile">
+                    <label for="contact-phone" style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">
+                      Mobile Number <span style="color: var(--accent-primary);">*</span>
+                    </label>
+                    <input type="tel" id="contact-phone" name="phone" class="form-control" required placeholder="10-digit mobile number" autocomplete="tel">
+                    <div class="field-error" id="err-phone" style="display: none; color: #EF4444; font-size: 0.78rem; margin-top: 0.25rem;">Please enter a valid mobile number (at least 10 digits).</div>
                   </div>
                 </div>
 
+                <!-- Subject -->
                 <div>
-                  <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Message *</label>
-                  <textarea name="message" class="form-control" rows="5" required placeholder="Tell us how we can help you..."></textarea>
+                  <label for="contact-subject" style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">
+                    Subject <span style="color: var(--accent-primary);">*</span>
+                  </label>
+                  <input type="text" id="contact-subject" name="subject" class="form-control" required placeholder="e.g. Inquiry about Royal Enfield / Price Valuation">
+                  <div class="field-error" id="err-subject" style="display: none; color: #EF4444; font-size: 0.78rem; margin-top: 0.25rem;">Please provide an inquiry subject.</div>
                 </div>
 
-                <button type="submit" class="btn btn-lg btn-primary" style="margin-top: 0.5rem;">
-                  <i class="fas fa-paper-plane"></i> Send Message
+                <!-- Message -->
+                <div>
+                  <label for="contact-message" style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">
+                    Message <span style="color: var(--accent-primary);">*</span>
+                  </label>
+                  <textarea id="contact-message" name="message" class="form-control" rows="5" required placeholder="Tell us how we can help you (minimum 10 characters)..."></textarea>
+                  <div class="field-error" id="err-message" style="display: none; color: #EF4444; font-size: 0.78rem; margin-top: 0.25rem;">Message must be at least 10 characters long.</div>
+                </div>
+
+                <!-- Form Feedback Container -->
+                <div id="contact-form-feedback" style="display: none; padding: 0.85rem 1.2rem; border-radius: var(--radius-md); font-size: 0.9rem;"></div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="contact-submit-btn" class="btn btn-lg btn-primary" style="margin-top: 0.5rem; justify-content: center;">
+                  <span id="btn-text"><i class="fas fa-paper-plane"></i> Send Message</span>
+                  <span id="btn-spinner" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Sending message...</span>
                 </button>
               </div>
             </form>
@@ -122,9 +152,13 @@
                 Plot No. 42, Main Bypass Highway Road,<br>
                 Near City Junction, Landmark Automotive Zone.
               </p>
-              <div style="display: flex; gap: 0.75rem;">
+              <div style="display: flex; gap: 0.75rem; margin-bottom: 1rem;">
                 <a href="https://maps.google.com" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-directions"></i> Get Directions</a>
-                <a href="tel:+919876543210" class="btn btn-sm btn-secondary"><i class="fas fa-phone"></i> Call Now</a>
+                <a href="tel:+917845215164" class="btn btn-sm btn-secondary"><i class="fas fa-phone"></i> Call Now</a>
+              </div>
+              <div style="padding-top: 0.75rem; border-top: 1px solid var(--border-subtle); font-size: 0.92rem; color: var(--text-secondary); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-envelope" style="color: var(--accent-primary);"></i>
+                <a href="mailto:praja055@gmail.com" style="color: inherit; text-decoration: none;">praja055@gmail.com</a>
               </div>
             </div>
 
@@ -149,7 +183,7 @@
               <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
                 Need quick photos, RC document scans, or price negotiations? Chat directly with our sales team on WhatsApp.
               </p>
-              <a href="https://wa.me/919876543210" target="_blank" class="btn btn-success" style="width: 100%;">
+              <a href="https://wa.me/917845215164" target="_blank" class="btn btn-success" style="width: 100%;">
                 <i class="fab fa-whatsapp"></i> Chat on WhatsApp
               </a>
             </div>
@@ -164,7 +198,7 @@
     <div class="container">
       <div class="footer-bottom">
         <div>&copy; 2026 SMR Motors. All rights reserved.</div>
-        <div>Showroom enquiries: +91 98765 43210</div>
+        <div>Showroom enquiries: +91 78452 15164</div>
       </div>
     </div>
   </footer>

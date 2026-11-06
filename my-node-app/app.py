@@ -112,8 +112,8 @@ SMTP_HOST = os.getenv("SMTP_HOST", "")
 SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "praveenmuthu9500@gmail.com")
-CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "praveenmuthu9500@gmail.com")
+SMTP_FROM_EMAIL = os.getenv("SMTP_FROM_EMAIL", SMTP_USER or "praja055@gmail.com")
+CONTACT_RECEIVER_EMAIL = os.getenv("CONTACT_RECEIVER_EMAIL", "praja055@gmail.com")
 
 def send_email_notification(to_email, subject, body_text, body_html=None):
     """
@@ -2063,6 +2063,35 @@ def enquiries_api():
             "status": status,
             "created_at": datetime.datetime.utcnow().isoformat()
         }
+
+        # Send enquiry notification to showroom owner / admin
+        try:
+            enq_email_subject = f"SMR Motors - New Enquiry for {bike_title}"
+            enq_email_body = f"""SMR MOTORS - NEW MOTORCYCLE ENQUIRY
+===========================================
+A customer has submitted a new enquiry for an active motorcycle listing:
+
+Listing:       {bike_title} (ID #{bike_id})
+Customer Name: {name}
+Email Address: {email}
+Mobile Number: {phone}
+Enquiry ID:    #{new_id}
+
+Message:
+-------------------------------------------
+{msg}
+-------------------------------------------
+
+Timestamp: {datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}
+Manage enquiries in the Admin Portal: https://bike-selling-site-lco8.onrender.com/admin.html?tab=enquiries
+"""
+            send_email_notification(
+                to_email=CONTACT_RECEIVER_EMAIL,
+                subject=enq_email_subject,
+                body_text=enq_email_body
+            )
+        except Exception as em_err:
+            print("[Enquiry Email Notice]:", em_err)
         # Enquiry saved permanently in TiDB Cloud
         return jsonify({"success": True, "message": "Enquiry submitted successfully", "id": new_id}), 201
 
@@ -2264,8 +2293,8 @@ Best regards,
 Sales & Customer Relations Team
 SMR Motors – Used Motorcycle Marketplace
 Auto Hub, Main Bypass Road, Chennai
-Phone: +91 98765 43210
-Email: praveenmuthu9500@gmail.com
+Phone: +91 78452 15164
+Email: praja055@gmail.com
 """
     dispatch_success, dispatch_status = send_email_notification(
         to_email=cust_email,
@@ -2365,23 +2394,26 @@ def contact_submit_api():
     delivery_status = "pending"
 
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor()
-            cursor.execute(
-                """INSERT INTO contact_messages (name, email, phone, subject, message, status, email_delivery_status)
-                   VALUES (%s, %s, %s, %s, %s, 'unread', 'pending')""",
-                (name, email, phone, subject, message)
-            )
-            conn.commit()
-            new_id = cursor.lastrowid
-            cursor.close()
-            conn.close()
-        except Exception as e:
-            print("[Database] Contact save notice:", e)
-            if conn:
-                try: conn.close()
-                except Exception: pass
+    if not conn:
+        return jsonify({"success": False, "message": "Database service is currently unreachable. Please contact us directly at praja055@gmail.com or 7845215164."}), 503
+
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            """INSERT INTO contact_messages (name, email, phone, subject, message, status, email_delivery_status)
+               VALUES (%s, %s, %s, %s, %s, 'unread', 'pending')""",
+            (name, email, phone, subject, message)
+        )
+        conn.commit()
+        new_id = cursor.lastrowid
+        cursor.close()
+        conn.close()
+    except Exception as e:
+        print("[Database] Contact save error:", e)
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database Error: Could not record your message ({str(e)}). Please try again later."}), 500
 
     # 5. Dispatch Email to SMR Motors Admin / Owner
     admin_subject = "SMR Motors – New Contact Enquiry"
@@ -2432,8 +2464,8 @@ Showroom Information & Operating Hours:
 SMR Motors – Precision Automotive Marketplace
 Location: Auto Hub, Main Bypass Road, Chennai, Tamil Nadu
 Working Hours: Monday – Sunday: 9:30 AM – 8:30 PM (Asia/Kolkata)
-Support Hotline: +91 98765 43210 / +91 91234 56789
-Official Email: praveenmuthu9500@gmail.com
+Support Hotline: +91 78452 15164
+Official Email: praja055@gmail.com
 
 Warm regards,
 Customer Support Team
@@ -5796,8 +5828,8 @@ Best regards,
 Customer Relations & Sales Team
 SMR Motors – Used Motorcycle Marketplace
 Auto Hub, Main Bypass Road, Chennai
-Phone: +91 98765 43210
-Email: praveenmuthu9500@gmail.com
+Phone: +91 78452 15164
+Email: praja055@gmail.com
 Showroom Hours: Mon – Sun: 9:30 AM – 8:30 PM (Asia/Kolkata)
 """
     dispatch_success, dispatch_status = send_email_notification(
@@ -6943,11 +6975,11 @@ def get_user_chat_conversations():
                 SELECT 
                     c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
                     c.created_at, c.updated_at,
-                    COALESCE(b.title, bfs.title) AS bike_title,
-                    COALESCE(b.brand, bfs.brand) AS bike_brand,
-                    COALESCE(b.model, bfs.model) AS bike_model,
-                    COALESCE(b.price, bfs.price) AS bike_price,
-                    COALESCE(b.images, bfs.images) AS bike_images,
+                    COALESCE(b.title, bfs.listingTitle) AS bike_title,
+                    COALESCE(b.brand, bfs.makedFrom) AS bike_brand,
+                    COALESCE(b.model, bfs.bikeModel) AS bike_model,
+                    COALESCE(b.price, CAST(bfs.sellingPrice AS DECIMAL(12,2)), CAST(bfs.bikePrice AS DECIMAL(12,2))) AS bike_price,
+                    b.images AS bike_images,
                     (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
                     (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
                     (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
@@ -6962,12 +6994,14 @@ def get_user_chat_conversations():
             """, (caller_id,))
             rows = cursor.fetchall() or []
             for r in rows:
-                first_img = None
-                if r.get("bike_images"):
+                first_img = r.get("bike_primary_image")
+                if not first_img and r.get("bike_images"):
                     try:
                         imgs = json.loads(r["bike_images"]) if isinstance(r["bike_images"], str) else r["bike_images"]
                         if isinstance(imgs, list) and len(imgs) > 0:
                             first_img = imgs[0]
+                        elif isinstance(imgs, str):
+                            first_img = imgs
                     except Exception:
                         first_img = r["bike_images"]
                 conversations.append({
@@ -7064,6 +7098,20 @@ def create_chat_conversation():
         if bike_id:
             cursor.execute("SELECT id, title, brand, model, price, images FROM bikes WHERE id = %s", (bike_id,))
             bike_info = cursor.fetchone()
+            if not bike_info:
+                try:
+                    cursor.execute("SELECT id, listingTitle, makedFrom, bikeModel, sellingPrice, bikePrice FROM bikesforsale WHERE id = %s", (bike_id,))
+                    bfs_row = cursor.fetchone()
+                    if bfs_row:
+                        bike_info = {
+                            "id": bfs_row["id"],
+                            "title": bfs_row.get("listingTitle") or f"Motorcycle #{bike_id}",
+                            "brand": bfs_row.get("makedFrom") or "Motorcycle",
+                            "model": bfs_row.get("bikeModel") or "",
+                            "price": bfs_row.get("sellingPrice") or bfs_row.get("bikePrice")
+                        }
+                except Exception:
+                    pass
             if bike_info and not subject:
                 subject = f"Inquiry about {bike_info.get('title', 'Motorcycle')}"
 
@@ -7195,11 +7243,11 @@ def get_conversation_messages(conv_id):
         cursor = conn.cursor(dictionary=True)
         cursor.execute("""
             SELECT c.*,
-                   COALESCE(b.title, bfs.title) AS bike_title,
-                   COALESCE(b.brand, bfs.brand) AS bike_brand,
-                   COALESCE(b.model, bfs.model) AS bike_model,
-                   COALESCE(b.price, bfs.price) AS bike_price,
-                   COALESCE(b.images, bfs.images) AS bike_images,
+                   COALESCE(b.title, bfs.listingTitle) AS bike_title,
+                   COALESCE(b.brand, bfs.makedFrom) AS bike_brand,
+                   COALESCE(b.model, bfs.bikeModel) AS bike_model,
+                   COALESCE(b.price, CAST(bfs.sellingPrice AS DECIMAL(12,2)), CAST(bfs.bikePrice AS DECIMAL(12,2))) AS bike_price,
+                   b.images AS bike_images,
                    u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar
             FROM chat_conversations c
             LEFT JOIN bikes b ON c.bike_id = b.id
@@ -7218,12 +7266,14 @@ def get_conversation_messages(conv_id):
             conn.close()
             return jsonify({"success": False, "message": "Access forbidden: You can only access your own conversations."}), 403
 
-        first_img = None
-        if conv.get("bike_images"):
+        first_img = conv.get("bike_primary_image")
+        if not first_img and conv.get("bike_images"):
             try:
                 imgs = json.loads(conv["bike_images"]) if isinstance(conv["bike_images"], str) else conv["bike_images"]
                 if isinstance(imgs, list) and len(imgs) > 0:
                     first_img = imgs[0]
+                elif isinstance(imgs, str):
+                    first_img = imgs
             except Exception:
                 first_img = conv["bike_images"]
 
@@ -7443,11 +7493,11 @@ def admin_get_chat_conversations():
                 c.id, c.user_id, c.subject, c.bike_id, c.status, c.assigned_admin_id,
                 c.created_at, c.updated_at,
                 u.name AS customer_name, u.email AS customer_email, u.profile_image AS customer_avatar, u.phone AS customer_phone,
-                COALESCE(b.title, bfs.title) AS bike_title,
-                COALESCE(b.brand, bfs.brand) AS bike_brand,
-                COALESCE(b.model, bfs.model) AS bike_model,
-                COALESCE(b.price, bfs.price) AS bike_price,
-                COALESCE(b.images, bfs.images) AS bike_images,
+                COALESCE(b.title, bfs.listingTitle) AS bike_title,
+                COALESCE(b.brand, bfs.makedFrom) AS bike_brand,
+                COALESCE(b.model, bfs.bikeModel) AS bike_model,
+                COALESCE(b.price, CAST(bfs.sellingPrice AS DECIMAL(12,2)), CAST(bfs.bikePrice AS DECIMAL(12,2))) AS bike_price,
+                b.images AS bike_images,
                 (SELECT message FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message,
                 (SELECT sender_role FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_sender_role,
                 (SELECT created_at FROM chat_messages WHERE conversation_id = c.id ORDER BY id DESC LIMIT 1) AS last_message_at,
@@ -7484,12 +7534,14 @@ def admin_get_chat_conversations():
                 if search not in c_name and search not in c_email and search not in subj and search not in b_title:
                     continue
 
-            first_img = None
-            if r.get("bike_images"):
+            first_img = r.get("bike_primary_image")
+            if not first_img and r.get("bike_images"):
                 try:
                     imgs = json.loads(r["bike_images"]) if isinstance(r["bike_images"], str) else r["bike_images"]
                     if isinstance(imgs, list) and len(imgs) > 0:
                         first_img = imgs[0]
+                    elif isinstance(imgs, str):
+                        first_img = imgs
                 except Exception:
                     first_img = r["bike_images"]
 
