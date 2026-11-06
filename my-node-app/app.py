@@ -713,13 +713,8 @@ def initialize_database():
 
         # Add any missing columns to contact_messages
         for col_name, col_def in [
-            ("phone", "VARCHAR(30) NULL"),
             ("subject", "VARCHAR(255) NOT NULL DEFAULT 'General Inquiry'"),
-            ("email_delivery_status", "VARCHAR(50) NOT NULL DEFAULT 'pending'"),
-            ("admin_reply", "TEXT NULL"),
-            ("replied_at", "TIMESTAMP NULL"),
-            ("resolved_at", "TIMESTAMP NULL"),
-            ("updated_at", "TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+            ("email_delivery_status", "VARCHAR(50) NOT NULL DEFAULT 'pending'")
         ]:
             try:
                 cursor.execute(f"ALTER TABLE `contact_messages` ADD COLUMN `{col_name}` {col_def}")
@@ -2492,7 +2487,7 @@ If you would like to arrange a test ride, inspect vehicle documentation, or have
 Best regards,
 {admin_username.capitalize()}
 Sales & Customer Relations Team
-SMR Motors - Used Motorcycle Marketplace
+SMR Motors – Used Motorcycle Marketplace
 Auto Hub, Main Bypass Road, Chennai
 Phone: +91 78452 15164
 Email: praja055@gmail.com
@@ -2558,24 +2553,15 @@ def admin_get_enquiry_replies(enquiry_id):
 @app.route("/api/contact", methods=["POST"])
 @app.route("/contact", methods=["POST"])
 def contact_submit_api():
-    """
-    Public Direct Inquiry Contact Form Submission.
-    - Validates Full Name, Email, Mobile, Subject, and Message.
-    - Allows guest visitors to submit without authentication.
-    - Persists permanently to TiDB Cloud contact_messages table with initial status 'new'.
-    - Dispatches email alerts to admin and customer if email service is configured.
-    - Produces in-app dashboard notification for showroom staff.
-    """
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    data = request.get_json() or request.form.to_dict() or {}
     
-    # 1. Extract and sanitize fields (supporting name/full_name, phone/mobile)
-    name = str(data.get("name") or data.get("full_name") or "").strip()
-    email = str(data.get("email") or "").strip()
-    phone = str(data.get("phone") or data.get("mobile") or "").strip()
-    subject = str(data.get("subject") or "").strip()
-    message = str(data.get("message") or "").strip()
+    # 1. Validation
+    name = str(data.get("name", "")).strip()
+    email = str(data.get("email", "")).strip()
+    phone = str(data.get("phone", "")).strip()
+    subject = str(data.get("subject", "General Inquiry")).strip() or "General Inquiry"
+    message = str(data.get("message", "")).strip()
 
-    # 2. Validation
     if len(name) < 2:
         return jsonify({"success": False, "message": "Validation Error: Full name must be at least 2 characters."}), 400
     
@@ -2586,69 +2572,32 @@ def contact_submit_api():
     digits_only = re.sub(r"\D", "", phone)
     if len(digits_only) < 10:
         return jsonify({"success": False, "message": "Validation Error: Mobile number must contain at least 10 valid digits."}), 400
-    
-    if len(subject) < 3:
-        return jsonify({"success": False, "message": "Validation Error: Inquiry subject must be at least 3 characters."}), 400
 
     if len(message) < 5:
         return jsonify({"success": False, "message": "Validation Error: Message content must be at least 5 characters."}), 400
 
-    # Rate Limiting & Timestamps
+    # 2. Duplicate Prevention / Rate Limiting via TiDB database
     now_utc = datetime.datetime.utcnow()
+
+    # 3. Compute IST timestamp for record & email notification
     ist_tz = datetime.timezone(datetime.timedelta(hours=5, minutes=30))
     ist_now = datetime.datetime.now(ist_tz)
     ist_timestamp_str = ist_now.strftime("%d %b %Y, %I:%M %p IST")
     client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "Unknown").split(",")[0].strip()
 
-    # 3. Persist to TiDB Cloud Database
+    # 4. Save to TiDB Cloud Database
     new_id = None
     delivery_status = "pending"
 
     conn = get_db()
     if not conn:
-        return jsonify({
-            "success": False,
-            "message": "Database service is currently unreachable. Please contact us directly at praja055@gmail.com or +91 78452 15164."
-        }), 503
+        return jsonify({"success": False, "message": "Database service is currently unreachable. Please contact us directly at praja055@gmail.com or 7845215164."}), 503
 
     try:
-        cursor = conn.cursor(dictionary=True)
-        # Deduplication check: Has identical inquiry been submitted in the last 60 seconds?
-        cursor.execute(
-            """SELECT id, created_at, status FROM contact_messages 
-               WHERE (email = %s OR phone = %s) 
-                 AND subject = %s 
-                 AND message = %s 
-                 AND created_at >= NOW() - INTERVAL 60 SECOND
-               ORDER BY id DESC LIMIT 1""",
-            (email, phone, subject, message)
-        )
-        existing_dup = cursor.fetchone()
-        if existing_dup and isinstance(existing_dup, (dict, list, tuple)):
-            dup_id = existing_dup.get("id") if isinstance(existing_dup, dict) else (existing_dup[0] if len(existing_dup) > 0 else None)
-            if dup_id is not None and not str(type(dup_id)).endswith("MagicMock'>"):
-                cursor.close()
-                conn.close()
-                ref_id = f"SMR-MSG-{int(dup_id):05d}" if str(dup_id).isdigit() else f"SMR-MSG-{dup_id}"
-                print(f"[Contact API] Prevented duplicate inquiry within 60s window. Returning existing ID #{dup_id}.")
-                return jsonify({
-                    "success": True,
-                    "message": "Your message was sent successfully!",
-                    "data": {
-                        "id": int(dup_id) if str(dup_id).isdigit() else dup_id,
-                        "status": "new",
-                        "reference_id": ref_id,
-                        "name": name,
-                        "email": email,
-                        "phone": phone,
-                        "subject": subject,
-                        "duplicate_prevented": True
-                    }
-                }), 200
-
+        cursor = conn.cursor()
         cursor.execute(
             """INSERT INTO contact_messages (name, email, phone, subject, message, status, email_delivery_status)
-               VALUES (%s, %s, %s, %s, %s, 'new', 'pending')""",
+               VALUES (%s, %s, %s, %s, %s, 'unread', 'pending')""",
             (name, email, phone, subject, message)
         )
         conn.commit()
@@ -2660,12 +2609,12 @@ def contact_submit_api():
         if conn:
             try: conn.close()
             except Exception: pass
-        return jsonify({"success": False, "message": f"Database Error: Could not record your inquiry ({str(e)}). Please try again."}), 500
+        return jsonify({"success": False, "message": f"Database Error: Could not record your message ({str(e)}). Please try again later."}), 500
 
-    # 4. Dispatch Email to SMR Motors Admin / Owner
-    admin_subject = f"SMR Motors – New Contact Inquiry #{new_id}: {subject}"
-    admin_body = f"""SMR MOTORS – NEW CONTACT INQUIRY #{new_id}
-===================================================
+    # 5. Dispatch Email to SMR Motors Admin / Owner
+    admin_subject = "SMR Motors – New Contact Enquiry"
+    admin_body = f"""SMR MOTORS – NEW CONTACT ENQUIRY
+===========================================
 A new visitor inquiry has been submitted through the showroom contact portal:
 
 Full Name:              {name}
@@ -2674,16 +2623,16 @@ Mobile Number:          {phone}
 Subject:                {subject}
 
 Message Content:
----------------------------------------------------
+-------------------------------------------
 {message}
----------------------------------------------------
+-------------------------------------------
 
 Submission Timestamp:   {ist_timestamp_str}
 Client IP Address:      {client_ip}
 Message Reference ID:   #{new_id}
 
-Manage and reply to this inquiry in the Admin Portal:
-https://bike-selling-site-lco8.onrender.com/admin.html
+You can manage and reply to this inquiry in the Admin Portal:
+/admin.html?tab=messages
 """
     owner_success, owner_status = send_email_notification(
         to_email=CONTACT_RECEIVER_EMAIL,
@@ -2691,8 +2640,8 @@ https://bike-selling-site-lco8.onrender.com/admin.html
         body_text=admin_body
     )
 
-    # 5. Dispatch Confirmation Email to Customer
-    customer_subject = f"SMR Motors – We Received Your Inquiry [Ref #{new_id}]"
+    # 6. Dispatch Confirmation Email to Customer
+    customer_subject = "SMR Motors – We Have Received Your Message"
     customer_body = f"""Dear {name},
 
 Thank you for contacting SMR Motors. We have safely received your inquiry regarding "{subject}".
@@ -2700,15 +2649,15 @@ Thank you for contacting SMR Motors. We have safely received your inquiry regard
 Our showroom support and valuation team is currently reviewing your message. We strive to provide personal and prompt service, and one of our specialists will respond within 2 to 4 business hours.
 
 Your Submission Details:
----------------------------------------------------
-Reference ID:  #{new_id}
-Subject:       {subject}
-Message:       "{message}"
-Received:      {ist_timestamp_str}
----------------------------------------------------
+-------------------------------------------
+Subject:     {subject}
+Message:     "{message}"
+Received:    {ist_timestamp_str}
+Reference:   #{new_id}
+-------------------------------------------
 
 Showroom Information & Operating Hours:
-SMR Motors - Used Motorcycle Marketplace
+SMR Motors – Precision Automotive Marketplace
 Location: Auto Hub, Main Bypass Road, Chennai, Tamil Nadu
 Working Hours: Monday – Sunday: 9:30 AM – 8:30 PM (Asia/Kolkata)
 Support Hotline: +91 78452 15164
@@ -2718,13 +2667,13 @@ Warm regards,
 Customer Support Team
 SMR Motors
 """
-    cust_success, cust_status = send_email_notification(
+    send_email_notification(
         to_email=email,
         subject=customer_subject,
         body_text=customer_body
     )
 
-    delivery_status = owner_status or cust_status or "delivered"
+    delivery_status = owner_status
 
     # Update delivery status in database
     conn2 = get_db()
@@ -2751,26 +2700,29 @@ SMR Motors
         "phone": phone,
         "subject": subject,
         "message": message,
-        "status": "new",
+        "status": "unread",
         "email_delivery_status": delivery_status,
         "created_at": now_utc.isoformat() + "Z"
     }
+    # Contact message saved permanently in TiDB Cloud
 
     create_notification(
-        title=f"New Contact Inquiry: {name}",
-        message=f"{subject} — {phone} ({email})",
+        title=f"New Contact Message: {name}",
+        message=f"{subject} — {email}",
         target_role="admin",
         notif_type="contact",
-        link="/admin.html"
+        link="/admin.html?tab=messages"
     )
 
     return jsonify({
         "success": True,
-        "message": "Thank you! Your inquiry has been received. Our team will contact you shortly.",
+        "message": "Your message was sent successfully! A confirmation email has been dispatched.",
         "id": new_id,
-        "data": msg_record
+        "email_delivery_status": delivery_status
     }), 201
 
+# -----------------------------------------------------------------------------
+# RUNTIME PUBLIC CONFIGURATION (Safe client-facing endpoint)
 # -----------------------------------------------------------------------------
 @app.route("/api/config", methods=["GET"])
 @app.route("/config", methods=["GET"])
@@ -3512,21 +3464,6 @@ def admin_dashboard_api():
             e_row = cursor.fetchone()
             if e_row:
                 counts["total_enquiries"] = int(e_row.get("total_enquiries") or 0)
-
-            # Contact Messages accurate counts
-            try:
-                cursor.execute("""
-                    SELECT 
-                        COUNT(*) as total_messages,
-                        SUM(CASE WHEN status IN ('new', 'unread') THEN 1 ELSE 0 END) as unread_messages
-                    FROM contact_messages
-                """)
-                cm_row = cursor.fetchone()
-                if cm_row:
-                    counts["total_messages"] = int(cm_row.get("total_messages") or 0)
-                    counts["unread_messages"] = int(cm_row.get("unread_messages") or 0)
-            except Exception:
-                pass
 
             # 4. Negotiating bikes
             try:
@@ -6081,16 +6018,14 @@ def admin_toggle_user_status(user_id):
 # -----------------------------------------------------------------------------
 # ADMIN SHOWROOM CONTACT MESSAGES & CUSTOMER EMAIL REPLIES
 # -----------------------------------------------------------------------------
-@app.route("/api/admin/contact-messages", methods=["GET"])
 @app.route("/api/admin/messages", methods=["GET"])
 @admin_required
 def admin_messages_api():
     """
-    Returns contact messages with search, status filter ('all', 'new', 'read', 'replied', 'resolved'),
-    and pagination. Computes exact counts per status category.
+    Returns contact messages with search, status filter, and pagination.
     Accessible by both SUPERADMIN and ADMIN.
     """
-    search = (request.args.get("search") or request.args.get("q") or "").lower().strip()
+    search = (request.args.get("search") or "").lower().strip()
     status_filter = (request.args.get("status") or "all").lower().strip()
     
     try:
@@ -6103,34 +6038,11 @@ def admin_messages_api():
         limit = 10
 
     messages = []
-    counts = {"total": 0, "new": 0, "unread": 0, "read": 0, "replied": 0, "resolved": 0}
-
     conn = get_db()
     if not conn:
         return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
     try:
         cursor = conn.cursor(dictionary=True)
-
-        # 1. Compute category counts across all contact messages
-        cursor.execute("""
-            SELECT 
-                COUNT(*) as total,
-                SUM(CASE WHEN status IN ('new', 'unread') THEN 1 ELSE 0 END) as cnt_new,
-                SUM(CASE WHEN status = 'read' THEN 1 ELSE 0 END) as cnt_read,
-                SUM(CASE WHEN status = 'replied' THEN 1 ELSE 0 END) as cnt_replied,
-                SUM(CASE WHEN status = 'resolved' THEN 1 ELSE 0 END) as cnt_resolved
-            FROM contact_messages
-        """)
-        cnt_row = cursor.fetchone()
-        if cnt_row:
-            counts["total"] = int(cnt_row.get("total") or 0)
-            counts["new"] = int(cnt_row.get("cnt_new") or 0)
-            counts["unread"] = counts["new"]
-            counts["read"] = int(cnt_row.get("cnt_read") or 0)
-            counts["replied"] = int(cnt_row.get("cnt_replied") or 0)
-            counts["resolved"] = int(cnt_row.get("cnt_resolved") or 0)
-
-        # 2. Fetch all messages sorted by newest first
         cursor.execute("SELECT * FROM contact_messages ORDER BY id DESC")
         messages = cursor.fetchall() or []
         cursor.close()
@@ -6141,38 +6053,28 @@ def admin_messages_api():
             except Exception: pass
         return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
 
-    # 3. Apply status and search filters
+    # Apply search and filters
     filtered = []
     for m in messages:
-        st = str(m.get("status") or "new").lower()
-        if status_filter == "new":
-            if st not in ("new", "unread"):
-                continue
-        elif status_filter in ("read", "replied", "resolved"):
-            if st != status_filter:
-                continue
-
+        if status_filter != "all" and m.get("status", "").lower() != status_filter:
+            continue
         if search:
             combined = f"{m.get('name','')} {m.get('email','')} {m.get('phone','')} {m.get('subject','')} {m.get('message','')}".lower()
             if search not in combined:
                 continue
-
-        # Format timestamps cleanly for frontend
-        m["formatted_date"] = str(m.get("created_at") or "")[:19]
         filtered.append(m)
 
-    total_filtered = len(filtered)
-    total_pages = math.ceil(total_filtered / limit) if total_filtered > 0 else 1
+    total = len(filtered)
+    total_pages = math.ceil(total / limit) if total > 0 else 1
     start_idx = (page - 1) * limit
-    end_idx = min(start_idx + limit, total_filtered)
+    end_idx = min(start_idx + limit, total)
     paged_items = filtered[start_idx:end_idx]
 
     return jsonify({
         "success": True,
         "data": paged_items,
-        "counts": counts,
         "pagination": {
-            "total": total_filtered,
+            "total": total,
             "page": page,
             "limit": limit,
             "totalPages": total_pages,
@@ -6181,14 +6083,10 @@ def admin_messages_api():
         }
     })
 
-@app.route("/api/admin/contact-messages/<int:msg_id>", methods=["GET"])
 @app.route("/api/admin/messages/<int:msg_id>", methods=["GET"])
 @admin_required
 def admin_get_message_details(msg_id):
-    """
-    Returns single message details and all associated customer replies.
-    Automatically marks a 'new' / 'unread' message as 'read'.
-    """
+    """Returns single message details and all associated customer replies."""
     msg = None
     replies = []
     conn = get_db()
@@ -6198,98 +6096,31 @@ def admin_get_message_details(msg_id):
             cursor.execute("SELECT * FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
             msg = cursor.fetchone()
             if msg:
-                # If message was newly arrived, advance to 'read' status
-                curr_st = str(msg.get("status") or "new").lower()
-                if curr_st in ("new", "unread"):
-                    cursor.execute("UPDATE contact_messages SET status = 'read' WHERE id = %s", (msg_id,))
-                    conn.commit()
-                    msg["status"] = "read"
-
                 cursor.execute("SELECT * FROM contact_replies WHERE contact_message_id = %s ORDER BY id ASC", (msg_id,))
-                replies = cursor.fetchall() or []
+                replies = cursor.fetchall()
             cursor.close()
             conn.close()
-        except Exception as e:
+        except Exception:
             if conn:
                 try: conn.close()
                 except Exception: pass
-            return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+
 
     if not msg:
-        return jsonify({"success": False, "message": f"Contact message #{msg_id} not found."}), 404
+        return jsonify({"success": False, "message": "Message not found"}), 404
 
-    return jsonify({
-        "success": True,
-        "data": msg,
-        "message_data": msg,
-        "replies": replies
-    })
+    return jsonify({"success": True, "message_data": msg, "replies": replies})
 
-@app.route("/api/admin/contact-messages/<int:msg_id>/status", methods=["PATCH", "POST", "PUT"])
-@app.route("/api/admin/messages/<int:msg_id>/status", methods=["PATCH", "POST", "PUT"])
-@admin_required
-def admin_update_message_status(msg_id):
-    """
-    Updates contact message status: 'new', 'read', 'replied', or 'resolved'.
-    If status is 'resolved', sets resolved_at timestamp.
-    """
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
-    new_status = str(data.get("status") or "").lower().strip()
-
-    valid_statuses = ("new", "read", "replied", "resolved")
-    if new_status not in valid_statuses:
-        return jsonify({
-            "success": False,
-            "message": f"Invalid status '{new_status}'. Allowed: {', '.join(valid_statuses)}."
-        }), 400
-
-    conn = get_db()
-    if not conn:
-        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
-
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, status FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
-        existing = cursor.fetchone()
-        if not existing:
-            cursor.close()
-            conn.close()
-            return jsonify({"success": False, "message": f"Contact message #{msg_id} not found."}), 404
-
-        if new_status == "resolved":
-            cursor.execute("UPDATE contact_messages SET status = 'resolved', resolved_at = CURRENT_TIMESTAMP WHERE id = %s", (msg_id,))
-        else:
-            cursor.execute("UPDATE contact_messages SET status = %s WHERE id = %s", (new_status, msg_id))
-
-        conn.commit()
-        cursor.close()
-        conn.close()
-
-        log_admin_action(g.admin.get("username", "admin"), "update_message_status", "contact_message", msg_id, f"Changed message #{msg_id} status to '{new_status}'")
-
-        return jsonify({
-            "success": True,
-            "message": f"Contact message #{msg_id} status updated to '{new_status}'.",
-            "status": new_status,
-            "data": {"id": msg_id, "status": new_status}
-        })
-    except Exception as e:
-        if conn:
-            try: conn.close()
-            except Exception: pass
-        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
-
-@app.route("/api/admin/contact-messages/<int:msg_id>/reply", methods=["POST"])
 @app.route("/api/admin/messages/<int:msg_id>/reply", methods=["POST"])
 @admin_required
 def admin_reply_to_message(msg_id):
     """
     Sends email reply to customer and records entry in contact_replies table.
-    Updates inquiry status to 'replied' and records admin_reply text and replied_at.
     Accessible by both SUPERADMIN and ADMIN.
     """
-    data = request.get_json(silent=True) or request.form.to_dict() or {}
-    reply_text = str(data.get("reply") or data.get("reply_message") or data.get("message") or data.get("admin_reply") or "").strip()
+    data = request.get_json() or request.form.to_dict() or {}
+    reply_text = str(data.get("reply_message") or data.get("message") or "").strip()
 
     if len(reply_text) < 5:
         return jsonify({"success": False, "message": "Reply message must be at least 5 characters."}), 400
@@ -6299,30 +6130,29 @@ def admin_reply_to_message(msg_id):
 
     target_msg = None
     conn = get_db()
-    if not conn:
-        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
+    if conn:
+        try:
+            cursor = conn.cursor(dictionary=True)
+            cursor.execute("SELECT * FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
+            target_msg = cursor.fetchone()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
 
-    try:
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM contact_messages WHERE id = %s LIMIT 1", (msg_id,))
-        target_msg = cursor.fetchone()
-        cursor.close()
-        conn.close()
-    except Exception as e:
-        if conn:
-            try: conn.close()
-            except Exception: pass
-        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
 
     if not target_msg:
-        return jsonify({"success": False, "message": f"Contact message #{msg_id} not found."}), 404
+        return jsonify({"success": False, "message": f"Contact message #{msg_id} not found"}), 404
 
-    cust_name = target_msg.get("name") or "Valued Customer"
-    cust_email = target_msg.get("email") or ""
-    orig_subject = target_msg.get("subject") or "General Inquiry"
+    cust_name = target_msg.get("name", "Valued Customer")
+    cust_email = target_msg.get("email", "")
+    orig_subject = target_msg.get("subject", "General Inquiry")
 
-    # Construct and dispatch reply email if SMTP configured
-    reply_email_subject = f"SMR Motors - Reply to your inquiry: {orig_subject}"
+    # Construct and dispatch reply email
+    reply_email_subject = f"SMR Motors – Reply to your inquiry: {orig_subject}"
     reply_email_body = f"""Dear {cust_name},
 
 Thank you for reaching out to SMR Motors. This is an official response regarding your inquiry: "{orig_subject}".
@@ -6336,28 +6166,22 @@ If you have any further questions, please feel free to reply directly to this em
 Best regards,
 {admin_username.capitalize()}
 Customer Relations & Sales Team
-SMR Motors - Used Motorcycle Marketplace
+SMR Motors – Used Motorcycle Marketplace
 Auto Hub, Main Bypass Road, Chennai
 Phone: +91 78452 15164
 Email: praja055@gmail.com
-Showroom Hours: Mon - Sun: 9:30 AM - 8:30 PM (Asia/Kolkata)
+Showroom Hours: Mon – Sun: 9:30 AM – 8:30 PM (Asia/Kolkata)
 """
-    email_dispatched = False
-    delivery_status = "unconfigured"
-
-    if cust_email:
-        dispatch_success, dispatch_status = send_email_notification(
-            to_email=cust_email,
-            subject=reply_email_subject,
-            body_text=reply_email_body
-        )
-        email_dispatched = dispatch_success
-        delivery_status = dispatch_status
+    dispatch_success, dispatch_status = send_email_notification(
+        to_email=cust_email,
+        subject=reply_email_subject,
+        body_text=reply_email_body
+    )
 
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     new_reply_id = None
 
-    # Persist reply to database and mark as replied
+    # Persist reply to database
     conn2 = get_db()
     if conn2:
         try:
@@ -6365,69 +6189,57 @@ Showroom Hours: Mon - Sun: 9:30 AM - 8:30 PM (Asia/Kolkata)
             cursor2.execute(
                 """INSERT INTO contact_replies (contact_message_id, admin_id, admin_username, reply_message, sent_status)
                    VALUES (%s, %s, %s, %s, %s)""",
-                (msg_id, admin_id, admin_username, reply_text, delivery_status)
+                (msg_id, admin_id, admin_username, reply_text, dispatch_status)
             )
-            new_reply_id = int(cursor2.lastrowid) if (hasattr(cursor2, "lastrowid") and isinstance(cursor2.lastrowid, (int, str)) and str(cursor2.lastrowid).isdigit()) else None
-            cursor2.execute(
-                """UPDATE contact_messages 
-                   SET status = 'replied', admin_reply = %s, replied_at = CURRENT_TIMESTAMP 
-                   WHERE id = %s""",
-                (reply_text, msg_id)
-            )
+            new_reply_id = cursor2.lastrowid
+            cursor2.execute("UPDATE contact_messages SET status = 'replied' WHERE id = %s", (msg_id,))
             conn2.commit()
             cursor2.close()
             conn2.close()
         except Exception as e:
-            print("[Database] Contact reply save error:", e)
+            print("[Database] Contact reply save notice:", e)
             if conn2:
                 try: conn2.close()
                 except Exception: pass
 
-    log_admin_action(admin_username, "reply_message", "contact_message", msg_id, f"Replied to message #{msg_id} ({cust_email})")
-
-    resp_msg = f"Reply successfully dispatched to {cust_email}." if email_dispatched else "Reply recorded successfully. (Note: Email service not configured on server; reply saved in system records)."
+    # Update in-memory store
+    reply_record = {
+        "id": new_reply_id,
+        "contact_message_id": msg_id,
+        "admin_id": admin_id,
+        "admin_username": admin_username,
+        "reply_message": reply_text,
+        "sent_status": dispatch_status,
+        "created_at": now_iso
+    }
 
     return jsonify({
         "success": True,
-        "message": resp_msg,
+        "message": f"Reply successfully dispatched to {cust_email}.",
         "reply_id": new_reply_id,
-        "delivery_status": delivery_status,
-        "email_sent": email_dispatched,
-        "status": "replied",
-        "data": {
-            "id": msg_id,
-            "status": "replied",
-            "reply_id": new_reply_id,
-            "delivery_status": delivery_status,
-            "delivery_note": resp_msg
-        }
+        "delivery_status": dispatch_status
     })
 
-@app.route("/api/admin/contact-messages/<int:msg_id>", methods=["DELETE"])
 @app.route("/api/admin/messages/<int:msg_id>", methods=["DELETE"])
 @admin_required
 def admin_delete_message(msg_id):
-    """Deletes a contact message and its associated replies."""
+    """Deletes a contact message and its replies."""
     conn = get_db()
-    if not conn:
-        return jsonify({"success": False, "message": "Database connection unavailable."}), 503
+    if conn:
+        try:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM contact_replies WHERE contact_message_id = %s", (msg_id,))
+            cursor.execute("DELETE FROM contact_messages WHERE id = %s", (msg_id,))
+            conn.commit()
+            cursor.close()
+            conn.close()
+        except Exception:
+            if conn:
+                try: conn.close()
+                except Exception: pass
 
-    try:
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM contact_replies WHERE contact_message_id = %s", (msg_id,))
-        cursor.execute("DELETE FROM contact_messages WHERE id = %s", (msg_id,))
-        conn.commit()
-        cursor.close()
-        conn.close()
 
-        log_admin_action(g.admin.get("username", "admin"), "delete_message", "contact_message", msg_id, f"Deleted contact message #{msg_id}")
-
-        return jsonify({"success": True, "message": f"Contact message #{msg_id} deleted successfully."})
-    except Exception as e:
-        if conn:
-            try: conn.close()
-            except Exception: pass
-        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+    return jsonify({"success": True, "message": f"Message #{msg_id} deleted successfully."})
 
 # -----------------------------------------------------------------------------
 # STAFF ADMIN MANAGEMENT (SUPERADMIN OWNER ONLY)

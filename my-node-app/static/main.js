@@ -247,6 +247,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   updateBusinessHoursStatus();
   setInterval(updateBusinessHoursStatus, 60000);
 
-  // Note: Contact form submission is handled exclusively by handleContactSubmit() 
-  // on contact.html to prevent duplicate submissions and provide full field validation.
+  // 5. Contact form submission handler if on contact page
+  const contactForm = document.getElementById('contact-form');
+  if (contactForm) {
+    contactForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const submitBtn = contactForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
+
+      const formData = new FormData(contactForm);
+      const payload = {
+        name: formData.get('name'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        subject: formData.get('subject') || 'General Inquiry',
+        message: formData.get('message')
+      };
+
+      try {
+        const res = await apiRequest('/api/contact', {
+          method: 'POST',
+          body: payload
+        });
+        showToast(res.message || 'Your message was sent successfully!', 'success');
+        contactForm.reset();
+      } catch (err) {
+        showToast(err.message || 'Failed to send message', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
+      }
+    });
+  }
 });
