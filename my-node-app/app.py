@@ -958,18 +958,30 @@ def normalize_admin_role(raw_role):
         return "admin"
     return None
 
+def extract_admin_token_from_request():
+    header = request.headers.get("Authorization")
+    if header:
+        parts = header.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            return parts[1].strip()
+        elif len(parts) == 1 and parts[0].strip():
+            return parts[0].strip()
+    token = request.args.get("token") or request.args.get("admin_token")
+    if token and token.strip() and token.strip().lower() not in ("null", "undefined", "none", "false", ""):
+        return token.strip()
+    cookie_token = request.cookies.get("admin_token") or request.cookies.get("token")
+    if cookie_token and cookie_token.strip() and cookie_token.strip().lower() not in ("null", "undefined", "none", "false", ""):
+        return cookie_token.strip()
+    return None
+
 def admin_required(f):
     """Allows both SUPERADMIN (Owner) and ADMIN (Staff) access. Rejects normal user roles."""
     @wraps(f)
     def wrapper(*args, **kwargs):
-        header = request.headers.get("Authorization")
-        if not header:
+        token_str = extract_admin_token_from_request()
+        if not token_str:
             return jsonify({"success": False, "message": "Missing admin authorization header"}), 401
-        parts = header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
-        token_str = parts[1].strip()
-        if not token_str or token_str.lower() in ("null", "undefined", "none", "false", ""):
+        if token_str.lower() in ("null", "undefined", "none", "false", ""):
             return jsonify({"success": False, "message": "Admin authorization token is missing or invalid. Please log in."}), 401
         try:
             import jwt
@@ -992,14 +1004,10 @@ def superadmin_required(f):
     """Restricts access strictly to SUPERADMIN (Owner). Returns HTTP 403 Forbidden for Staff (ADMIN)."""
     @wraps(f)
     def wrapper(*args, **kwargs):
-        header = request.headers.get("Authorization")
-        if not header:
+        token_str = extract_admin_token_from_request()
+        if not token_str:
             return jsonify({"success": False, "message": "Missing admin authorization header"}), 401
-        parts = header.split()
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({"success": False, "message": "Invalid token header format. Expected Bearer <token>"}), 401
-        token_str = parts[1].strip()
-        if not token_str or token_str.lower() in ("null", "undefined", "none", "false", ""):
+        if token_str.lower() in ("null", "undefined", "none", "false", ""):
             return jsonify({"success": False, "message": "Admin authorization token is missing or invalid. Please log in."}), 401
         try:
             import jwt
@@ -4223,7 +4231,55 @@ def admin_mark_sold(bike_id):
         if actual_sale_price <= 0:
             actual_sale_price = float(bike_row.get("public_selling_price") or bike_row.get("price") or 100000)
         
-        buying_price = buying_price_input if (is_superadmin and buying_price_input > 0) else float(bike_row.get("buying_price") or 0)
+        # Resolve buying price: strictly preserve original acquisition cost / seller payout and NEVER overwrite with 0
+        existing_bp = 0.0
+        bp_sources = [
+            bike_row.get("buying_price"),
+            bike_row.get("accepted_seller_payout"),
+            bike_row.get("proposed_seller_payout")
+        ]
+        for src in bp_sources:
+            if src is not None:
+                try:
+                    val = float(src)
+                    if val > 0:
+                        existing_bp = val
+                        break
+                except (ValueError, TypeError):
+                    pass
+        
+        if existing_bp <= 0:
+            try:
+                cursor.execute("SELECT buying_price, seller_payout FROM sold_bikes WHERE bike_id = %s LIMIT 1", (bike_id,))
+                sb_existing = cursor.fetchone()
+                if sb_existing:
+                    existing_bp = float(sb_existing.get("buying_price") or sb_existing.get("seller_payout") or 0)
+            except Exception:
+                pass
+            if existing_bp <= 0:
+                try:
+                    cursor.execute("SELECT seller_payout FROM bike_transactions WHERE bike_id = %s LIMIT 1", (bike_id,))
+                    bt_existing = cursor.fetchone()
+                    if bt_existing:
+                        existing_bp = float(bt_existing.get("seller_payout") or 0)
+                except Exception:
+                    pass
+            if existing_bp <= 0:
+                try:
+                    cursor.execute("SELECT buying_price, seller_payout FROM financial_records WHERE bike_id = %s LIMIT 1", (bike_id,))
+                    fin_existing = cursor.fetchone()
+                    if fin_existing:
+                        existing_bp = float(fin_existing.get("buying_price") or fin_existing.get("seller_payout") or 0)
+                except Exception:
+                    pass
+
+        if is_superadmin and buying_price_input > 0:
+            buying_price = buying_price_input
+        elif existing_bp > 0:
+            buying_price = existing_bp
+        else:
+            buying_price = buying_price_input if buying_price_input > 0 else 0.0
+
         fin_calc = calculate_bike_financials(
             buying_price, actual_sale_price,
             repair_expenses=repair_expense,
@@ -4278,7 +4334,7 @@ def admin_mark_sold(bike_id):
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (bike_id, customer_name, customer_phone, alt_phone, customer_email, customer_location,
                      customer_city, customer_state, customer_address, customer_pincode, consent_obtained, sale_date))
-            buyer_id = cursor.lastrowid
+            buyer_id = int(cursor.lastrowid) if (cursor.lastrowid is not None and isinstance(cursor.lastrowid, (int, float))) else None
         except Exception as e_bd:
             print("[Database] buyer_details insert error:", e_bd)
 
@@ -4291,7 +4347,7 @@ def admin_mark_sold(bike_id):
                     (bike_id, buyer_id, document_type, document_ref_masked, file_name, mime_type, file_size, file_data, uploaded_by, created_at)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (bike_id, buyer_id, proof_type, proof_ref_masked, proof_filename, proof_mimetype, proof_size, proof_bytes, admin_uname, sale_date))
-                doc_id = cursor.lastrowid
+                doc_id = int(cursor.lastrowid) if (cursor.lastrowid is not None and isinstance(cursor.lastrowid, (int, float))) else None
             except Exception as e_doc:
                 print("[Database] sale_documents insert error:", e_doc)
 
@@ -4701,7 +4757,7 @@ def update_bike_financials_api(bike_id):
 def download_sale_document_api(doc_id):
     """
     Superadmin exclusive endpoint to view / download secure customer identity proof attachments.
-    Staff Admin and regular users receive HTTP 403 Forbidden.
+    Staff Admin receives HTTP 403 Forbidden.
     """
     conn = get_db()
     if not conn:
@@ -4712,6 +4768,12 @@ def download_sale_document_api(doc_id):
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT id, bike_id, document_type, document_ref_masked, file_name, mime_type, file_size, file_data FROM sale_documents WHERE id = %s OR bike_id = %s ORDER BY id DESC LIMIT 1", (doc_id, doc_id))
         doc = cursor.fetchone()
+        if not doc or (not doc.get("file_data") and not doc.get("file_path")):
+            # Fallback to bike_documents
+            cursor.execute("SELECT id, bike_id, doc_type as document_type, file_name, file_path, file_size, file_data, mime_type FROM bike_documents WHERE id = %s OR bike_id = %s ORDER BY id DESC LIMIT 1", (doc_id, doc_id))
+            fallback_doc = cursor.fetchone()
+            if fallback_doc:
+                doc = fallback_doc
         cursor.close()
         conn.close()
     except Exception as e:
@@ -4720,20 +4782,38 @@ def download_sale_document_api(doc_id):
             except Exception: pass
         return jsonify({"success": False, "message": str(e)}), 500
 
-    if not doc or not doc.get("file_data"):
-        return jsonify({"success": False, "message": "Proof document not found or has no attachment data."}), 404
+    if not doc:
+        return jsonify({"success": False, "message": "Document record not found."}), 404
 
     import io
-    from flask import send_file
+    from flask import send_file, send_from_directory
     mimetype = doc.get("mime_type") or "application/octet-stream"
-    fname = doc.get("file_name") or f"proof_document_{doc_id}"
+    fname = doc.get("file_name") or f"document_{doc_id}.pdf"
+    as_attachment = (request.path.endswith("/download") or request.args.get("download") == "1" or True)
 
-    return send_file(
-        io.BytesIO(doc["file_data"]),
-        mimetype=mimetype,
-        as_attachment=False,
-        download_name=fname
-    )
+    if doc.get("file_data"):
+        return send_file(
+            io.BytesIO(doc["file_data"]),
+            mimetype=mimetype,
+            as_attachment=as_attachment,
+            download_name=fname
+        )
+
+    # Disk file fallback
+    if doc.get("file_path"):
+        fpath = doc["file_path"]
+        for search_dir in (DOCUMENTS_UPLOAD_FOLDER, UPLOAD_FOLDER):
+            full_path = os.path.join(search_dir, fpath)
+            if os.path.exists(full_path):
+                return send_from_directory(
+                    search_dir,
+                    fpath,
+                    mimetype=mimetype,
+                    as_attachment=as_attachment,
+                    download_name=fname
+                )
+
+    return jsonify({"success": False, "message": "Document attachment file data not found on server or storage."}), 404
 
 # -----------------------------------------------------------------------------
 # REPORT GENERATION & DATA EXPORTS (PDF & EXCEL WITH RBAC)
@@ -5685,12 +5765,15 @@ def admin_sold_bikes_api():
                        sb.buyer_location as sb_buyer_location, sb.buyer_city as sb_buyer_city,
                        sb.payment_method as sb_payment_method, sb.payment_status as sb_payment_status,
                        sb.advance_amount as sb_advance_amount, sb.remaining_amount as sb_remaining_amount,
+                       sb.buying_price as sb_buying_price,
+                       bt.seller_payout as bt_seller_payout,
                        bd.full_name as bd_full_name, bd.phone as bd_phone, bd.location as bd_location,
                        bd.city as bd_city, bd.state as bd_state, bd.email as bd_email,
                        COALESCE(b.sold_by, sb.sold_by, 'admin') as effective_sold_by,
                        COALESCE(b.sold_at, sb.sold_at, b.updated_at, b.created_at) as effective_sold_at
                 FROM bikes b
                 LEFT JOIN sold_bikes sb ON b.id = sb.bike_id
+                LEFT JOIN bike_transactions bt ON b.id = bt.bike_id
                 LEFT JOIN buyer_details bd ON b.id = bd.bike_id
                 WHERE b.isSoldout = 1 OR b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout')
                 ORDER BY effective_sold_at DESC, b.id DESC
@@ -5815,7 +5898,25 @@ def admin_sold_bikes_api():
 
         # RBAC: Expose profit margins and buying price exclusively to Superadmin
         if is_superadmin:
-            bp_val = float(b.get("buying_price") or b.get("seller_payout") or 0)
+            bp_val = 0.0
+            bp_candidates = [
+                b.get("buying_price"),
+                b.get("sb_buying_price"),
+                b.get("seller_payout"),
+                b.get("sb_seller_payout"),
+                b.get("bt_seller_payout"),
+                b.get("accepted_seller_payout"),
+                b.get("proposed_seller_payout")
+            ]
+            for cand in bp_candidates:
+                if cand is not None:
+                    try:
+                        val = float(cand)
+                        if val > 0:
+                            bp_val = val
+                            break
+                    except (ValueError, TypeError):
+                        pass
             tot_exp_val = float(b.get("total_expenses") or 0)
             realized_prof = float(b.get("realized_profit") if b.get("realized_profit") is not None else (final_price - bp_val - tot_exp_val))
             gross_prof = final_price - bp_val
@@ -5887,30 +5988,43 @@ def admin_sold_bike_detail_api(bike_id):
             cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
             bike = cursor.fetchone()
 
+            # If not found directly in bikes, check sold_bikes by id or bike_id
+            if not bike:
+                try:
+                    cursor.execute("SELECT * FROM sold_bikes WHERE id = %s OR bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id, bike_id))
+                    sold_record = cursor.fetchone()
+                    if sold_record and sold_record.get("bike_id"):
+                        cursor.execute("SELECT * FROM bikes WHERE id = %s", (sold_record["bike_id"],))
+                        bike = cursor.fetchone()
+                except Exception:
+                    pass
+
             if bike:
+                effective_bike_id = bike.get("id") or bike_id
+
                 # 1. Query gallery images
-                cursor.execute("SELECT image_url FROM bike_images WHERE bike_id = %s ORDER BY is_primary DESC, image_order ASC", (bike_id,))
+                cursor.execute("SELECT image_url FROM bike_images WHERE bike_id = %s ORDER BY is_primary DESC, image_order ASC", (effective_bike_id,))
                 img_rows = cursor.fetchall()
                 if img_rows:
                     gallery_images = [img["image_url"] for img in img_rows]
 
                 # 2. Query buyer_details
                 try:
-                    cursor.execute("SELECT * FROM buyer_details WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id,))
+                    cursor.execute("SELECT * FROM buyer_details WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (effective_bike_id,))
                     buyer_record = cursor.fetchone()
                 except Exception:
                     pass
 
                 # 3. Query sale_documents & ownership bike_documents
                 try:
-                    cursor.execute("SELECT id, bike_id, document_type, document_ref_masked, file_name, file_size, created_at FROM sale_documents WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id,))
+                    cursor.execute("SELECT id, bike_id, document_type, document_ref_masked, file_name, file_size, created_at FROM sale_documents WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (effective_bike_id,))
                     proof_doc = cursor.fetchone()
                 except Exception:
                     pass
 
                 bike_docs_list = []
                 try:
-                    cursor.execute("SELECT id, bike_id, user_id, doc_type, file_name, file_size, status, remarks, created_at FROM bike_documents WHERE bike_id = %s ORDER BY id DESC", (bike_id,))
+                    cursor.execute("SELECT id, bike_id, user_id, doc_type, file_name, file_size, status, remarks, created_at FROM bike_documents WHERE bike_id = %s ORDER BY id DESC", (effective_bike_id,))
                     b_docs = cursor.fetchall() or []
                     for doc in b_docs:
                         doc["created_at"] = str(doc.get("created_at") or "")
@@ -5920,21 +6034,38 @@ def admin_sold_bike_detail_api(bike_id):
                 except Exception:
                     bike_docs_list = []
 
-                # 4. Query sold_bikes archive
+                # 4. Query sold_bikes archive if not already fetched
+                if not sold_record:
+                    try:
+                        cursor.execute("SELECT * FROM sold_bikes WHERE bike_id = %s OR id = %s ORDER BY id DESC LIMIT 1", (effective_bike_id, effective_bike_id))
+                        sold_record = cursor.fetchone()
+                    except Exception:
+                        pass
+
+                # 5. Query bike_transactions
+                trans_record = None
                 try:
-                    cursor.execute("SELECT * FROM sold_bikes WHERE bike_id = %s", (bike_id,))
-                    sold_record = cursor.fetchone()
+                    cursor.execute("SELECT * FROM bike_transactions WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (effective_bike_id,))
+                    trans_record = cursor.fetchone()
                 except Exception:
                     pass
 
-                # 5. Query customer enquiries
+                # 6. Query financial_records
+                fin_record = None
+                try:
+                    cursor.execute("SELECT * FROM financial_records WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (effective_bike_id,))
+                    fin_record = cursor.fetchone()
+                except Exception:
+                    pass
+
+                # 7. Query customer enquiries
                 try:
                     cursor.execute("""
                         SELECT id, name, customerName, email, phone, mobile, message, status, created_at 
                         FROM enquiries 
                         WHERE bike_id = %s OR listingId = %s 
                         ORDER BY id DESC
-                    """, (bike_id, bike_id))
+                    """, (effective_bike_id, effective_bike_id))
                     enq_rows = cursor.fetchall()
                     if enq_rows:
                         for er in enq_rows:
@@ -5976,15 +6107,51 @@ def admin_sold_bike_detail_api(bike_id):
         if not gallery_images:
             gallery_images = ["/static/images/IMG-20251204-WA0053.jpg"]
 
-    # Resolve financial calculations
-    bp = float(bike.get("buying_price") or (sold_record.get("buying_price") if sold_record else None) or (sold_record.get("seller_payout") if sold_record else None) or 0.0)
+    # Resolve buying price (Acquisition Cost) strictly from TiDB Cloud
+    bp = 0.0
+    bp_sources = []
+    if bike:
+        if bike.get("buying_price") is not None: bp_sources.append(bike.get("buying_price"))
+    if sold_record:
+        if sold_record.get("buying_price") is not None: bp_sources.append(sold_record.get("buying_price"))
+        if sold_record.get("seller_payout") is not None: bp_sources.append(sold_record.get("seller_payout"))
+    if 'trans_record' in locals() and trans_record:
+        if trans_record.get("seller_payout") is not None: bp_sources.append(trans_record.get("seller_payout"))
+    if 'fin_record' in locals() and fin_record:
+        if fin_record.get("buying_price") is not None: bp_sources.append(fin_record.get("buying_price"))
+        if fin_record.get("seller_payout") is not None: bp_sources.append(fin_record.get("seller_payout"))
+    if bike:
+        if bike.get("accepted_seller_payout") is not None: bp_sources.append(bike.get("accepted_seller_payout"))
+        if bike.get("proposed_seller_payout") is not None: bp_sources.append(bike.get("proposed_seller_payout"))
+    
+    # Also inspect snapshot JSON if present
+    if bike and bike.get("sold_snapshot"):
+        try:
+            snap = json.loads(bike["sold_snapshot"]) if isinstance(bike["sold_snapshot"], str) else bike["sold_snapshot"]
+            if isinstance(snap, dict):
+                snap_fin = snap.get("financials") or {}
+                if snap_fin.get("buying_price"): bp_sources.append(snap_fin.get("buying_price"))
+                if snap.get("buying_price"): bp_sources.append(snap.get("buying_price"))
+                if snap.get("seller_payout"): bp_sources.append(snap.get("seller_payout"))
+        except Exception:
+            pass
+
+    for cand in bp_sources:
+        try:
+            val = float(cand)
+            if val > 0:
+                bp = val
+                break
+        except (ValueError, TypeError):
+            pass
+
     sp = float((sold_record.get("actual_sale_price") if sold_record else None) or bike.get("actual_sale_price") or bike.get("public_selling_price") or bike.get("price") or 0.0)
-    rep = float(bike.get("repair_expenses") or (sold_record.get("repair_expense") if sold_record else 0.0) or 0.0)
+    rep = float(bike.get("repair_expenses") or (sold_record.get("repair_expense") if sold_record else 0.0) or ((trans_record.get("repair_expense") if 'trans_record' in locals() and trans_record else 0.0)) or 0.0)
     doc = float(bike.get("documentation_expenses") or (sold_record.get("documentation_expense") if sold_record else 0.0) or 0.0)
-    srv = float(bike.get("service_expenses") or (sold_record.get("service_expense") if sold_record else 0.0) or 0.0)
+    srv = float(bike.get("service_expenses") or (sold_record.get("service_expense") if sold_record else 0.0) or ((trans_record.get("service_expense") if 'trans_record' in locals() and trans_record else 0.0)) or 0.0)
     add = float(bike.get("additional_expenses") or (sold_record.get("additional_expense") if sold_record else 0.0) or 0.0)
-    oth = float(bike.get("other_expenses") or (sold_record.get("other_expense") if sold_record else (bike.get("expenses") or 0.0)) or 0.0)
-    tot_stored = float(sold_record.get("total_expenses") if sold_record and sold_record.get("total_expenses") is not None else (bike.get("expenses") or 0.0))
+    oth = float(bike.get("other_expenses") or (sold_record.get("other_expense") if sold_record else ((trans_record.get("other_expense") if 'trans_record' in locals() and trans_record else (bike.get("expenses") or 0.0)))) or 0.0)
+    tot_stored = float(sold_record.get("total_expenses") if sold_record and sold_record.get("total_expenses") is not None else ((trans_record.get("total_expenses") if 'trans_record' in locals() and trans_record and trans_record.get("total_expenses") is not None else (bike.get("expenses") or 0.0))))
 
     fin_data = calculate_bike_financials(
         bp, sp,
@@ -8567,21 +8734,27 @@ Your uploaded document ({doc_type_label}) has been {chat_status_text} by SMR Mot
 def download_secure_document(doc_id):
     """
     Secure document delivery: viewable/downloadable only by authorized Admin/Superadmin or document owner.
+    Supports both BLOB data from database and physical disk files, with Token from Header, Query, or Cookie.
     """
     # Check admin auth
     is_admin = False
-    admin_auth = request.headers.get("Authorization", "") or request.cookies.get("admin_token", "")
     admin_token = None
-    if admin_auth and "Bearer" in admin_auth:
-        admin_token = admin_auth.split()[1]
-    elif admin_auth:
-        admin_token = admin_auth
+    header = request.headers.get("Authorization")
+    if header:
+        parts = header.split()
+        if len(parts) == 2 and parts[0].lower() == "bearer":
+            admin_token = parts[1].strip()
+        elif len(parts) == 1 and parts[0].strip():
+            admin_token = parts[0].strip()
+    if not admin_token:
+        admin_token = request.args.get("token") or request.args.get("admin_token") or request.cookies.get("admin_token") or request.cookies.get("token")
 
     if admin_token:
         try:
             import jwt
             dec = jwt.decode(admin_token, JWT_SECRET, algorithms=["HS256"])
-            if dec.get("role") in ("admin", "superadmin") or "username" in dec:
+            norm_role = normalize_admin_role(dec.get("role"))
+            if norm_role in ("admin", "superadmin") or (dec.get("role") is None and ("admin_id" in dec or "admin_uname" in dec)):
                 is_admin = True
         except Exception:
             pass
@@ -8606,10 +8779,16 @@ def download_secure_document(doc_id):
         return jsonify({"success": False, "message": "Database unavailable."}), 503
 
     doc = None
+    is_sale_doc = False
     try:
         cursor = conn.cursor(dictionary=True)
         cursor.execute("SELECT * FROM bike_documents WHERE id = %s", (doc_id,))
         doc = cursor.fetchone()
+        if not doc:
+            cursor.execute("SELECT * FROM sale_documents WHERE id = %s", (doc_id,))
+            doc = cursor.fetchone()
+            if doc:
+                is_sale_doc = True
         cursor.close()
         conn.close()
     except Exception as e:
@@ -8623,20 +8802,39 @@ def download_secure_document(doc_id):
 
     # Authorization Check: only admin/superadmin OR the document owner can access
     if not is_admin:
+        if is_sale_doc:
+            return jsonify({"success": False, "message": "Unauthorized. Administrative privileges required to access customer sales documents."}), 403
         if not caller_user_id or int(caller_user_id) != int(doc.get("user_id", -1)):
             return jsonify({"success": False, "message": "Unauthorized. You do not have permission to view or download this document."}), 403
 
-    filename_on_disk = doc.get("file_path")
-    full_path = os.path.join(DOCUMENTS_UPLOAD_FOLDER, filename_on_disk)
-    if not os.path.exists(full_path):
-        return jsonify({"success": False, "message": "Document file not found on disk."}), 404
-
-    from flask import send_from_directory
     as_attachment = (request.path.endswith("/download") or request.args.get("download") == "1")
-    return send_from_directory(
-        DOCUMENTS_UPLOAD_FOLDER,
-        filename_on_disk,
-        mimetype=doc.get("mime_type", "application/octet-stream"),
-        as_attachment=as_attachment,
-        download_name=doc.get("file_name", filename_on_disk)
-    )
+    mimetype = doc.get("mime_type") or "application/octet-stream"
+    fname = doc.get("file_name") or f"document_{doc_id}"
+
+    # 1. Delivery from DB BLOB
+    if doc.get("file_data"):
+        import io
+        from flask import send_file
+        return send_file(
+            io.BytesIO(doc["file_data"]),
+            mimetype=mimetype,
+            as_attachment=as_attachment,
+            download_name=fname
+        )
+
+    # 2. Delivery from disk storage
+    filename_on_disk = doc.get("file_path")
+    if filename_on_disk:
+        for folder in (DOCUMENTS_UPLOAD_FOLDER, UPLOAD_FOLDER):
+            full_path = os.path.join(folder, filename_on_disk)
+            if os.path.exists(full_path):
+                from flask import send_from_directory
+                return send_from_directory(
+                    folder,
+                    filename_on_disk,
+                    mimetype=mimetype,
+                    as_attachment=as_attachment,
+                    download_name=fname
+                )
+
+    return jsonify({"success": False, "message": "Document file data not found on disk or storage."}), 404

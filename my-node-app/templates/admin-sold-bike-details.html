@@ -970,9 +970,9 @@
               <div style="display:flex; align-items:center; gap:8px;">
                 ${stBadge}
                 ${d.download_url ? `
-                  <a href="${dlUrl}" target="_blank" class="back-btn" style="padding:0.4rem 0.8rem; font-size:0.78rem; background:var(--primary); color:#FFFFFF; border-color:var(--primary);">
+                  <button type="button" onclick="downloadProtectedDoc('${d.download_url}', '${(d.file_name || 'document').replace(/'/g, "\\'")}')" class="back-btn" style="cursor:pointer; padding:0.4rem 0.8rem; font-size:0.78rem; background:var(--primary); color:#FFFFFF; border-color:var(--primary); display:inline-flex; align-items:center; gap:5px;">
                     <i class="fas fa-download"></i> View / Download
-                  </a>
+                  </button>
                 ` : ''}
               </div>
             </div>
@@ -1186,6 +1186,52 @@
       } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-save"></i> Save Financials';
+      }
+    }
+
+    async function downloadProtectedDoc(url, filename) {
+      if (!url || url === '#') {
+        showDetailToast('Document download URL is not available.', 'error');
+        return;
+      }
+      const token = getAdminToken();
+      try {
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          let errMsg = 'Failed to download document';
+          try {
+            const errJson = await res.json();
+            errMsg = errJson.message || errMsg;
+          } catch (e) {
+            errMsg = `Download error (HTTP ${res.status})`;
+          }
+          showDetailToast(errMsg, 'error');
+          return;
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename || 'customer_document';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          document.body.removeChild(a);
+        }, 1000);
+        showDetailToast('Document downloaded successfully.', 'success');
+      } catch (err) {
+        console.error("Protected document download error:", err);
+        // Fallback to direct navigation with query token parameter
+        const tokenParam = encodeURIComponent(token || '');
+        const fallbackUrl = url.includes('?') ? `${url}&token=${tokenParam}` : `${url}?token=${tokenParam}`;
+        window.open(fallbackUrl, '_blank');
       }
     }
 

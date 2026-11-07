@@ -2218,7 +2218,7 @@
                     </td>
                     <td style="padding:10px; text-align:right;">
                       <div style="display:inline-flex; gap:6px; align-items:center;">
-                        <a href="${d.download_url}?token=${tokenParam}" target="_blank" class="btn-table-action" title="View Document File"><i class="fas fa-eye"></i> View</a>
+                        <button type="button" onclick="downloadProtectedDoc('${d.download_url}', '${(d.file_name || 'document').replace(/'/g, "\\'")}')" class="btn-table-action" title="View / Download Document File"><i class="fas fa-eye"></i> View</button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'approved')" class="btn-table-action success" title="Approve & Verify"><i class="fas fa-check"></i></button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'rejected')" class="btn-table-action danger" title="Reject with Reason"><i class="fas fa-xmark"></i></button>
                       </div>
@@ -2337,7 +2337,7 @@
                     </td>
                     <td style="padding:10px; text-align:right;">
                       <div style="display:inline-flex; gap:6px; align-items:center;">
-                        <a href="${d.download_url}?token=${tokenParam}" target="_blank" class="btn-table-action" title="View Document File"><i class="fas fa-eye"></i> View</a>
+                        <button type="button" onclick="downloadProtectedDoc('${d.download_url}', '${(d.file_name || 'document').replace(/'/g, "\\'")}')" class="btn-table-action" title="View / Download Document File"><i class="fas fa-eye"></i> View</button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'approved')" class="btn-table-action success" title="Approve & Verify"><i class="fas fa-check"></i></button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'rejected')" class="btn-table-action danger" title="Reject with Reason"><i class="fas fa-xmark"></i></button>
                       </div>
@@ -2965,6 +2965,53 @@
         setTimeout(() => el.remove(), 300);
       }, 3500);
     }
+
+    // Protected Document Download Utility
+    async function downloadProtectedDoc(url, filename) {
+      if (!url || url === '#') {
+        showToast('Document download URL is not available.', 'error');
+        return;
+      }
+      const token = localStorage.getItem('admin_token') || localStorage.getItem('adminToken') || localStorage.getItem('smr_admin_token') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('adminToken');
+      try {
+        const headers = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        const res = await fetch(url, { headers });
+        if (!res.ok) {
+          let errMsg = 'Failed to download document';
+          try {
+            const errJson = await res.json();
+            errMsg = errJson.message || errMsg;
+          } catch (e) {
+            errMsg = `Download error (HTTP ${res.status})`;
+          }
+          showToast(errMsg, 'error');
+          return;
+        }
+
+        const blob = await res.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = blobUrl;
+        a.download = filename || 'customer_document';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+          document.body.removeChild(a);
+        }, 1000);
+        showToast('Document downloaded successfully.', 'success');
+      } catch (err) {
+        console.error("Protected document download error:", err);
+        const tokenParam = encodeURIComponent(token || '');
+        const fallbackUrl = url.includes('?') ? `${url}&token=${tokenParam}` : `${url}?token=${tokenParam}`;
+        window.open(fallbackUrl, '_blank');
+      }
+    }
+    window.downloadProtectedDoc = downloadProtectedDoc;
 
     // Modal Helpers
     function openModal(id) {
@@ -4241,11 +4288,13 @@
       // Superadmin Financial Telemetry Section
       const isSuper = (currentAdmin && currentAdmin.role === 'superadmin');
       const finContainer = document.getElementById('sold-financial-telemetry-container');
+      const defaultBp = bike?.buying_price || bike?.accepted_seller_payout || bike?.proposed_seller_payout || bike?.seller_payout || 0;
+      const bpInput = document.getElementById('sold-buying-price');
+      if (bpInput) bpInput.value = defaultBp;
+
       if (finContainer) {
         finContainer.style.display = isSuper ? 'block' : 'none';
         if (isSuper) {
-          const bp = bike?.buying_price || bike?.price || 0;
-          document.getElementById('sold-buying-price').value = bp;
           document.getElementById('sold-expense-repair').value = bike?.repair_expenses || 0;
           document.getElementById('sold-expense-other').value = bike?.other_expenses || 0;
         }
@@ -5237,7 +5286,7 @@
                     </td>
                     <td style="padding:10px; text-align:right;">
                       <div style="display:inline-flex; gap:6px; align-items:center;">
-                        <a href="${d.download_url}?token=${tokenParam}" target="_blank" class="btn-table-action" title="View Document File"><i class="fas fa-eye"></i> View</a>
+                        <button type="button" onclick="downloadProtectedDoc('${d.download_url}', '${(d.file_name || 'document').replace(/'/g, "\\'")}')" class="btn-table-action" title="View / Download Document File"><i class="fas fa-eye"></i> View</button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'approved')" class="btn-table-action success" title="Approve & Verify"><i class="fas fa-check"></i></button>
                         <button onclick="verifyDocAction(${bikeId}, ${d.id}, 'rejected')" class="btn-table-action danger" title="Reject with Reason"><i class="fas fa-xmark"></i></button>
                       </div>
