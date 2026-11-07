@@ -1834,6 +1834,70 @@
   </div>
 
   <!-- ==================================================
+       MODAL: NEGOTIATE PRICE (ADMIN PRICE COUNTEROFFER)
+       ================================================== -->
+  <div class="modal-overlay" id="modal-negotiate-price">
+    <div class="modal-dialog-card" style="max-width:620px;">
+      <div class="modal-header-bar">
+        <h3 class="modal-title-text" style="color:var(--admin-primary);"><i class="fas fa-comments-dollar"></i> Price Negotiation Counteroffer</h3>
+        <button class="modal-close-btn" onclick="closeModal('modal-negotiate-price')">&times;</button>
+      </div>
+      <div class="modal-body-content" style="max-height:calc(85vh - 120px); overflow-y:auto; padding-right:6px;">
+        <input type="hidden" id="negotiate-bike-id">
+
+        <!-- Bike & Customer Overview Card -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:var(--radius-md); padding:1rem; margin-bottom:1.25rem;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:0.75rem; gap:0.5rem;">
+            <div>
+              <div style="font-weight:800; font-size:1.05rem; color:var(--admin-text-main);" id="negotiate-bike-title">Motorcycle Title</div>
+              <div style="font-size:0.8rem; color:var(--admin-text-secondary);" id="negotiate-bike-specs">Brand &bull; Model &bull; Reg: TN-XX-XXXX</div>
+            </div>
+            <span class="badge-status badge-pending" id="negotiate-current-status-badge">Pending</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; background:#fff; padding:0.75rem; border-radius:var(--radius-sm); border:1px solid #edf2f7;">
+            <div>
+              <div style="font-size:0.72rem; text-transform:uppercase; color:var(--admin-text-secondary); font-weight:700;">Customer / Seller</div>
+              <div style="font-weight:700; color:var(--admin-text-main); font-size:0.9rem;" id="negotiate-seller-name">Customer Name</div>
+              <div style="font-size:0.75rem; color:var(--admin-text-secondary);" id="negotiate-seller-phone">Phone</div>
+            </div>
+            <div>
+              <div style="font-size:0.72rem; text-transform:uppercase; color:var(--admin-text-secondary); font-weight:700;">Customer Expected Price</div>
+              <div style="font-weight:800; color:#b45309; font-size:1.1rem;" id="negotiate-expected-price">₹0</div>
+              <div style="font-size:0.72rem; color:var(--admin-text-subtle);">Initial asking price</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Previous Rounds Timeline (if any) -->
+        <div id="negotiate-history-container" style="display:none; margin-bottom:1.25rem;">
+          <label class="form-label-modern" style="margin-bottom:0.4rem; font-weight:700;"><i class="fas fa-clock-rotate-left"></i> Previous Negotiation Rounds</label>
+          <div id="negotiate-rounds-list" style="border:1px solid #e2e8f0; border-radius:var(--radius-sm); padding:0.6rem; max-height:160px; overflow-y:auto; background:#f9fafb; font-size:0.82rem; display:flex; flex-direction:column; gap:0.5rem;"></div>
+        </div>
+
+        <!-- Counteroffer Form Fields -->
+        <div class="form-group-modern" style="margin-bottom:1rem;">
+          <label class="form-label-modern">Admin Suggested Buying Price (₹) <span style="color:var(--admin-danger);">*</span></label>
+          <input type="number" id="negotiate-suggested-price" class="form-input-modern" min="1" max="1000000" step="1" placeholder="e.g. 85000" required>
+          <small style="font-size:0.75rem; color:var(--admin-text-secondary);">This is SMR Motors' acquisition price offer sent to the customer.</small>
+        </div>
+
+        <div class="form-group-modern">
+          <label class="form-label-modern">Negotiation Message to Customer</label>
+          <textarea id="negotiate-message" class="form-input-modern" rows="3" placeholder="After evaluating the bike condition and market value, we can offer ₹... Please let us know if this is acceptable."></textarea>
+          <small style="font-size:0.75rem; color:var(--admin-text-secondary);">Delivered directly to the customer's dashboard and chat.</small>
+        </div>
+      </div>
+      <div class="modal-footer-bar">
+        <button class="btn-table-action" onclick="closeModal('modal-negotiate-price')">Cancel</button>
+        <button class="btn-review-approve" id="btn-submit-negotiation" onclick="submitAdminNegotiationOffer()" style="background:var(--admin-primary); border-color:var(--admin-primary);">
+          <i class="fas fa-paper-plane"></i> Send Negotiation Offer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================
        MODAL: MARK AS SOLD (CONFIRMATION & TELEMETRY)
        ================================================== -->
   <div class="modal-overlay" id="modal-mark-sold">
@@ -3458,7 +3522,15 @@
           const img = (b.images && b.images.length) ? b.images[0] : '/static/images/IMG-20251204-WA0053.jpg';
           const p = parseFloat(b.price || 0).toLocaleString('en-IN');
           const st = b.status || 'pending';
-          const badgeClass = st === 'approved' ? 'badge-approved' : (st === 'soldout' ? 'badge-sold' : (st === 'rejected' ? 'badge-rejected' : 'badge-pending'));
+          let displayStatus = st;
+          let badgeClass = st === 'approved' ? 'badge-approved' : (st === 'soldout' ? 'badge-sold' : (st === 'rejected' ? 'badge-rejected' : 'badge-pending'));
+          if (st === 'pending' || st === 'pending_negotiation') {
+            const ns = (b.negotiation_status || '').toLowerCase();
+            if (ns === 'offer_sent') { displayStatus = 'Offer Sent'; badgeClass = 'badge-pending'; }
+            else if (ns === 'price_accepted') { displayStatus = 'Price Accepted'; badgeClass = 'badge-approved'; }
+            else if (ns === 'offer_rejected') { displayStatus = 'Declined'; badgeClass = 'badge-rejected'; }
+            else { displayStatus = 'Pending Negotiation'; }
+          }
 
           return `
             <tr>
@@ -3477,15 +3549,20 @@
                 <div style="font-size:0.75rem; color:var(--admin-text-secondary);">${b.seller_phone || ''}</div>
               </td>
               <td data-label="Price"><strong>₹${p}</strong></td>
-              <td data-label="Status"><span class="badge-status ${badgeClass}">${st}</span></td>
+              <td data-label="Status"><span class="badge-status ${badgeClass}">${displayStatus}</span></td>
               <td data-label="Submission Date"><span style="font-size:0.8rem; color:var(--admin-text-secondary);">${(b.created_at || '').substring(0, 10)}</span></td>
               <td data-label="Actions" style="text-align:right;">
                 <div class="table-action-group">
                   <a href="/admin/sold-bike-details.html?id=${b.id}" class="btn-table-action" title="View Full Details & Financials"><i class="fas fa-eye"></i> View</a>
                   <button class="btn-table-action" onclick="openAdminBikeDocsModal(${b.id}, '${(b.title || (b.brand + ' ' + b.model)).replace(/'/g, "\\'")}')" title="Verify Ownership Documents"><i class="fas fa-file-shield"></i> Docs</button>
                   <button class="btn-table-action" onclick="openEditBikeModal(${b.id})" title="Edit Details"><i class="fas fa-edit"></i> Edit</button>
-                  ${st === 'pending' ? `
-                    <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve"><i class="fas fa-check"></i></button>
+                  ${(st === 'pending' || st === 'pending_negotiation') ? `
+                    <button class="btn-table-action" onclick="openNegotiatePriceModal(${b.id})" title="Negotiate Price" style="background:#fff7ed; color:#ea580c; border-color:#fdba74;"><i class="fas fa-comments-dollar"></i></button>
+                    ${(b.negotiation_status === 'price_accepted' || b.negotiation_status === 'seller_accepted') ? `
+                      <button class="btn-table-action success" onclick="openApproveBikeModal(${b.id})" title="Approve & Publish"><i class="fas fa-check"></i></button>
+                    ` : `
+                      <button class="btn-table-action" disabled title="Locked: Customer must accept price negotiation first" style="opacity:0.4; cursor:not-allowed;"><i class="fas fa-lock"></i></button>
+                    `}
                     <button class="btn-table-action danger" onclick="openRejectBikeModal(${b.id})" title="Reject"><i class="fas fa-xmark"></i></button>
                   ` : ''}
                   ${(st === 'approved' || st === 'published') ? `
@@ -3539,12 +3616,24 @@
           `).join('');
 
           const reqPrice = parseFloat(b.requested_price || b.price || 0).toLocaleString('en-IN');
+          const negStatus = (b.negotiation_status || '').toLowerCase();
+          let negBadgeHtml = '<span class="badge-status badge-pending"><i class="fas fa-handshake"></i> Pending Negotiation</span>';
+          const isAccepted = (negStatus === 'price_accepted' || negStatus === 'seller_accepted');
+          const proposedPayout = parseFloat(b.accepted_seller_payout || b.proposed_seller_payout || 0);
+
+          if (negStatus === 'offer_sent' || negStatus === 'price_offered') {
+            negBadgeHtml = `<span class="badge-status" style="background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;"><i class="fas fa-paper-plane"></i> Offer Sent: ₹${proposedPayout.toLocaleString('en-IN')} (Awaiting Seller)</span>`;
+          } else if (isAccepted) {
+            negBadgeHtml = `<span class="badge-status badge-success" style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;"><i class="fas fa-check-double"></i> Price Accepted: ₹${proposedPayout.toLocaleString('en-IN')} (Ready for Approval)</span>`;
+          } else if (negStatus === 'offer_rejected' || negStatus === 'seller_rejected') {
+            negBadgeHtml = `<span class="badge-status badge-danger" style="background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;"><i class="fas fa-rotate-left"></i> Counteroffer Declined</span>`;
+          }
 
           return `
             <div class="pending-review-card">
               <div class="pending-review-header">
                 <div class="pending-bike-header-title">
-                  <span class="badge-status badge-pending">Pending Review</span>
+                  ${negBadgeHtml}
                   <h4>${b.title}</h4>
                 </div>
                 <div style="font-size:0.82rem; color:var(--admin-text-secondary);">
@@ -3598,15 +3687,21 @@
 
               <!-- Action Bar -->
               <div class="review-actions-bar">
-                <button class="btn-review-changes" onclick="openEditBikeModal(${b.id})">
-                  <i class="fas fa-sliders"></i> Edit & Propose Counteroffer
+                <button class="btn-review-changes" onclick="openNegotiatePriceModal(${b.id})" style="background:var(--admin-primary); color:#fff; border-color:var(--admin-primary); font-weight:700;">
+                  <i class="fas fa-comments-dollar"></i> Negotiate Price
                 </button>
                 <button class="btn-review-reject" onclick="openRejectBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}')">
                   <i class="fas fa-circle-xmark"></i> Reject Listing
                 </button>
-                <button class="btn-review-approve" onclick="openApproveBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}', ${b.requested_price || b.price || 0})">
-                  <i class="fas fa-circle-check"></i> Approve & Publish to Live
-                </button>
+                ${isAccepted ? `
+                  <button class="btn-review-approve" onclick="openApproveBikeModal(${b.id}, '${b.title.replace(/'/g, "\\'")}', ${b.accepted_seller_payout || b.requested_price || b.price || 0})">
+                    <i class="fas fa-circle-check"></i> Approve & Publish to Live
+                  </button>
+                ` : `
+                  <button class="btn-review-approve" disabled title="Admin cannot approve until customer accepts the price offer" style="opacity:0.55; cursor:not-allowed; background:#9ca3af; border-color:#9ca3af;">
+                    <i class="fas fa-lock"></i> Approve Locked (Requires Agreement)
+                  </button>
+                `}
               </div>
             </div>
           `;
@@ -4183,6 +4278,168 @@
         loadAdminDashboard();
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    }
+
+    // ==================================================
+    // ADMIN PRICE NEGOTIATION WORKFLOW
+    // ==================================================
+    async function openNegotiatePriceModal(id) {
+      let b = null;
+      if (typeof pendingApprovalsList !== 'undefined' && Array.isArray(pendingApprovalsList)) {
+        b = pendingApprovalsList.find(x => x.id == id);
+      }
+      if (!b && typeof adminBikesList !== 'undefined' && Array.isArray(adminBikesList)) {
+        b = adminBikesList.find(x => x.id == id);
+      }
+
+      document.getElementById('negotiate-bike-id').value = id;
+      const titleEl = document.getElementById('negotiate-bike-title');
+      const specsEl = document.getElementById('negotiate-bike-specs');
+      const sellerNameEl = document.getElementById('negotiate-seller-name');
+      const sellerPhoneEl = document.getElementById('negotiate-seller-phone');
+      const expectedPriceEl = document.getElementById('negotiate-expected-price');
+      const statusBadgeEl = document.getElementById('negotiate-current-status-badge');
+      const suggestedInput = document.getElementById('negotiate-suggested-price');
+      const messageInput = document.getElementById('negotiate-message');
+
+      const title = b ? (b.title || `${b.brand} ${b.model}`) : `Motorcycle #${id}`;
+      const specs = b ? `${b.brand} • ${b.model} • Year: ${b.year || 'N/A'} • Reg: ${b.registration_number || 'N/A'}` : `ID: #${id}`;
+      const seller = b ? (b.seller_name || 'Customer') : 'Customer';
+      const phone = b ? (b.seller_phone || 'N/A') : 'N/A';
+      const expected = b ? parseFloat(b.requested_price || b.price || 0) : 0;
+      const proposed = b ? parseFloat(b.proposed_seller_payout || 0) : 0;
+      const negStatus = b ? (b.negotiation_status || 'pending_negotiation').toLowerCase() : 'pending_negotiation';
+
+      if (titleEl) titleEl.textContent = title;
+      if (specsEl) specsEl.innerHTML = specs;
+      if (sellerNameEl) sellerNameEl.textContent = seller;
+      if (sellerPhoneEl) sellerPhoneEl.textContent = phone;
+      if (expectedPriceEl) expectedPriceEl.textContent = `₹${expected.toLocaleString('en-IN')}`;
+
+      if (statusBadgeEl) {
+        if (negStatus === 'offer_sent') {
+          statusBadgeEl.className = 'badge-status';
+          statusBadgeEl.style = 'background:#e0f2fe; color:#0369a1; border:1px solid #bae6fd;';
+          statusBadgeEl.innerHTML = '<i class="fas fa-paper-plane"></i> Offer Sent';
+        } else if (negStatus === 'price_accepted') {
+          statusBadgeEl.className = 'badge-status badge-success';
+          statusBadgeEl.style = 'background:#dcfce7; color:#15803d; border:1px solid #bbf7d0;';
+          statusBadgeEl.innerHTML = '<i class="fas fa-check-double"></i> Price Accepted';
+        } else if (negStatus === 'offer_rejected') {
+          statusBadgeEl.className = 'badge-status badge-danger';
+          statusBadgeEl.style = 'background:#fee2e2; color:#b91c1c; border:1px solid #fecaca;';
+          statusBadgeEl.innerHTML = '<i class="fas fa-rotate-left"></i> Declined';
+        } else {
+          statusBadgeEl.className = 'badge-status badge-pending';
+          statusBadgeEl.style = '';
+          statusBadgeEl.innerHTML = '<i class="fas fa-handshake"></i> Pending Offer';
+        }
+      }
+
+      if (suggestedInput) {
+        suggestedInput.value = proposed > 0 ? proposed : (expected > 0 ? Math.round(expected * 0.88) : '');
+      }
+
+      if (messageInput) {
+        const defaultAmt = suggestedInput.value ? `₹${parseFloat(suggestedInput.value).toLocaleString('en-IN')}` : 'our suggested price';
+        messageInput.value = `After evaluating the bike condition and market value, we can offer ${defaultAmt}. Please let us know if this is acceptable.`;
+      }
+
+      // Fetch previous rounds history
+      const histContainer = document.getElementById('negotiate-history-container');
+      const roundsList = document.getElementById('negotiate-rounds-list');
+      if (histContainer && roundsList) {
+        roundsList.innerHTML = '<div style="text-align:center; color:var(--admin-text-subtle);"><i class="fas fa-spinner fa-spin"></i> Checking history...</div>';
+        histContainer.style.display = 'block';
+
+        try {
+          const hRes = await apiRequest(`/api/admin/bikes/${id}/negotiations`);
+          const rounds = hRes.data || [];
+          if (rounds.length > 0) {
+            roundsList.innerHTML = rounds.map(r => {
+              const rNum = r.counteroffer_number || 1;
+              const rPrice = parseFloat(r.admin_suggested_price || 0).toLocaleString('en-IN');
+              const rStatus = r.status || 'pending';
+              const rAdmin = r.admin_name || 'Admin';
+              const rDate = (r.created_at || '').substring(0, 16);
+              let sColor = '#0284c7';
+              let sText = 'Awaiting User';
+              if (rStatus === 'accepted') { sColor = '#16a34a'; sText = 'Accepted by User'; }
+              else if (rStatus === 'rejected') { sColor = '#dc2626'; sText = 'Declined by User'; }
+              else if (rStatus === 'superseded') { sColor = '#64748b'; sText = 'Superseded'; }
+
+              return `
+                <div style="background:#fff; border:1px solid #e2e8f0; border-radius:4px; padding:0.5rem; display:flex; flex-direction:column; gap:0.25rem;">
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="font-weight:700; color:var(--admin-text-main);">Round ${rNum}: ₹${rPrice}</span>
+                    <span style="font-size:0.75rem; font-weight:700; color:${sColor};">${sText}</span>
+                  </div>
+                  <div style="font-size:0.75rem; color:var(--admin-text-secondary);">Sent by ${rAdmin} on ${rDate}</div>
+                  ${r.message ? `<div style="font-size:0.78rem; color:#475569; font-style:italic;">"${r.message}"</div>` : ''}
+                  ${r.seller_response_note ? `<div style="font-size:0.78rem; color:#b91c1c;">Seller Note: "${r.seller_response_note}"</div>` : ''}
+                </div>
+              `;
+            }).join('');
+          } else {
+            histContainer.style.display = 'none';
+          }
+        } catch (e) {
+          histContainer.style.display = 'none';
+        }
+      }
+
+      openModal('modal-negotiate-price');
+    }
+
+    async function submitAdminNegotiationOffer() {
+      const idInput = document.getElementById('negotiate-bike-id');
+      const id = idInput ? idInput.value.trim() : '';
+      if (!id) {
+        showToast('Invalid bike selection.', 'error');
+        return;
+      }
+
+      const priceInput = document.getElementById('negotiate-suggested-price');
+      const rawPrice = priceInput ? priceInput.value.trim() : '';
+      const priceVal = parseFloat(rawPrice);
+      if (isNaN(priceVal) || priceVal < 1 || priceVal > 1000000) {
+        showToast('Please enter a valid suggested price between ₹1 and ₹10,00,000.', 'error');
+        if (priceInput) priceInput.focus();
+        return;
+      }
+
+      const msgInput = document.getElementById('negotiate-message');
+      const message = msgInput ? msgInput.value.trim() : '';
+
+      const btn = document.getElementById('btn-submit-negotiation');
+      const origHtml = btn ? btn.innerHTML : '<i class="fas fa-paper-plane"></i> Send Negotiation Offer';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting Offer...';
+      }
+
+      try {
+        const res = await apiRequest(`/api/admin/bikes/${id}/negotiate`, {
+          method: 'POST',
+          body: JSON.stringify({
+            admin_suggested_price: priceVal,
+            message: message
+          })
+        });
+        showToast(res.message || 'Price counteroffer successfully sent to customer!', 'success');
+        closeModal('modal-negotiate-price');
+        loadPendingApprovals();
+        loadAdminBikes(currentBikeTab, 1);
+        loadAdminDashboard();
+      } catch (err) {
+        console.error('Negotiation proposal failed:', err);
+        showToast(err.message || 'Failed to submit negotiation offer.', 'error');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
       }
     }
 

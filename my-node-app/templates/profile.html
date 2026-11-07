@@ -1855,18 +1855,25 @@
         }
         tbody.innerHTML = listings.map(bike => {
           const st = (bike.listing_status || bike.status || 'pending').toLowerCase();
+          const ns = (bike.negotiation_status || '').toLowerCase();
           let badgeClass = 'badge-pending';
           let statusText = 'Pending Approval';
           if (st === 'approved' || st === 'published') {
             badgeClass = 'badge-approved';
             statusText = 'Approved & Live';
-          } else if (st === 'price_offered') {
+          } else if (ns === 'offer_sent' || st === 'price_offered') {
             badgeClass = 'badge-featured';
             statusText = 'Offer Received';
-          } else if (st === 'seller_accepted') {
+          } else if (ns === 'price_accepted' || st === 'seller_accepted') {
             badgeClass = 'badge-approved';
-            statusText = 'Offer Accepted';
-          } else if (st === 'rejected' || st === 'seller_rejected') {
+            statusText = 'Price Accepted';
+          } else if (ns === 'offer_rejected' || st === 'seller_rejected') {
+            badgeClass = 'badge-rejected';
+            statusText = 'Offer Declined';
+          } else if (st === 'pending_negotiation' || ns === 'pending_negotiation') {
+            badgeClass = 'badge-pending';
+            statusText = 'Pending Negotiation';
+          } else if (st === 'rejected') {
             badgeClass = 'badge-rejected';
             statusText = 'Listing Rejected';
           } else if (st === 'soldout') {
@@ -1903,11 +1910,14 @@
                 </div>
               </td>
               <td data-label="Brand & Model">${bike.brand} • ${bike.model}</td>
-              <td data-label="Expected Price" style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.price).toLocaleString('en-IN')}</td>
+              <td data-label="Expected Price" style="color:var(--accent-primary); font-weight:800;">₹${Number(bike.requested_price || bike.price || 0).toLocaleString('en-IN')}</td>
               <td data-label="Kilometers">${(bike.kilometers_driven||0).toLocaleString()} km</td>
               <td data-label="Review Status"><span class="badge ${badgeClass}">${statusText}</span></td>
               <td data-label="Action">
                 <div style="display:flex; gap:0.4rem; justify-content:flex-end;">
+                  ${(ns === 'offer_sent' || st === 'price_offered') ? `
+                    <button onclick="switchUserTab('user-tab-negotiations', document.querySelectorAll('.user-nav-link')[5])" class="btn btn-sm btn-primary" title="Review Counteroffer" style="background:#FF6B00; border-color:#FF6B00;"><i class="fas fa-handshake"></i> Review Offer</button>
+                  ` : ''}
                   <button onclick="openUserBikeDocsModal(${bike.id}, '${(bike.brand + ' ' + bike.model).replace(/'/g, "\\'")}')" class="btn btn-sm btn-outline" style="border-color:#2563EB; color:#2563EB;" title="Upload & View Ownership Documents"><i class="fas fa-file-shield"></i> Docs</button>
                   ${st === 'approved' || st === 'published' ? `
                     <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline" target="_blank" title="View Showroom Listing"><i class="fas fa-eye"></i></a>
@@ -1933,7 +1943,7 @@
         const res = await apiRequest(`/api/users/negotiations?page=${page}&limit=${limit}`);
         const negs = res.data || [];
         const badge = document.getElementById('user-badge-negotiations');
-        const pendingCount = (res.pending_count !== undefined) ? res.pending_count : negs.filter(b => b.listing_status === 'price_offered').length;
+        const pendingCount = (res.pending_count !== undefined) ? res.pending_count : negs.filter(b => (b.negotiation_status === 'offer_sent' || b.listing_status === 'price_offered')).length;
         if (badge) {
           badge.innerText = pendingCount;
           badge.style.display = pendingCount > 0 ? 'inline-block' : 'none';
@@ -1952,45 +1962,60 @@
         }
 
         container.innerHTML = negs.map(b => {
-          const st = b.listing_status;
-          const reqPrice = Number(b.requested_price || b.price);
-          const proposed = Number(b.proposed_seller_payout || b.price);
+          const negStatus = (b.negotiation_status || b.listing_status || '').toLowerCase();
+          const reqPrice = Number(b.requested_price || b.price || 0);
+          const proposed = Number(b.accepted_seller_payout || b.proposed_seller_payout || (b.latest_negotiation ? b.latest_negotiation.admin_suggested_price : b.price) || 0);
+          const rNum = b.counteroffer_number || (b.latest_negotiation ? b.latest_negotiation.counteroffer_number : 1);
+          const offerMsg = b.negotiation_message || (b.latest_negotiation ? b.latest_negotiation.message : '') || 'After evaluating the bike condition and market value, we can offer this guaranteed payout.';
           let actionContent = '';
 
-          if (st === 'price_offered') {
+          if (negStatus === 'offer_sent' || negStatus === 'price_offered') {
             actionContent = `
               <div style="background: rgba(255,107,0,0.08); border: 1px solid rgba(255,107,0,0.25); border-radius: var(--radius-md); padding: 1.25rem; margin-top: 1rem;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
-                  <div>
-                    <span style="font-size:0.8rem; text-transform:uppercase; color:var(--accent-primary); font-weight:700;">SMR Motors Counteroffer</span>
+                  <div style="max-width:680px;">
+                    <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.25rem;">
+                      <span style="font-size:0.75rem; text-transform:uppercase; color:#fff; background:var(--accent-primary); font-weight:800; padding:2px 8px; border-radius:4px;">Round ${rNum} Counteroffer</span>
+                      <span style="font-size:0.8rem; color:var(--text-muted);"><i class="fas fa-clock"></i> Action Required</span>
+                    </div>
                     <div style="font-size:1.6rem; font-weight:800; color:#0F172A;">₹${proposed.toLocaleString('en-IN')} <span style="font-size:0.85rem; font-weight:normal; color:var(--text-muted);">(Guaranteed Seller Payout)</span></div>
-                    <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.35rem 0 0;">
+                    <div style="margin:0.5rem 0; font-size:0.88rem; color:#334155; background:#fff; padding:0.6rem 0.85rem; border-radius:6px; border:1px solid #e2e8f0; font-style:italic;">
+                      <i class="fas fa-comment-dots" style="color:var(--accent-primary); margin-right:4px;"></i> "${offerMsg}"
+                    </div>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin:0.25rem 0 0;">
                       <i class="fas fa-shield-alt" style="color:var(--color-success);"></i> SMR Motors handles all buyer test rides, paperwork, and RC transfer at zero additional cost to you.
                     </p>
                   </div>
-                  <div style="display:flex; gap:0.75rem;">
-                    <button onclick="respondNegotiation(${b.id}, 'accept')" class="btn btn-success"><i class="fas fa-check"></i> Accept Offer (₹${proposed.toLocaleString('en-IN')})</button>
-                    <button onclick="respondNegotiation(${b.id}, 'reject')" class="btn btn-outline" style="color:#EF4444;"><i class="fas fa-times"></i> Decline</button>
+                  <div style="display:flex; flex-direction:column; gap:0.5rem; align-items:flex-end;">
+                    <button onclick="respondNegotiation(${b.id}, 'accept')" class="btn btn-success" style="font-weight:700;"><i class="fas fa-check"></i> Accept Price (₹${proposed.toLocaleString('en-IN')})</button>
+                    <button onclick="respondNegotiation(${b.id}, 'reject')" class="btn btn-outline" style="color:#EF4444; border-color:#EF4444;"><i class="fas fa-times"></i> Decline Offer</button>
                   </div>
                 </div>
               </div>
             `;
-          } else if (st === 'seller_accepted') {
+          } else if (negStatus === 'price_accepted' || negStatus === 'seller_accepted' || negStatus === 'completed') {
             actionContent = `
               <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3); border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
                 <div style="display:flex; align-items:center; gap:0.75rem; color:#10B981; font-weight:700;">
-                  <i class="fas fa-check-circle" style="font-size:1.25rem;"></i> Payout Offer Accepted (₹${proposed.toLocaleString('en-IN')})
+                  <i class="fas fa-check-circle" style="font-size:1.25rem;"></i> Payout Price Agreed: ₹${proposed.toLocaleString('en-IN')}
                 </div>
                 <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.35rem 0 0;">
-                  Our operations team is finalizing the listing details and publishing your motorcycle to the live showroom.
+                  You have accepted SMR Motors' acquisition price offer. Our operations team is completing the verification to publish your motorcycle to the showroom.
                 </p>
               </div>
             `;
-          } else if (st === 'seller_rejected') {
+          } else if (negStatus === 'offer_rejected' || negStatus === 'seller_rejected') {
             actionContent = `
               <div style="background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
-                <div style="color:#EF4444; font-weight:700;"><i class="fas fa-times-circle"></i> Offer Declined</div>
-                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;">You declined the previous counteroffer. SMR Motors admin will review alternative pricing.</p>
+                <div style="color:#EF4444; font-weight:700;"><i class="fas fa-times-circle"></i> Counteroffer Declined</div>
+                <p style="font-size:0.85rem; color:var(--text-secondary); margin:0.25rem 0 0;">You declined the previous price counteroffer. SMR Motors team will review alternative pricing for you.</p>
+              </div>
+            `;
+          } else {
+            actionContent = `
+              <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: var(--radius-md); padding: 1rem; margin-top: 1rem;">
+                <div style="color:#92400e; font-weight:700;"><i class="fas fa-hourglass-half"></i> Price Evaluation In Progress</div>
+                <p style="font-size:0.85rem; color:#78350f; margin:0.25rem 0 0;">Your asking price is ₹${reqPrice.toLocaleString('en-IN')}. SMR Motors is evaluating the vehicle condition and market value to propose a guaranteed payout offer.</p>
               </div>
             `;
           }
@@ -2000,7 +2025,7 @@
               <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:1rem;">
                 <div>
                   <h3 style="font-size:1.25rem; margin:0 0 0.35rem;">${b.year} ${b.title}</h3>
-                  <div style="font-size:0.85rem; color:var(--text-muted);">${b.brand} • ${(b.kilometers_driven||0).toLocaleString()} km • Listed: ${new Date(b.created_at).toLocaleDateString()}</div>
+                  <div style="font-size:0.85rem; color:var(--text-muted);">${b.brand} • ${(b.kilometers_driven||0).toLocaleString()} km • Reg: ${b.registration_number || 'N/A'} • Listed: ${new Date(b.created_at).toLocaleDateString()}</div>
                 </div>
                 <div style="text-align:right;">
                   <span style="font-size:0.8rem; color:var(--text-muted);">Your Expected Price</span>
@@ -2019,18 +2044,25 @@
     }
 
     async function respondNegotiation(bikeId, action) {
-      const confirmMsg = action === 'accept' 
-        ? 'Confirm accepting SMR Motors payout counteroffer? Your bike will proceed to live showroom publication.' 
-        : 'Decline this counteroffer?';
-      if (!confirm(confirmMsg)) return;
+      let sellerNote = '';
+      if (action === 'accept') {
+        const confirmMsg = 'Confirm accepting SMR Motors payout counteroffer? Your agreed payout will be locked and your bike will proceed to live showroom publication.';
+        if (!confirm(confirmMsg)) return;
+      } else {
+        const inputNote = prompt('Optional: Share a brief reason or minimum target price for declining this offer (or click OK to proceed):');
+        if (inputNote === null) return;
+        sellerNote = inputNote.trim();
+      }
 
       try {
         const res = await apiRequest(`/api/users/bikes/${bikeId}/negotiate`, {
           method: 'POST',
-          body: { action }
+          body: { action, seller_note: sellerNote }
         });
         showToast(res.message || `Offer ${action}ed successfully`, 'success');
         loadUserNegotiations();
+        loadUserListings();
+        loadUserDashboard();
       } catch (err) {
         showToast(err.message || 'Action failed', 'error');
       }

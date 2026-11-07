@@ -554,6 +554,7 @@ def initialize_database():
           `bike_id` INT NOT NULL,
           `seller_id` INT NULL,
           `admin_id` INT NULL,
+          `admin_name` VARCHAR(100) NULL,
           `requested_price` DECIMAL(12,2) NULL,
           `proposed_payout` DECIMAL(12,2) NOT NULL,
           `counteroffer_number` INT NOT NULL DEFAULT 1,
@@ -567,6 +568,20 @@ def initialize_database():
           INDEX `idx_pneg_status` (`status`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
+
+        # Safe migration for price_negotiations table columns
+        for col_name, col_def in [
+            ("admin_name", "VARCHAR(100) NULL"),
+            ("counteroffer_number", "INT NOT NULL DEFAULT 1"),
+            ("message", "TEXT NULL"),
+            ("seller_response_note", "TEXT NULL"),
+            ("responded_at", "TIMESTAMP NULL")
+        ]:
+            try:
+                cursor.execute(f"ALTER TABLE `price_negotiations` ADD COLUMN `{col_name}` {col_def}")
+                conn.commit()
+            except Exception:
+                pass
 
         # 4c. bike_transactions table
         cursor.execute("""
@@ -1459,6 +1474,7 @@ def _normalize_bike(r, is_admin=False, admin_role=None):
     item["owner_name"] = item.get("seller_name") or "SMR Motors"
     raw_status = (str(item.get("status") or "")).lower()
     raw_listing_status = (str(item.get("listing_status") or "")).lower()
+    raw_neg_status = (str(item.get("negotiation_status") or "")).lower()
     is_sold = (item.get("isSoldout") == 1 or raw_status in ("sold", "soldout") or raw_listing_status in ("sold", "soldout"))
 
     if is_sold:
@@ -1473,22 +1489,47 @@ def _normalize_bike(r, is_admin=False, admin_role=None):
         st = "rejected"
         item["isAccepted"] = 0
         item["isSoldout"] = 0
+    elif raw_status == "pending_negotiation" or raw_listing_status == "pending_negotiation" or raw_neg_status == "pending_negotiation":
+        st = "pending_negotiation"
+        item["isAccepted"] = 0
+        item["isSoldout"] = 0
     else:
         st = "pending"
         item["isAccepted"] = 0
         item["isSoldout"] = 0
 
+    # Resolve granular negotiation status
+    neg_st = raw_neg_status
+    if not neg_st:
+        if raw_listing_status in ("price_offered", "offer_sent"):
+            neg_st = "offer_sent"
+        elif raw_listing_status in ("seller_accepted", "price_accepted"):
+            neg_st = "price_accepted"
+        elif raw_listing_status in ("seller_rejected", "offer_rejected"):
+            neg_st = "offer_rejected"
+        elif st in ("pending", "pending_negotiation"):
+            neg_st = "pending_negotiation"
+        elif st == "approved":
+            neg_st = "completed"
+    item["negotiation_status"] = neg_st
+
+    if st == "approved":
+        item["listing_status"] = "published"
+    elif st == "soldout":
+        item["listing_status"] = "soldout"
+    elif raw_listing_status in ("pending_negotiation", "price_offered", "offer_sent", "seller_accepted", "price_accepted", "seller_rejected", "offer_rejected"):
+        item["listing_status"] = raw_listing_status
+    else:
+        item["listing_status"] = st
+
     item["status"] = st
-    item["listing_status"] = "published" if st == "approved" else ("soldout" if st == "soldout" else st)
 
     # Determine effective admin role if not explicitly passed
     if admin_role is None and hasattr(g, "admin") and isinstance(g.admin, dict):
         admin_role = g.admin.get("role")
 
-    # Restrict confidential financials to Superadmin role only (Requirement 11)
+    # Restrict confidential internal financials to Superadmin role only (Requirement 11)
     if not is_admin or admin_role != "superadmin":
-        item.pop("accepted_seller_payout", None)
-        item.pop("proposed_seller_payout", None)
         item.pop("business_margin", None)
         item.pop("buying_price", None)
         item.pop("expenses", None)
@@ -2027,9 +2068,9 @@ def add_bike_api():
         negotiation_status = "completed"
         is_accepted = 1
     else:
-        status = "pending"
-        listing_status = "pending"
-        negotiation_status = "pending"
+        status = "pending_negotiation"
+        listing_status = "pending_negotiation"
+        negotiation_status = "pending_negotiation"
         is_accepted = 0
 
     # Persist to TiDB Cloud with verification
@@ -3483,7 +3524,7 @@ def admin_dashboard_api():
                         THEN 1 ELSE 0 END) as rejected_bikes,
                     SUM(CASE WHEN (isSoldout IS NULL OR isSoldout = 0) AND status NOT IN ('sold', 'soldout') AND listing_status NOT IN ('sold', 'soldout')
                                   AND (status != 'rejected' AND listing_status != 'rejected')
-                                  AND (status = 'pending' OR listing_status = 'pending')
+                                  AND (status NOT IN ('approved', 'published') AND listing_status NOT IN ('approved', 'published'))
                         THEN 1 ELSE 0 END) as pending_bikes,
                     SUM(CASE WHEN (isSoldout IS NULL OR isSoldout = 0) AND status NOT IN ('sold', 'soldout') AND listing_status NOT IN ('sold', 'soldout')
                                   AND (status != 'rejected' AND listing_status != 'rejected')
@@ -3667,7 +3708,7 @@ def admin_listings_paginated():
         st = (b.get("listing_status") or b.get("status") or "pending").lower()
         sold = b.get("isSoldout") == 1 or st == "soldout"
         if tab == "pending":
-            if st == "pending" and not sold:
+            if not sold and st not in ("approved", "published", "sold", "soldout", "rejected"):
                 filtered.append(b)
         elif tab == "negotiations":
             if st in ("price_offered", "seller_accepted", "seller_rejected") and not sold:
@@ -3745,7 +3786,7 @@ def admin_bikes_api():
             if is_sold:
                 continue
         elif tab == "pending":
-            if st != "pending" or is_sold:
+            if is_sold or st in ("approved", "published", "sold", "soldout", "rejected"):
                 continue
         elif tab in ("approved", "published"):
             if st not in ("approved", "published") or is_sold:
@@ -3791,140 +3832,533 @@ def admin_bikes_api():
         }
     })
 
+# -----------------------------------------------------------------------------
+# PRICE NEGOTIATION WORKFLOW (MULTI-ROUND & RBAC PROTECTED)
+# -----------------------------------------------------------------------------
+@app.route("/api/admin/bikes/<int:bike_id>/negotiate", methods=["POST"])
 @app.route("/api/admin/bikes/<int:bike_id>/propose-price", methods=["POST"])
-@superadmin_required
+@admin_required
 def admin_propose_price(bike_id):
     """
-    Step 2: Admin inputs proposed seller payout counteroffer.
-    Listing transitions to price_offered (awaiting seller response).
+    Step 2: Admin inputs proposed buying price counteroffer with negotiation message.
+    Supports multiple rounds, logs full history, and notifies customer through in-app alert & chat.
     """
-    data = request.get_json() or request.form.to_dict() or {}
-    raw_payout = data.get("proposed_payout") if "proposed_payout" in data else (data.get("proposed_seller_payout") if "proposed_seller_payout" in data else data.get("price"))
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
+    raw_payout = data.get("proposed_payout") if "proposed_payout" in data else (
+        data.get("proposed_seller_payout") if "proposed_seller_payout" in data else (
+            data.get("admin_suggested_price") if "admin_suggested_price" in data else (
+                data.get("buying_price") if "buying_price" in data else data.get("price")
+            )
+        )
+    )
     if raw_payout is None or str(raw_payout).strip() == "":
-        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+        return jsonify({"success": False, "message": "Suggested price must be between ₹1 and ₹10,00,000."}), 400
     try:
         proposed_payout = float(raw_payout)
     except (ValueError, TypeError):
-        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
+        return jsonify({"success": False, "message": "Suggested price must be a valid number between ₹1 and ₹10,00,000."}), 400
 
-    if proposed_payout < 0 or proposed_payout > 1000000:
-        return jsonify({"success": False, "message": "Bike price must be between ₹0 and ₹10,00,000."}), 400
-    message = data.get("message", "SMR Motors fair market counteroffer based on vehicle inspection.")
+    if proposed_payout <= 0 or proposed_payout > 1000000:
+        return jsonify({"success": False, "message": "Suggested price must be between ₹1 and ₹10,00,000."}), 400
+
+    admin_username = g.admin.get("username", "admin")
+    admin_id = g.admin.get("id") or 1
+    message = (data.get("message") or data.get("negotiation_message") or "").strip()
+    if not message:
+        message = f"After evaluating the motorcycle condition and market value, we can offer ₹{proposed_payout:,.0f}."
 
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
-            bike = cursor.fetchone()
-            if bike:
-                req_price = bike.get("requested_price") or bike.get("price")
-                cursor.execute(
-                    """UPDATE bikes SET 
-                       proposed_seller_payout = %s,
-                       listing_status = 'price_offered',
-                       negotiation_status = 'awaiting_seller_response'
-                       WHERE id = %s""",
-                    (proposed_payout, bike_id)
-                )
-                cursor.execute(
-                    """INSERT INTO price_negotiations 
-                       (bike_id, seller_id, requested_price, proposed_payout, status, message)
-                       VALUES (%s, %s, %s, %s, %s, %s)""",
-                    (bike_id, bike.get("seller_id"), req_price, proposed_payout, "pending", message)
-                )
-                conn.commit()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+
+    round_number = 1
+    bike_title = f"Motorcycle #{bike_id}"
+    seller_id = None
+    seller_name = "Customer"
+    customer_expected_price = proposed_payout
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+        bike = cursor.fetchone()
+        if not bike:
             cursor.close()
             conn.close()
-        except Exception as e:
-            print("[Database] Propose price notice:", e)
-            if conn:
-                try: conn.close()
-                except Exception: pass
+            return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
 
-    create_notification(
-        "Payout Proposal Submitted",
-        f"SMR Motors has proposed a seller payout of ₹{proposed_payout:,.0f} for your listing #{bike_id}.",
-        target_role="user",
-        link="/profile.html?tab=negotiations"
-    )
+        if bike.get("isSoldout") == 1 or str(bike.get("status") or "").lower() in ("sold", "soldout"):
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Cannot negotiate on a motorcycle that is already sold out."}), 400
+
+        bike_title = bike.get("title") or f"{bike.get('brand','')} {bike.get('model','')}".strip() or f"Motorcycle #{bike_id}"
+        seller_id = bike.get("seller_id")
+        seller_name = bike.get("seller_name") or "Customer"
+        customer_expected_price = float(bike.get("requested_price") or bike.get("price") or proposed_payout)
+
+        # 1. Determine next round number
+        try:
+            cursor.execute("SELECT MAX(counteroffer_number) as max_round FROM price_negotiations WHERE bike_id = %s", (bike_id,))
+            max_row = cursor.fetchone()
+            if max_row and max_row.get("max_round"):
+                round_number = int(max_row["max_round"]) + 1
+        except Exception:
+            round_number = 1
+
+        # 2. Mark any previous pending offers for this bike as superseded
+        try:
+            cursor.execute("UPDATE price_negotiations SET status = 'superseded' WHERE bike_id = %s AND status = 'pending'", (bike_id,))
+        except Exception:
+            pass
+
+        # 3. Insert new offer into price_negotiations table
+        cursor.execute("""
+            INSERT INTO price_negotiations 
+            (bike_id, seller_id, admin_id, admin_name, requested_price, proposed_payout, counteroffer_number, status, message, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending', %s, CURRENT_TIMESTAMP)
+        """, (bike_id, seller_id, admin_id, admin_username, customer_expected_price, proposed_payout, round_number, message))
+
+        # 4. Update bikes table
+        cursor.execute("""
+            UPDATE bikes SET 
+               proposed_seller_payout = %s,
+               listing_status = 'offer_sent',
+               negotiation_status = 'offer_sent',
+               updated_at = CURRENT_TIMESTAMP
+            WHERE id = %s
+        """, (proposed_payout, bike_id))
+
+        # 5. Send automated chat message in customer-admin chat conversation
+        if seller_id:
+            try:
+                cursor.execute("""
+                    SELECT id FROM chat_conversations
+                    WHERE user_id = %s AND bike_id = %s
+                    ORDER BY id DESC LIMIT 1
+                """, (seller_id, bike_id))
+                conv_row = cursor.fetchone()
+                if conv_row:
+                    conv_id = conv_row["id"]
+                    cursor.execute("UPDATE chat_conversations SET status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_id,))
+                else:
+                    cursor.execute("""
+                        INSERT INTO chat_conversations (user_id, bike_id, subject, status)
+                        VALUES (%s, %s, %s, 'open')
+                    """, (seller_id, bike_id, f"Price Negotiation for {bike_title}"))
+                    conv_id = cursor.lastrowid
+
+                chat_text = f"""Price Counteroffer (Round {round_number}): SMR Motors has evaluated your motorcycle and proposed a buying payout of ₹{proposed_payout:,.0f}.
+Customer Expected: ₹{customer_expected_price:,.0f}
+Admin Offer: ₹{proposed_payout:,.0f}
+Message: {message}
+
+Please review this offer in your My Bikes / Negotiations dashboard to Accept or Decline."""
+                cursor.execute("""
+                    INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                    VALUES (%s, %s, 'admin', %s, 0)
+                """, (conv_id, admin_id, chat_text))
+            except Exception as e_chat:
+                print("[Negotiation Chat Notice]:", e_chat)
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        log_admin_action(admin_username, "send_price_offer", "bike", bike_id, f"Sent Round {round_number} offer of ₹{proposed_payout:,.0f} for #{bike_id} ({bike_title})")
+
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error while saving negotiation offer: {str(e)}"}), 500
+
+    # Notify specific seller
+    if seller_id:
+        create_notification(
+            title=f"Price Counteroffer (Round {round_number})",
+            message=f"SMR Motors has offered ₹{proposed_payout:,.0f} for your {bike_title}. Please review and respond.",
+            user_id=seller_id,
+            target_role="user",
+            notif_type="info",
+            link=f"/profile.html?tab=negotiations&bike_id={bike_id}"
+        )
+
     return jsonify({
         "success": True,
-        "message": f"Counteroffer of ₹{proposed_payout:,.0f} proposed to seller",
+        "message": f"Counteroffer of ₹{proposed_payout:,.0f} (Round {round_number}) sent to seller successfully.",
         "proposed_seller_payout": proposed_payout,
-        "listing_status": "price_offered"
+        "round_number": round_number,
+        "customer_expected_price": customer_expected_price,
+        "listing_status": "offer_sent",
+        "negotiation_status": "offer_sent",
+        "data": {
+            "bike_id": bike_id,
+            "proposed_price": proposed_payout,
+            "proposed_seller_payout": proposed_payout,
+            "counteroffer_number": round_number,
+            "negotiation_status": "offer_sent"
+        }
     })
+
 @app.route("/api/users/bikes/<int:bike_id>/negotiate", methods=["POST"])
+@app.route("/api/user/bikes/<int:bike_id>/negotiate", methods=["POST"])
 def user_respond_negotiation(bike_id):
     """
-    Step 3: User accepts or rejects admin's proposed payout.
+    Step 3: User accepts or rejects admin's proposed counteroffer.
+    Strictly verifies ownership, updates agreed price, marks negotiation accepted/rejected,
+    and notifies admin.
     """
-    data = request.get_json() or request.form.to_dict() or {}
+    # 1. User Authentication
+    caller_user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and "Bearer" in auth_header:
+        try:
+            token = auth_header.split()[1]
+            dec = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            caller_user_id = dec.get("id") or dec.get("user_id")
+        except Exception:
+            pass
+    if not caller_user_id and request.args.get("token"):
+        try:
+            dec = jwt.decode(request.args.get("token"), JWT_SECRET, algorithms=["HS256"])
+            caller_user_id = dec.get("id") or dec.get("user_id")
+        except Exception:
+            pass
+    if not caller_user_id and session.get("user_id"):
+        caller_user_id = session.get("user_id")
+
+    if not caller_user_id:
+        return jsonify({"success": False, "message": "Authentication required. Please log in to respond to price offers."}), 401
+
+    data = request.get_json(silent=True) or request.form.to_dict() or {}
     action = (data.get("action") or "").lower().strip()
-    message = data.get("message") or data.get("seller_response_note") or ""
+    message = (data.get("message") or data.get("seller_response_note") or "").strip()
 
     if action not in ("accept", "reject"):
-        return jsonify({"success": False, "message": "Invalid action. Must be 'accept' or 'reject'"}), 400
+        return jsonify({"success": False, "message": "Invalid action. Must be 'accept' or 'reject'."}), 400
 
-    now_ts = datetime.datetime.utcnow().isoformat()
     conn = get_db()
-    if conn:
-        try:
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
-            bike = cursor.fetchone()
-            if bike:
-                payout = bike.get("proposed_seller_payout") or bike.get("price") or 0
-                if action == "accept":
-                    cursor.execute(
-                        """UPDATE bikes SET 
-                           accepted_seller_payout = %s,
-                           listing_status = 'seller_accepted',
-                           negotiation_status = 'accepted',
-                           seller_agreement_at = CURRENT_TIMESTAMP
-                           WHERE id = %s""",
-                        (payout, bike_id)
-                    )
-                    cursor.execute(
-                        """UPDATE price_negotiations SET status = 'accepted', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
-                           WHERE bike_id = %s ORDER BY id DESC LIMIT 1""",
-                        (message, bike_id)
-                    )
-                else:
-                    cursor.execute(
-                        """UPDATE bikes SET 
-                           listing_status = 'seller_rejected',
-                           negotiation_status = 'rejected'
-                           WHERE id = %s""",
-                        (bike_id,)
-                    )
-                    cursor.execute(
-                        """UPDATE price_negotiations SET status = 'rejected', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
-                           WHERE bike_id = %s ORDER BY id DESC LIMIT 1""",
-                        (message, bike_id)
-                    )
-                conn.commit()
+    if not conn:
+        return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+        bike = cursor.fetchone()
+        if not bike:
             cursor.close()
             conn.close()
-        except Exception as e:
-            print("[Database] User negotiate notice:", e)
-            if conn:
-                try: conn.close()
-                except Exception: pass
+            return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
 
-    res_status = "seller_accepted" if action == "accept" else "seller_rejected"
-    create_notification(
-        f"Seller {action.capitalize()}ed Offer #{bike_id}",
-        f"Seller {action}ed payout proposal for motorcycle #{bike_id}.",
-        target_role="admin",
-        link="/admin.html?tab=negotiations"
-    )
-    return jsonify({
-        "success": True,
-        "message": f"Proposal successfully {action}ed",
-        "action": action,
-        "listing_status": res_status
-    })
+        # Ownership security check
+        bike_seller_id = bike.get("seller_id")
+        if not bike_seller_id or int(bike_seller_id) != int(caller_user_id):
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Unauthorized. Only the registered seller of this motorcycle can respond to price negotiations."}), 403
+
+        bike_title = bike.get("title") or f"Motorcycle #{bike_id}"
+        current_neg_st = str(bike.get("negotiation_status") or "").lower()
+
+        if current_neg_st == "price_accepted" and action == "accept":
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "This price offer has already been accepted and is awaiting showroom approval."}), 400
+
+        # Retrieve active pending offer from price_negotiations
+        cursor.execute("""
+            SELECT * FROM price_negotiations 
+            WHERE bike_id = %s AND status = 'pending' 
+            ORDER BY id DESC LIMIT 1
+        """, (bike_id,))
+        active_offer = cursor.fetchone()
+
+        payout = float(
+            (active_offer.get("proposed_payout") if active_offer else None) or 
+            bike.get("proposed_seller_payout") or 
+            bike.get("price") or 0.0
+        )
+
+        if action == "accept":
+            if payout <= 0:
+                cursor.close()
+                conn.close()
+                return jsonify({"success": False, "message": "Cannot accept an empty or invalid price offer."}), 400
+
+            # Update active offer in price_negotiations
+            if active_offer:
+                cursor.execute("""
+                    UPDATE price_negotiations 
+                    SET status = 'accepted', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
+                    WHERE id = %s
+                """, (message or "Accepted by customer", active_offer["id"]))
+            else:
+                cursor.execute("""
+                    INSERT INTO price_negotiations 
+                    (bike_id, seller_id, requested_price, proposed_payout, status, message, seller_response_note, created_at, responded_at)
+                    VALUES (%s, %s, %s, %s, 'accepted', 'Agreed payout', %s, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                """, (bike_id, bike_seller_id, bike.get("requested_price") or payout, payout, message or "Accepted by customer"))
+
+            # Update bikes table: agreed payout strictly becomes actual buying_price!
+            cursor.execute("""
+                UPDATE bikes SET 
+                   accepted_seller_payout = %s,
+                   buying_price = %s,
+                   listing_status = 'price_accepted',
+                   negotiation_status = 'price_accepted',
+                   seller_agreement_at = CURRENT_TIMESTAMP,
+                   updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (payout, payout, bike_id))
+
+            conn.commit()
+
+            # Record chat update
+            try:
+                cursor.execute("SELECT id FROM chat_conversations WHERE user_id = %s AND bike_id = %s ORDER BY id DESC LIMIT 1", (caller_user_id, bike_id))
+                conv_row = cursor.fetchone()
+                if conv_row:
+                    cursor.execute("""
+                        INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                        VALUES (%s, %s, 'user', %s, 0)
+                    """, (conv_row["id"], caller_user_id, f"I have ACCEPTED the price offer of ₹{payout:,.0f} for {bike_title}. {message or ''}".strip()))
+                    cursor.execute("UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_row["id"],))
+                    conn.commit()
+            except Exception:
+                pass
+
+            cursor.close()
+            conn.close()
+
+            # Notify Admin
+            create_notification(
+                title=f"Seller Accepted Price Offer: #{bike_id}",
+                message=f"Seller accepted agreed buying price of ₹{payout:,.0f} for #{bike_id} ({bike_title}). Ready for final admin approval.",
+                target_role="admin",
+                notif_type="success",
+                link=f"/admin.html#tab-pending"
+            )
+
+            return jsonify({
+                "success": True,
+                "message": f"Counteroffer of ₹{payout:,.0f} accepted successfully! Your motorcycle is now ready for showroom approval.",
+                "action": "accept",
+                "agreed_price": payout,
+                "agreed_payout": payout,
+                "negotiation_status": "price_accepted",
+                "listing_status": "price_accepted",
+                "data": {
+                    "bike_id": bike_id,
+                    "agreed_price": payout,
+                    "agreed_payout": payout,
+                    "negotiation_status": "price_accepted"
+                }
+            })
+
+        else: # action == "reject"
+            # Update active offer in price_negotiations
+            if active_offer:
+                cursor.execute("""
+                    UPDATE price_negotiations 
+                    SET status = 'rejected', responded_at = CURRENT_TIMESTAMP, seller_response_note = %s
+                    WHERE id = %s
+                """, (message or "Declined by customer", active_offer["id"]))
+
+            # Update bikes table
+            cursor.execute("""
+                UPDATE bikes SET 
+                   listing_status = 'offer_rejected',
+                   negotiation_status = 'offer_rejected',
+                   updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+            """, (bike_id,))
+
+            conn.commit()
+
+            # Record chat update
+            try:
+                cursor.execute("SELECT id FROM chat_conversations WHERE user_id = %s AND bike_id = %s ORDER BY id DESC LIMIT 1", (caller_user_id, bike_id))
+                conv_row = cursor.fetchone()
+                if conv_row:
+                    cursor.execute("""
+                        INSERT INTO chat_messages (conversation_id, sender_id, sender_role, message, is_read)
+                        VALUES (%s, %s, 'user', %s, 0)
+                    """, (conv_row["id"], caller_user_id, f"I have DECLINED the price offer of ₹{payout:,.0f} for {bike_title}. {message or ''}".strip()))
+                    cursor.execute("UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_row["id"],))
+                    conn.commit()
+            except Exception:
+                pass
+
+            cursor.close()
+            conn.close()
+
+            # Notify Admin
+            create_notification(
+                title=f"Seller Declined Price Offer: #{bike_id}",
+                message=f"Seller declined payout offer of ₹{payout:,.0f} for #{bike_id} ({bike_title}). Reason: {message or 'No specific note provided'}",
+                target_role="admin",
+                notif_type="warning",
+                link=f"/admin.html#tab-pending"
+            )
+
+            return jsonify({
+                "success": True,
+                "message": "You declined the counteroffer. SMR Motors admin will review alternative pricing.",
+                "action": "reject",
+                "negotiation_status": "offer_rejected",
+                "listing_status": "offer_rejected"
+            })
+
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": f"Database error: {str(e)}"}), 500
+
+@app.route("/api/admin/bikes/<int:bike_id>/negotiations", methods=["GET"])
+@admin_required
+def admin_bike_negotiations_history(bike_id):
+    """
+    Returns complete multi-round price negotiation history for a motorcycle.
+    """
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database unavailable."}), 503
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+        bike = cursor.fetchone()
+        if not bike:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Motorcycle not found."}), 404
+
+        cursor.execute("""
+            SELECT id, bike_id, seller_id, admin_id, admin_name, requested_price, proposed_payout,
+                   counteroffer_number, status, message, seller_response_note, created_at, responded_at
+            FROM price_negotiations
+            WHERE bike_id = %s
+            ORDER BY counteroffer_number ASC, id ASC
+        """, (bike_id,))
+        history = cursor.fetchall() or []
+        for h in history:
+            h["created_at"] = str(h.get("created_at") or "")
+            h["responded_at"] = str(h.get("responded_at") or "")
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "bike": {
+                "id": bike["id"],
+                "title": bike.get("title") or f"{bike.get('brand','')} {bike.get('model','')}",
+                "brand": bike.get("brand"),
+                "model": bike.get("model"),
+                "year": bike.get("year"),
+                "registration_number": bike.get("registration_number"),
+                "seller_name": bike.get("seller_name"),
+                "seller_phone": bike.get("seller_phone"),
+                "requested_price": float(bike.get("requested_price") or bike.get("price") or 0),
+                "proposed_seller_payout": float(bike.get("proposed_seller_payout") or 0),
+                "accepted_seller_payout": float(bike.get("accepted_seller_payout") or 0),
+                "negotiation_status": bike.get("negotiation_status") or "pending_negotiation",
+                "listing_status": bike.get("listing_status") or "pending_negotiation"
+            },
+            "data": history,
+            "history": history,
+            "rounds_count": len(history)
+        })
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": str(e)}), 500
+
+@app.route("/api/users/bikes/<int:bike_id>/negotiations", methods=["GET"])
+@app.route("/api/user/bikes/<int:bike_id>/negotiations", methods=["GET"])
+def user_bike_negotiations_history(bike_id):
+    """
+    Returns complete multi-round price negotiation history for a user's own motorcycle.
+    """
+    caller_user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and "Bearer" in auth_header:
+        try:
+            token = auth_header.split()[1]
+            dec = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+            caller_user_id = dec.get("id") or dec.get("user_id")
+        except Exception:
+            pass
+    if not caller_user_id and request.args.get("token"):
+        try:
+            dec = jwt.decode(request.args.get("token"), JWT_SECRET, algorithms=["HS256"])
+            caller_user_id = dec.get("id") or dec.get("user_id")
+        except Exception:
+            pass
+    if not caller_user_id and session.get("user_id"):
+        caller_user_id = session.get("user_id")
+
+    if not caller_user_id:
+        return jsonify({"success": False, "message": "Authentication required."}), 401
+
+    conn = get_db()
+    if not conn:
+        return jsonify({"success": False, "message": "Database unavailable."}), 503
+
+    try:
+        cursor = conn.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM bikes WHERE id = %s", (bike_id,))
+        bike = cursor.fetchone()
+        if not bike:
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Motorcycle not found."}), 404
+
+        if int(bike.get("seller_id") or 0) != int(caller_user_id):
+            cursor.close()
+            conn.close()
+            return jsonify({"success": False, "message": "Unauthorized."}), 403
+
+        cursor.execute("""
+            SELECT id, bike_id, requested_price, proposed_payout, counteroffer_number,
+                   status, message, seller_response_note, created_at, responded_at
+            FROM price_negotiations
+            WHERE bike_id = %s
+            ORDER BY counteroffer_number ASC, id ASC
+        """, (bike_id,))
+        history = cursor.fetchall() or []
+        for h in history:
+            h["created_at"] = str(h.get("created_at") or "")
+            h["responded_at"] = str(h.get("responded_at") or "")
+
+        cursor.close()
+        conn.close()
+
+        return jsonify({
+            "success": True,
+            "bike": {
+                "id": bike["id"],
+                "title": bike.get("title") or f"{bike.get('brand','')} {bike.get('model','')}",
+                "brand": bike.get("brand"),
+                "model": bike.get("model"),
+                "year": bike.get("year"),
+                "requested_price": float(bike.get("requested_price") or bike.get("price") or 0),
+                "proposed_seller_payout": float(bike.get("proposed_seller_payout") or 0),
+                "accepted_seller_payout": float(bike.get("accepted_seller_payout") or 0),
+                "negotiation_status": bike.get("negotiation_status") or "pending_negotiation",
+                "listing_status": bike.get("listing_status") or "pending_negotiation"
+            },
+            "data": history,
+            "history": history,
+            "rounds_count": len(history)
+        })
+    except Exception as e:
+        if conn:
+            try: conn.close()
+            except Exception: pass
+        return jsonify({"success": False, "message": str(e)}), 500
 @app.route("/api/admin/bikes/<int:bike_id>/publish", methods=["POST"])
 @superadmin_required
 def admin_publish_bike(bike_id):
@@ -5389,7 +5823,9 @@ def admin_approve_bike(bike_id):
 
         # 2. Query existing bike submission record (Notice: bikes table uses seller_id, NOT user_id)
         cursor.execute("""
-            SELECT id, title, brand, model, price, requested_price, status, listing_status, seller_id, seller_name, seller_phone
+            SELECT id, title, brand, model, price, requested_price, status, listing_status,
+                   negotiation_status, proposed_seller_payout, accepted_seller_payout, buying_price,
+                   seller_id, seller_name, seller_phone
             FROM bikes WHERE id = %s
         """, (bike_id,))
         bike_row = cursor.fetchone()
@@ -5398,6 +5834,20 @@ def admin_approve_bike(bike_id):
             cursor.close()
             conn.close()
             return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
+
+        neg_status = str(bike_row.get("negotiation_status") or "").lower()
+        # STRICT ENFORCEMENT: Admin cannot approve before customer accepts the price offer
+        if neg_status in ("pending_negotiation", "offer_sent", "offer_rejected"):
+            cursor.close()
+            conn.close()
+            if neg_status == "pending_negotiation":
+                msg = f"Cannot approve motorcycle #{bike_id}: Price negotiation is still pending. Please negotiate and send a price offer to the customer first."
+            elif neg_status == "offer_sent":
+                p_amt = float(bike_row.get("proposed_seller_payout") or 0)
+                msg = f"Cannot approve motorcycle #{bike_id}: Waiting for customer to accept the proposed price offer of ₹{p_amt:,.0f}."
+            else:  # offer_rejected
+                msg = f"Cannot approve motorcycle #{bike_id}: Customer rejected the last price offer. Please send a revised counteroffer."
+            return jsonify({"success": False, "message": msg}), 400
 
         current_status = bike_row.get("status")
         current_listing_status = bike_row.get("listing_status")
@@ -5415,6 +5865,13 @@ def admin_approve_bike(bike_id):
             orig_price = 0.0
 
         final_price = approved_price if approved_price is not None else orig_price
+
+        # Determine agreed buying price from accepted seller payout
+        agreed_buying_price = bike_row.get("accepted_seller_payout") or bike_row.get("buying_price") or bike_row.get("proposed_seller_payout") or orig_price
+        try:
+            agreed_buying_price = float(agreed_buying_price)
+        except (ValueError, TypeError):
+            agreed_buying_price = 0.0
 
         # Verify seller_id and fetch accurate customer profile from users table
         if seller_id:
@@ -5448,12 +5905,15 @@ def admin_approve_bike(bike_id):
                   isSoldout = 0,
                   price = %s,
                   public_selling_price = %s,
+                  buying_price = CASE WHEN %s > 0 THEN %s ELSE buying_price END,
+                  accepted_seller_payout = CASE WHEN %s > 0 THEN %s ELSE accepted_seller_payout END,
+                  negotiation_status = 'completed',
                   approved_by = %s,
                   approved_at = CURRENT_TIMESTAMP,
                   updated_at = CURRENT_TIMESTAMP,
                   published_at = CURRENT_TIMESTAMP
                 WHERE id = %s
-            """, (final_price, final_price, admin_username, bike_id))
+            """, (final_price, final_price, agreed_buying_price, agreed_buying_price, agreed_buying_price, agreed_buying_price, admin_username, bike_id))
             try:
                 cursor.execute("UPDATE bikesforsale SET isAccepted = 1, isSoldout = 0, sellingPrice = %s WHERE id = %s", (str(final_price), bike_id))
             except Exception:
@@ -5464,12 +5924,15 @@ def admin_approve_bike(bike_id):
                   status = 'approved',
                   listing_status = 'accepted',
                   isSoldout = 0,
+                  buying_price = CASE WHEN %s > 0 THEN %s ELSE buying_price END,
+                  accepted_seller_payout = CASE WHEN %s > 0 THEN %s ELSE accepted_seller_payout END,
+                  negotiation_status = 'completed',
                   approved_by = %s,
                   approved_at = CURRENT_TIMESTAMP,
                   updated_at = CURRENT_TIMESTAMP,
                   published_at = CURRENT_TIMESTAMP
                 WHERE id = %s
-            """, (admin_username, bike_id))
+            """, (agreed_buying_price, agreed_buying_price, agreed_buying_price, agreed_buying_price, admin_username, bike_id))
             try:
                 cursor.execute("UPDATE bikesforsale SET isAccepted = 1, isSoldout = 0 WHERE id = %s", (bike_id,))
             except Exception:
@@ -7255,7 +7718,7 @@ def user_my_negotiations():
     """Returns price negotiations for the current user's listings."""
     u_id, u_data = get_current_user_profile()
     if not u_id:
-        return jsonify({"success": True, "data": []})
+        return jsonify({"success": True, "data": [], "pending_count": 0})
 
     u_phone = (u_data.get("phone") or "").strip() if u_data else ""
     u_name = (u_data.get("name") or "").strip() if u_data else ""
@@ -7268,11 +7731,34 @@ def user_my_negotiations():
             cursor.execute("""
                 SELECT * FROM bikes
                 WHERE (seller_id = %s OR (seller_phone = %s AND %s != '') OR (seller_name = %s AND %s != ''))
-                  AND listing_status IN ('price_offered', 'seller_accepted', 'seller_rejected')
+                  AND (
+                    negotiation_status IN ('pending_negotiation', 'offer_sent', 'price_accepted', 'offer_rejected', 'completed')
+                    OR listing_status IN ('pending_negotiation', 'price_offered', 'offer_sent', 'seller_accepted', 'price_accepted', 'seller_rejected', 'offer_rejected')
+                    OR proposed_seller_payout IS NOT NULL
+                  )
                 ORDER BY id DESC
             """, (u_id, u_phone, u_phone, u_name, u_name))
             rows = cursor.fetchall() or []
-            negs = [_normalize_bike(b, is_admin=False) for b in rows]
+            for b in rows:
+                norm = _normalize_bike(b, is_admin=False)
+                # Fetch latest price_negotiations offer for this bike
+                try:
+                    cursor.execute("""
+                        SELECT id, counteroffer_number, admin_suggested_price, message, status, created_at, seller_response_note, responded_at
+                        FROM price_negotiations
+                        WHERE bike_id = %s
+                        ORDER BY counteroffer_number DESC, id DESC
+                        LIMIT 1
+                    """, (b.get("id"),))
+                    last_offer = cursor.fetchone()
+                    if last_offer:
+                        norm["latest_negotiation"] = last_offer
+                        norm["admin_suggested_price"] = last_offer.get("admin_suggested_price")
+                        norm["negotiation_message"] = last_offer.get("message")
+                        norm["counteroffer_number"] = last_offer.get("counteroffer_number")
+                except Exception:
+                    pass
+                negs.append(norm)
             cursor.close()
             conn.close()
         except Exception:
@@ -7289,6 +7775,8 @@ def user_my_negotiations():
     except (ValueError, TypeError):
         limit = 10
 
+    pending_count = sum(1 for n in negs if str(n.get("negotiation_status") or "").lower() == "offer_sent" or (n.get("latest_negotiation") and n["latest_negotiation"].get("status") == "pending"))
+
     total = len(negs)
     total_pages = math.ceil(total / limit) if total > 0 else 1
     start_idx = (page - 1) * limit
@@ -7298,6 +7786,7 @@ def user_my_negotiations():
     return jsonify({
         "success": True,
         "data": page_data,
+        "pending_count": pending_count,
         "pagination": {
             "total": total,
             "page": page,
