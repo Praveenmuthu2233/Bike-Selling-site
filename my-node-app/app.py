@@ -638,6 +638,27 @@ def initialize_database():
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         """)
 
+        # 4c-1b. buyer_details table (Customer / Buyer Record)
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS `buyer_details` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `bike_id` INT NOT NULL,
+          `full_name` VARCHAR(150) NOT NULL,
+          `phone` VARCHAR(30) NULL,
+          `alt_phone` VARCHAR(30) NULL,
+          `email` VARCHAR(191) NULL,
+          `location` VARCHAR(150) NULL,
+          `city` VARCHAR(100) NULL,
+          `state` VARCHAR(100) NULL,
+          `address` TEXT NULL,
+          `pincode` VARCHAR(20) NULL,
+          `consent_obtained` TINYINT(1) DEFAULT 1,
+          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX `idx_buyer_bike` (`bike_id`),
+          INDEX `idx_buyer_phone` (`phone`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        """)
+
         # 4c-2. financial_records table (Full Financial Telemetry Lifecycle)
         cursor.execute("""
         CREATE TABLE IF NOT EXISTS `financial_records` (
@@ -1700,6 +1721,8 @@ def get_bikes_api():
     resp.headers["Pragma"] = "no-cache"
     return resp
 
+@app.route("/api/homepage/sold-bikes", methods=["GET"])
+@app.route("/api/homepage/sold", methods=["GET"])
 @app.route("/api/bikes/sold", methods=["GET"])
 @app.route("/api/sold-bikes", methods=["GET"])
 @app.route("/soldout", methods=["GET"])
@@ -1707,18 +1730,27 @@ def get_bikes_api():
 def get_sold_bikes_api():
     """
     Public & Admin Sold Gallery Endpoint.
-    Strictly sanitizes private financials for public and staff admin callers.
-    Reveals full telemetry only to authenticated Superadmin.
-    Supports search, brand filter, date range filter, and server-side pagination.
+    - Homepage Mode: When accessed via /api/homepage/sold-bikes or scope=homepage,
+      strictly limits to the latest 6 sold motorcycles, sorted newest first,
+      without pagination or confidential financials.
+    - Public Sold Gallery: Sanitizes private financials for public callers;
+      reveals full telemetry exclusively to authenticated Superadmin.
+    - Supports search, brand filter, date range filter, and server-side pagination.
     """
-    try:
-        page = max(1, int(request.args.get("page", 1)))
-    except (ValueError, TypeError):
+    is_homepage = request.path.startswith("/api/homepage") or request.args.get("scope") == "homepage"
+
+    if is_homepage:
         page = 1
-    try:
-        limit = max(1, int(request.args.get("limit", 8)))
-    except (ValueError, TypeError):
-        limit = 8
+        limit = 6
+    else:
+        try:
+            page = max(1, int(request.args.get("page", 1)))
+        except (ValueError, TypeError):
+            page = 1
+        try:
+            limit = max(1, int(request.args.get("limit", 8)))
+        except (ValueError, TypeError):
+            limit = 8
 
     search = (request.args.get("search") or "").lower().strip()
     brand = request.args.get("brand")
@@ -1727,7 +1759,7 @@ def get_sold_bikes_api():
 
     auth_header = request.headers.get("Authorization", "")
     is_superadmin = False
-    if auth_header and "Bearer" in auth_header:
+    if not is_homepage and auth_header and "Bearer" in auth_header:
         try:
             import jwt
             token = auth_header.split()[1]
@@ -1747,16 +1779,19 @@ def get_sold_bikes_api():
                        s.buyer_name, s.buyer_phone, s.sold_by, s.sold_at as sold_record_date
                 FROM bikes b
                 LEFT JOIN sold_bikes s ON b.id = s.bike_id
-                WHERE b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout') OR b.isSoldout = 1
-                ORDER BY COALESCE(s.sold_at, b.sold_at, b.updated_at) DESC
+                WHERE b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout') OR b.isSoldout = 1 OR s.id IS NOT NULL
+                GROUP BY b.id
+                ORDER BY COALESCE(s.sold_at, b.sold_at, b.updated_at, b.created_at) DESC
             """)
-            all_bikes = cursor.fetchall()
+            all_bikes = cursor.fetchall() or []
             cursor.close()
-            conn.close()
-        except Exception:
-            if conn:
-                try: conn.close()
-                except Exception: pass
+        except Exception as e_sql:
+            print("[Public Sold Bikes API Notice]:", e_sql)
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
     if not conn and not all_bikes:
         return jsonify({
@@ -1787,9 +1822,9 @@ def get_sold_bikes_api():
         item["status"] = "soldout"
         item["listing_status"] = "soldout"
         item["isSoldout"] = 1
-        item["sold_at"] = b.get("sold_record_date") or b.get("sold_at") or b.get("updated_at")
+        item["sold_at"] = str(b.get("sold_record_date") or b.get("sold_at") or b.get("updated_at") or "")
 
-        if is_superadmin:
+        if is_superadmin and not is_homepage:
             item["actual_sale_price"] = float(b.get("actual_sale_price") or b.get("price") or 0)
             item["seller_payout"] = float(b.get("seller_payout") or 0)
             item["total_expenses"] = float(b.get("total_expenses") or 0)
@@ -1807,8 +1842,24 @@ def get_sold_bikes_api():
             item.pop("accepted_seller_payout", None)
             item.pop("proposed_seller_payout", None)
             item.pop("business_margin", None)
+            # Remove any personal buyer or seller phone info
+            item.pop("buyer_name", None)
+            item.pop("buyer_phone", None)
+            item.pop("seller_phone", None)
+            item.pop("mobileNum", None)
 
         sanitized.append(item)
+
+    if is_homepage:
+        homepage_data = sanitized[:6]
+        resp = jsonify({
+            "success": True,
+            "data": homepage_data,
+            "bikes": homepage_data,
+            "count": len(homepage_data)
+        })
+        resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        return resp
 
     total = len(sanitized)
     total_pages = math.ceil(total / limit) if total > 0 else 1
@@ -6212,12 +6263,14 @@ def admin_sold_bikes_api():
     except (ValueError, TypeError):
         page = 1
     try:
-        limit = max(1, int(request.args.get("limit", 10)))
+        limit = max(1, min(100, int(request.args.get("limit", 10))))
     except (ValueError, TypeError):
         limit = 10
 
     sold_records = []
+    total_unfiltered_sold_count = 0
     conn = get_db()
+    db_available = bool(conn)
     if conn:
         try:
             cursor = conn.cursor(dictionary=True)
@@ -6235,16 +6288,27 @@ def admin_sold_bikes_api():
                        COALESCE(b.sold_by, sb.sold_by, 'admin') as effective_sold_by,
                        COALESCE(b.sold_at, sb.sold_at, b.updated_at, b.created_at) as effective_sold_at
                 FROM bikes b
-                LEFT JOIN sold_bikes sb ON b.id = sb.bike_id
-                LEFT JOIN bike_transactions bt ON b.id = bt.bike_id
-                LEFT JOIN buyer_details bd ON b.id = bd.bike_id
+                LEFT JOIN (
+                    SELECT sb1.* FROM sold_bikes sb1
+                    INNER JOIN (SELECT bike_id, MAX(id) as max_id FROM sold_bikes GROUP BY bike_id) sb_max 
+                    ON sb1.id = sb_max.max_id
+                ) sb ON b.id = sb.bike_id
+                LEFT JOIN (
+                    SELECT bt1.bike_id, bt1.seller_payout FROM bike_transactions bt1
+                    INNER JOIN (SELECT bike_id, MAX(id) as max_id FROM bike_transactions GROUP BY bike_id) bt_max
+                    ON bt1.id = bt_max.max_id
+                ) bt ON b.id = bt.bike_id
+                LEFT JOIN (
+                    SELECT bd1.* FROM buyer_details bd1
+                    INNER JOIN (SELECT bike_id, MAX(id) as max_id FROM buyer_details GROUP BY bike_id) bd_max
+                    ON bd1.id = bd_max.max_id
+                ) bd ON b.id = bd.bike_id
                 WHERE b.isSoldout = 1 OR b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout')
                 ORDER BY effective_sold_at DESC, b.id DESC
             """)
-            sold_records = cursor.fetchall()
+            sold_records = cursor.fetchall() or []
             cursor.close()
-            conn.close()
-        except Exception:
+        except Exception as e1:
             try:
                 cursor = conn.cursor(dictionary=True)
                 cursor.execute("""
@@ -6256,17 +6320,29 @@ def admin_sold_bikes_api():
                     WHERE b.status IN ('sold', 'soldout') OR b.listing_status IN ('sold', 'soldout') OR b.isSoldout = 1
                     ORDER BY effective_sold_at DESC, b.id DESC
                 """)
-                sold_records = cursor.fetchall()
+                sold_records = cursor.fetchall() or []
                 cursor.close()
-                conn.close()
             except Exception as e2:
                 print("[Database] Sold bikes query notice:", e2)
-                if conn:
-                    try: conn.close()
-                    except Exception: pass
+        finally:
+            try:
+                conn.close()
+            except Exception:
+                pass
 
-    if not conn and not sold_records:
+    if not db_available and not sold_records:
         return jsonify({"success": False, "message": "Database connection unavailable. Please check TiDB Cloud connectivity."}), 503
+
+    # Deduplicate in python to guarantee single row per bike
+    deduped_records = []
+    seen_ids = set()
+    for row in sold_records:
+        bid = row.get("id") or row.get("bike_id")
+        if bid not in seen_ids:
+            seen_ids.add(bid)
+            deduped_records.append(row)
+    sold_records = deduped_records
+    total_unfiltered_sold_count = len(sold_records)
 
     filtered = []
     for b in sold_records:
@@ -6408,6 +6484,8 @@ def admin_sold_bikes_api():
     return jsonify({
         "success": True,
         "data": page_data,
+        "total_sold_count": total_unfiltered_sold_count,
+        "total_matching_count": total,
         "is_superadmin": is_superadmin,
         "pagination": {
             "total": total,

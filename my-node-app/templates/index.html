@@ -214,6 +214,32 @@
       </div>
     </section>
 
+    <!-- Recently Sold Gallery (Latest 6 Units Only, Public-Safe) -->
+    <section id="sold-gallery" style="padding: 4.5rem 0; background: #F8FAFC; border-top: 1px solid var(--border-medium);">
+      <div class="container">
+        <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 1rem; margin-bottom: 2.5rem;">
+          <div>
+            <span class="section-tag" style="background: #FEE2E2; color: #DC2626; border-color: #FECACA;"><i class="fas fa-check-circle"></i> SMR Hall of Fame</span>
+            <h2 class="section-title">Recently Sold Motorcycles</h2>
+            <p class="section-subtitle">Browse recently delivered bikes to happy riders. Verified inspection and quality delivery.</p>
+          </div>
+          <div>
+            <a href="{{ url_for('sold_out_page') }}" class="btn btn-outline" style="font-weight: 700;">
+              <i class="fas fa-arrow-right"></i> View Complete Sold Archive
+            </a>
+          </div>
+        </div>
+
+        <!-- Dynamic Sold Bikes Grid (Strictly Max 6 Units, Sorted Newest First, No Confidential Financials) -->
+        <div id="homepage-sold-grid" class="bike-grid">
+          <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-secondary);">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: var(--accent-primary); margin-bottom: 0.5rem; display: block;"></i>
+            Loading recently sold bikes...
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- Call to Action Banner -->
     <section style="padding: 4.5rem 0; background: linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%); border-top: 1px solid var(--border-medium); border-bottom: 1px solid var(--border-medium);">
       <div class="container" style="text-align: center; max-width: 750px;">
@@ -343,5 +369,125 @@
   <script src="{{ url_for('static', filename='auth.js') }}"></script>
   <script src="{{ url_for('static', filename='marketplace.js') }}"></script>
   <script src="{{ url_for('static', filename='main.js') }}"></script>
+  <script>
+    async function loadHomepageSoldGallery() {
+      const container = document.getElementById('homepage-sold-grid');
+      if (!container) return;
+
+      try {
+        const res = await apiRequest('/api/homepage/sold-bikes');
+        const bikes = res.data || [];
+
+        if (bikes.length === 0) {
+          container.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 3rem 1.5rem; background: #FFFFFF; border: 1px dashed var(--border-medium); border-radius: var(--radius-lg);">
+              <i class="fas fa-motorcycle" style="font-size: 2.5rem; color: var(--text-secondary); margin-bottom: 0.75rem; display: block;"></i>
+              <h4 style="font-size: 1.15rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.5rem;">Our Sold Gallery Will Feature New Handover Units Soon!</h4>
+              <p style="font-size: 0.9rem; color: var(--text-secondary); max-width: 480px; margin: 0 auto 1.5rem;">
+                Check back soon as we finalize recent motorcycle deliveries across the region.
+              </p>
+              <a href="#inventory" class="btn btn-primary"><i class="fas fa-search"></i> Browse Available Bikes</a>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = bikes.slice(0, 6).map(bike => {
+          let images = bike.images;
+          if (typeof images === 'string') {
+            try { images = JSON.parse(images); } catch(e) { images = [images]; }
+          }
+          if (!Array.isArray(images) || images.length === 0) {
+            images = [bike.primary_image || '/static/images/IMG-20251204-WA0053.jpg'];
+          }
+          images = images.slice(0, 6);
+
+          const formattedPrice = Number(bike.price || 0).toLocaleString('en-IN');
+          const locationText = (bike.location || 'Salem, Tamil Nadu').split(',')[0].trim();
+          const kmsText = (bike.kilometers_driven || 0).toLocaleString();
+          const fuelText = bike.fuel_type || 'Petrol';
+          const transText = bike.transmission || 'Manual';
+          const soldDate = (bike.sold_date || '').substring(0, 10);
+
+          const sliderId = `hslider-${bike.id}`;
+          const trackId = `htrack-${bike.id}`;
+          const dotsId = `hdots-${bike.id}`;
+          const counterId = `hcnt-${bike.id}`;
+
+          return `
+            <div class="bike-card">
+              <div class="bike-card-img-wrapper">
+                <div class="card-slider" id="${sliderId}" data-slider-id="${sliderId}" data-total="${images.length}">
+                  <div class="card-slider-track" id="${trackId}">
+                    ${images.map((src, i) => `
+                      <div class="card-slider-slide">
+                        <img src="${src}" alt="${bike.title} - Photo ${i+1}" class="bike-card-img" loading="lazy" onerror="this.src='/static/images/IMG-20251204-WA0053.jpg';" />
+                      </div>
+                    `).join('')}
+                  </div>
+                  ${images.length > 1 ? `
+                    <button type="button" class="card-slider-arrow prev" onclick="event.stopPropagation(); navigateCardSlider('${sliderId}', -1, true)" title="Previous image">
+                      <i class="fas fa-chevron-left"></i>
+                    </button>
+                    <button type="button" class="card-slider-arrow next" onclick="event.stopPropagation(); navigateCardSlider('${sliderId}', 1, true)" title="Next image">
+                      <i class="fas fa-chevron-right"></i>
+                    </button>
+                    <div class="card-slider-dots" id="${dotsId}">
+                      ${images.map((_, i) => `
+                        <button type="button" class="card-slider-dot ${i === 0 ? 'active' : ''}" onclick="event.stopPropagation(); gotoCardSlide('${sliderId}', ${i}, true)"></button>
+                      `).join('')}
+                    </div>
+                    <div class="card-img-counter" id="${counterId}">
+                      <span class="current-idx">1</span> / <span>${images.length}</span>
+                    </div>
+                  ` : ''}
+                  <div class="bike-card-badge">
+                    <span class="badge badge-soldout"><i class="fas fa-check-circle"></i> Sold Out</span>
+                  </div>
+                </div>
+              </div>
+              <div class="bike-card-body">
+                <div class="bike-card-brand">${bike.brand || 'Motorcycle'} ${bike.model ? '• ' + bike.model : ''}</div>
+                <h3 class="bike-card-title">${bike.title}</h3>
+                <div class="bike-specs-row">
+                  <div class="bike-spec-item" title="Model Year"><i class="fas fa-calendar-alt"></i> ${bike.year}</div>
+                  <div class="bike-spec-item" title="Kilometers Driven"><i class="fas fa-tachometer-alt"></i> ${kmsText} km</div>
+                  <div class="bike-spec-item" title="Fuel Type"><i class="fas fa-gas-pump"></i> ${fuelText}</div>
+                  <div class="bike-spec-item" title="Transmission"><i class="fas fa-cogs"></i> ${transText}</div>
+                  <div class="bike-spec-item" title="Location"><i class="fas fa-map-marker-alt"></i> ${locationText}</div>
+                </div>
+                ${soldDate ? `<div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem;"><i class="fas fa-handshake" style="color: var(--accent-primary);"></i> Delivered on ${soldDate}</div>` : ''}
+                <div class="bike-card-footer" style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--border-subtle);">
+                  <div class="bike-price-wrap">
+                    <span class="bike-price-label">Realized Price</span>
+                    <span class="bike-price-value">₹${formattedPrice}</span>
+                  </div>
+                  <div style="display: flex; gap: 0.5rem;">
+                    <a href="/enquiry-bike-details.html?id=${bike.id}" class="btn btn-sm btn-outline">Specs</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        if (typeof initAllCardSliders === 'function') {
+          initAllCardSliders();
+        }
+      } catch (err) {
+        console.error('Failed to load homepage sold gallery:', err);
+        container.innerHTML = `
+          <div style="grid-column: 1/-1; text-align: center; padding: 2.5rem; color: var(--text-secondary);">
+            <i class="fas fa-circle-exclamation" style="font-size: 1.5rem; color: #DC2626; margin-bottom: 0.5rem; display: block;"></i>
+            Unable to load sold motorcycle gallery. <a href="{{ url_for('sold_out_page') }}" style="color: var(--accent-primary); font-weight: 600;">Visit Sold Gallery</a>
+          </div>
+        `;
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadHomepageSoldGallery();
+    });
+  </script>
 </body>
 </html>

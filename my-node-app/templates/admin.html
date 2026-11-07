@@ -1118,20 +1118,29 @@
               <button class="btn-table-action" onclick="resetSoldBikeFilters()" title="Reset Filters"><i class="fas fa-rotate-left"></i></button>
             </div>
 
-            <!-- Scope Bar & View Mode Toggle (Light Theme) -->
+            <!-- Archive Telemetry & Display Controls (Modern Light Theme) -->
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; padding:0.85rem 1rem; background:#F8FAFC; border:1px solid #E2E8F0; border-radius:var(--radius-md); margin-top:0.25rem;">
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="badge-status badge-approved" id="soldout-scope-badge" style="font-size:0.75rem; padding:3px 10px; font-weight:800;">
-                  <i class="fas fa-clock-rotate-left"></i> Latest 6 Units
-                </span>
-                <span style="font-size:0.82rem; color:var(--admin-text-secondary);" id="soldout-scope-desc">
-                  Showing latest 6 sold motorcycles, sorted newest first. Older sales preserved in full history.
+              <div style="display:flex; align-items:center; flex-wrap:wrap; gap:12px;">
+                <div style="display:inline-flex; align-items:center; gap:6px; background:#FFFFFF; border:1px solid #E2E8F0; padding:4px 10px; border-radius:6px; font-size:0.82rem; color:#475569;">
+                  <i class="fas fa-archive" style="color:#2563EB;"></i> Total Sold: <strong id="soldout-total-count" style="color:#0F172A;">0</strong> units
+                </div>
+                <div style="display:inline-flex; align-items:center; gap:6px; background:#FFFFFF; border:1px solid #E2E8F0; padding:4px 10px; border-radius:6px; font-size:0.82rem; color:#475569;">
+                  <i class="fas fa-filter" style="color:#16A34A;"></i> Matching Filter: <strong id="soldout-filtered-count" style="color:#0F172A;">0</strong> units
+                </div>
+                <span id="soldout-page-summary" style="font-size:0.82rem; color:var(--admin-text-secondary); font-weight:600;">
+                  Showing 0–0 of 0
                 </span>
               </div>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <button type="button" id="btn-toggle-sold-view" onclick="toggleSoldViewScope()" class="btn-table-action" style="background:#FFFFFF; color:#2563EB; border:1px solid #2563EB; font-weight:700;">
-                  <i class="fas fa-list-check"></i> View All Archive
-                </button>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <div style="display:inline-flex; align-items:center; gap:6px; font-size:0.84rem; color:var(--admin-text-secondary);">
+                  <span>Per Page:</span>
+                  <select id="soldBikePageSize" class="form-input-modern" style="padding:0.35rem 0.6rem; width:auto; font-weight:600;" onchange="changeSoldBikePageSize(this.value)">
+                    <option value="10" selected>10 bikes</option>
+                    <option value="20">20 bikes</option>
+                    <option value="50">50 bikes</option>
+                    <option value="100">100 bikes</option>
+                  </select>
+                </div>
                 <div style="display:inline-flex; border:1px solid #CBD5E1; border-radius:6px; overflow:hidden;">
                   <button type="button" id="btn-sold-display-cards" onclick="setSoldDisplayFormat('cards')" class="btn-table-action" style="border:none; border-radius:0; padding:6px 12px; background:#2563EB; color:#fff;" title="Cards View"><i class="fas fa-th-large"></i> Cards</button>
                   <button type="button" id="btn-sold-display-table" onclick="setSoldDisplayFormat('table')" class="btn-table-action" style="border:none; border-radius:0; padding:6px 12px; background:#fff; color:#475569;" title="Table View"><i class="fas fa-table"></i> Table</button>
@@ -3829,36 +3838,24 @@
       }
     }
 
-    function toggleSoldViewScope() {
-      soldViewScopeAll = !soldViewScopeAll;
-      const scopeBadge = document.getElementById('soldout-scope-badge');
-      const scopeDesc = document.getElementById('soldout-scope-desc');
-      const toggleBtn = document.getElementById('btn-toggle-sold-view');
-
-      if (soldViewScopeAll) {
-        adminPages.soldout.limit = 24;
-        if (scopeBadge) {
-          scopeBadge.className = 'badge-status badge-pending';
-          scopeBadge.innerHTML = '<i class="fas fa-database"></i> Full Sales Archive';
-        }
-        if (scopeDesc) scopeDesc.textContent = 'Viewing complete historical sales archive with 24 units per page.';
-        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-clock-rotate-left"></i> Latest 6 Units View';
-      } else {
-        adminPages.soldout.limit = 6;
-        if (scopeBadge) {
-          scopeBadge.className = 'badge-status badge-approved';
-          scopeBadge.innerHTML = '<i class="fas fa-clock-rotate-left"></i> Latest 6 Units';
-        }
-        if (scopeDesc) scopeDesc.textContent = 'Showing latest 6 sold motorcycles, sorted newest first. Older sales preserved in full history.';
-        if (toggleBtn) toggleBtn.innerHTML = '<i class="fas fa-list-check"></i> View All Archive';
-      }
-      loadSoldOutBikesView(1, adminPages.soldout.limit);
+    function changeSoldBikePageSize(newSize) {
+      const sz = parseInt(newSize, 10) || 10;
+      adminPages.soldout.limit = sz;
+      adminPages.soldout.page = 1;
+      const sel = document.getElementById('soldBikePageSize');
+      if (sel) sel.value = String(sz);
+      loadSoldOutBikesView(1, sz);
     }
 
     async function loadSoldOutBikesView(page = 1, limit = null) {
-      limit = limit || adminPages.soldout.limit || 6;
+      limit = limit || adminPages.soldout.limit || 10;
       adminPages.soldout.page = page;
       adminPages.soldout.limit = limit;
+
+      const sizeSelect = document.getElementById('soldBikePageSize');
+      if (sizeSelect && sizeSelect.value !== String(limit)) {
+        sizeSelect.value = String(limit);
+      }
 
       const cardsGrid = document.getElementById('soldout-cards-grid');
       const tbody = document.getElementById('soldout-bikes-tbody');
@@ -3883,11 +3880,42 @@
         const list = res.data || [];
         const isSuper = res.is_superadmin;
 
+        const totalCountEl = document.getElementById('soldout-total-count');
+        const filteredCountEl = document.getElementById('soldout-filtered-count');
+        const pageSummaryEl = document.getElementById('soldout-page-summary');
+
         if (list.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>No sold out motorcycle records match the current filter.</td></tr>';
+          const emptyMsg = `
+            <div style="grid-column:1/-1; text-align:center; padding:3.5rem 1.5rem; background:#FFFFFF; border:1px dashed #CBD5E1; border-radius:12px;">
+              <i class="fas fa-motorcycle" style="font-size:2.5rem; color:#94A3B8; margin-bottom:0.75rem; display:block;"></i>
+              <h4 style="font-size:1.1rem; font-weight:700; color:#334155; margin-bottom:0.5rem;">No Sold Out Motorcycles Found</h4>
+              <p style="font-size:0.875rem; color:#64748B; max-width:480px; margin:0 auto 1.25rem;">
+                No sold motorcycle records match the selected search, brand, payment status, or date range.
+              </p>
+              <button type="button" class="btn-table-action" onclick="resetSoldBikeFilters()" style="background:#2563EB; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px;">
+                <i class="fas fa-rotate-left"></i> Reset All Filters
+              </button>
+            </div>
+          `;
+          if (cardsGrid) cardsGrid.innerHTML = emptyMsg;
+          if (tbody) tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:2.5rem; color:var(--admin-text-secondary);"><i class="fas fa-box-open" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>No sold out motorcycle records match the current filter.</td></tr>';
+          
+          if (totalCountEl) totalCountEl.textContent = res.total_sold_count !== undefined ? res.total_sold_count : 0;
+          if (filteredCountEl) filteredCountEl.textContent = 0;
+          if (pageSummaryEl) pageSummaryEl.textContent = 'Showing 0–0 of 0';
+
           const pag = document.getElementById('soldout-bikes-pagination');
           if (pag) pag.innerHTML = '';
           return;
+        }
+
+        // Update stats telemetry
+        const totalArchive = res.total_sold_count !== undefined ? res.total_sold_count : (res.pagination?.total || list.length);
+        const matchingFiltered = res.total_matching_count !== undefined ? res.total_matching_count : (res.pagination?.total || list.length);
+        if (totalCountEl) totalCountEl.textContent = totalArchive;
+        if (filteredCountEl) filteredCountEl.textContent = matchingFiltered;
+        if (pageSummaryEl && res.pagination) {
+          pageSummaryEl.textContent = `Showing ${res.pagination.start || 1}–${res.pagination.end || matchingFiltered} of ${matchingFiltered}`;
         }
 
         // Render Responsive Cards Grid
@@ -3990,7 +4018,18 @@
         renderPagination('soldout-bikes-pagination', 'soldout', res.pagination);
 
       } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="11" style="color:var(--admin-danger); text-align:center; padding:2rem;">${e.message}</td></tr>`;
+        const errMsg = `
+          <div style="grid-column:1/-1; text-align:center; padding:3rem 1.5rem; background:#FEF2F2; border:1px solid #FCA5A5; border-radius:12px; color:#991B1B;">
+            <i class="fas fa-circle-exclamation" style="font-size:2rem; margin-bottom:0.75rem; display:block;"></i>
+            <h4 style="font-size:1.1rem; font-weight:700; margin-bottom:0.35rem;">Failed to Load Sold Motorcycles</h4>
+            <p style="font-size:0.875rem; margin-bottom:1rem;">${e.message || 'Network error or server unavailable'}</p>
+            <button type="button" class="btn-table-action" onclick="loadSoldOutBikesView(${page}, ${limit})" style="background:#DC2626; color:#fff; font-weight:700; padding:8px 16px; border-radius:6px;">
+              <i class="fas fa-arrow-rotate-right"></i> Retry Loading
+            </button>
+          </div>
+        `;
+        if (cardsGrid) cardsGrid.innerHTML = errMsg;
+        if (tbody) tbody.innerHTML = `<tr><td colspan="11" style="color:var(--admin-danger); text-align:center; padding:2rem;">${e.message || 'Failed to load sales ledger'}</td></tr>`;
       }
     }
 
@@ -5297,7 +5336,7 @@
     // ==================================================
     const adminPages = {
       bikes: { page: 1, limit: 10 },
-      soldout: { page: 1, limit: 6 },
+      soldout: { page: 1, limit: 10 },
       enquiries: { page: 1, limit: 10 },
       users: { page: 1, limit: 10 },
       staff: { page: 1, limit: 10 },
@@ -5392,8 +5431,9 @@
               Rows:
               <select class="pagination-limit-select" onchange="changeAdminLimit('${section}', this.value)">
                 <option value="10" ${limit === 10 ? 'selected' : ''}>10</option>
-                <option value="25" ${limit === 25 ? 'selected' : ''}>25</option>
+                <option value="20" ${limit === 20 ? 'selected' : ''}>20</option>
                 <option value="50" ${limit === 50 ? 'selected' : ''}>50</option>
+                <option value="100" ${limit === 100 ? 'selected' : ''}>100</option>
               </select>
             </label>
             <button type="button" class="btn-page" ${curr <= 1 ? 'disabled' : ''} onclick="changeAdminPage('${section}', ${curr - 1})" title="Previous Page">
