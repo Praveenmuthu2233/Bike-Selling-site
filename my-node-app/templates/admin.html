@@ -3753,7 +3753,9 @@
           cardsGrid.innerHTML = list.map(b => {
             const img = b.primary_image || (b.images && b.images[0]) || '/static/images/IMG-20251204-WA0053.jpg';
             const finalPrice = parseFloat(b.final_selling_price || 0).toLocaleString('en-IN');
-            const profit = parseFloat(b.realized_profit || 0).toLocaleString('en-IN');
+            const profitNum = parseFloat(b.realized_profit !== undefined ? b.realized_profit : (b.net_profit || 0));
+            const isLoss = profitNum < 0;
+            const formattedProfit = isLoss ? `-₹${Math.abs(profitNum).toLocaleString('en-IN')}` : `₹${profitNum.toLocaleString('en-IN')}`;
             const soldDate = (b.sold_date || '').substring(0, 10);
 
             return `
@@ -3785,7 +3787,7 @@
                   <div>
                     <div style="font-size:0.7rem; color:#64748B; text-transform:uppercase; font-weight:800;">Final Price</div>
                     <div style="font-size:1.2rem; font-weight:900; color:#0F172A;">₹${finalPrice}</div>
-                    ${isSuper ? `<div style="font-size:0.75rem; color:#16A34A; font-weight:700;">Net Profit: ₹${profit}</div>` : ''}
+                    ${isSuper ? `<div style="font-size:0.75rem; color:${isLoss ? '#DC2626' : '#16A34A'}; font-weight:700;">${isLoss ? 'Net Loss: ' : 'Net Profit: '}${formattedProfit}</div>` : ''}
                   </div>
                   <a href="/admin-sold-bike-details.html?id=${b.bike_id}" class="btn-table-action" style="background:#2563EB; color:#FFFFFF; font-weight:700; border-radius:6px; padding:7px 14px; text-decoration:none; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 4px rgba(37,99,235,0.2);">
                     <i class="fas fa-eye"></i> View Details
@@ -3800,7 +3802,9 @@
         tbody.innerHTML = list.map(b => {
           const img = b.primary_image || (b.images && b.images[0]) || '/static/images/IMG-20251204-WA0053.jpg';
           const finalPrice = parseFloat(b.final_selling_price || 0).toLocaleString('en-IN');
-          const profit = parseFloat(b.realized_profit || 0).toLocaleString('en-IN');
+          const profitNum = parseFloat(b.realized_profit !== undefined ? b.realized_profit : (b.net_profit || 0));
+          const isLoss = profitNum < 0;
+          const formattedProfit = isLoss ? `-₹${Math.abs(profitNum).toLocaleString('en-IN')}` : `₹${profitNum.toLocaleString('en-IN')}`;
           const soldDate = (b.sold_date || '').substring(0, 16).replace('T', ' ');
 
           return `
@@ -3825,7 +3829,7 @@
               <td data-label="Sold By"><strong>${b.sold_by || 'admin'}</strong></td>
               <td data-label="Final Price"><strong>₹${finalPrice}</strong></td>
               ${isSuper ? `
-                <td data-label="Net Profit" class="fin-col-superadmin"><strong style="color:var(--admin-success);">₹${profit}</strong></td>
+                <td data-label="Net Profit" class="fin-col-superadmin"><strong style="color:${isLoss ? '#DC2626' : 'var(--admin-success, #16A34A)'};">${formattedProfit}</strong></td>
               ` : `
                 <td class="fin-col-superadmin" style="display:none;">-</td>
               `}
@@ -4279,16 +4283,28 @@
         const totalExp = rep + oth;
         const grossProfit = sp - bp;
         const netProfit = sp - bp - totalExp;
-        const marginPct = sp > 0 ? ((netProfit / sp) * 100).toFixed(1) : '0.0';
+        const marginPct = bp > 0 ? ((netProfit / bp) * 100).toFixed(1) : '0.0';
 
         const elTotExp = document.getElementById('sold-live-total-expenses');
         if (elTotExp) elTotExp.textContent = `₹${totalExp.toLocaleString('en-IN')}`;
+        
         const elGross = document.getElementById('sold-live-gross-profit');
-        if (elGross) elGross.textContent = `₹${grossProfit.toLocaleString('en-IN')}`;
+        if (elGross) {
+          elGross.textContent = grossProfit < 0 ? `-₹${Math.abs(grossProfit).toLocaleString('en-IN')}` : `₹${grossProfit.toLocaleString('en-IN')}`;
+          elGross.style.color = grossProfit < 0 ? '#DC2626' : '#0F172A';
+        }
+        
         const elNet = document.getElementById('sold-live-net-profit');
-        if (elNet) elNet.textContent = `₹${netProfit.toLocaleString('en-IN')}`;
+        if (elNet) {
+          elNet.textContent = netProfit < 0 ? `-₹${Math.abs(netProfit).toLocaleString('en-IN')}` : `₹${netProfit.toLocaleString('en-IN')}`;
+          elNet.style.color = netProfit < 0 ? '#DC2626' : '#16A34A';
+        }
+        
         const elMargin = document.getElementById('sold-live-margin-pct');
-        if (elMargin) elMargin.textContent = `${marginPct}%`;
+        if (elMargin) {
+          elMargin.textContent = `${marginPct}%`;
+          elMargin.style.color = netProfit < 0 ? '#DC2626' : '#16A34A';
+        }
       }
     }
 

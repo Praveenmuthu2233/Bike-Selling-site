@@ -535,22 +535,22 @@
               <span id="fin-verified-badge" style="font-size:0.75rem; background:#DCFCE7; color:#166534; padding:3px 9px; border-radius:9999px; font-weight:800;">CONFIDENTIAL</span>
             </div>
 
-            <!-- Prices Row -->
+            <!-- Pre-Sale Reference Prices (Non-operational: Excluded from profit calculations) -->
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; margin-bottom:0.85rem;">
               <div class="fin-tile">
                 <div class="fin-tile-label">Customer Expected Price</div>
                 <div class="fin-tile-val" id="fin-expected-price" style="font-size:1.15rem; color:#475569;">₹0</div>
-                <div class="fin-tile-sub"><span>Seller Expectation</span></div>
+                <div class="fin-tile-sub"><span>Seller Expectation: <strong id="fin-seller-expectation" style="color:#475569;">₹0</strong></span></div>
               </div>
               <div class="fin-tile">
                 <div class="fin-tile-label">Admin Suggested Price</div>
                 <div class="fin-tile-val" id="fin-suggested-price" style="font-size:1.15rem; color:#2563EB;">₹0</div>
-                <div class="fin-tile-sub"><span>Showroom Target</span></div>
+                <div class="fin-tile-sub"><span>Showroom Target (Catalog)</span></div>
               </div>
             </div>
 
-            <!-- Financial Ledger Tiles -->
-            <div class="fin-dashboard-grid">
+            <!-- Operational Deal Prices: Acquisition & Actual Realized Sale -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:0.85rem; margin-bottom:0.85rem;">
               <div class="fin-tile highlight-buying">
                 <div class="fin-tile-label" style="color:#1E40AF;">Buying Price</div>
                 <div class="fin-tile-val" id="fin-buying-price">₹0</div>
@@ -561,26 +561,59 @@
                 <div class="fin-tile-val" id="fin-selling-price" style="color:#EA580C;">₹0</div>
                 <div class="fin-tile-sub"><span>Realized Amount</span></div>
               </div>
-              <div class="fin-tile">
-                <div class="fin-tile-label">Other Recorded Expenses</div>
-                <div class="fin-tile-val" id="fin-total-expenses">₹0</div>
-                <div class="fin-tile-sub">
-                  <span>Repairs: <strong id="fin-repair-exp">₹0</strong></span>
-                  <span>Overhead: <strong id="fin-other-exp">₹0</strong></span>
-                </div>
+            </div>
+
+            <!-- Itemized Expenses Breakdown -->
+            <div class="fin-tile" style="margin-bottom:0.85rem; background:#FFFFFF; border:1px solid #E2E8F0; padding:1rem; border-radius:8px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:0.6rem; border-bottom:1px solid #F1F5F9; padding-bottom:0.4rem;">
+                <span style="font-size:0.75rem; font-weight:800; text-transform:uppercase; color:#475569;">Total Recorded Expenses</span>
+                <span id="fin-total-expenses" style="font-size:1.15rem; font-weight:800; color:#0F172A;">₹0</span>
               </div>
-              <div class="fin-tile highlight-profit">
-                <div class="fin-tile-label" style="color:#166534;">Net Profit</div>
-                <div class="fin-tile-val" id="fin-net-profit" style="color:#16A34A;">₹0</div>
-                <div class="fin-tile-sub">
-                  <span>Gross: <strong id="fin-gross-profit-sub">₹0</strong></span>
-                  <strong id="fin-margin-pct" style="color:#16A34A;">0% Margin</strong>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:0.6rem; font-size:0.78rem;">
+                <div style="background:#F8FAFC; padding:6px 10px; border-radius:6px; border:1px solid #EDF2F7;">
+                  <span style="color:#64748B; display:block;">Repairs:</span>
+                  <strong id="fin-repair-exp" style="color:#0F172A; font-size:0.9rem;">₹0</strong>
+                </div>
+                <div style="background:#F8FAFC; padding:6px 10px; border-radius:6px; border:1px solid #EDF2F7;">
+                  <span style="color:#64748B; display:block;">Documentation:</span>
+                  <strong id="fin-doc-exp" style="color:#0F172A; font-size:0.9rem;">₹0</strong>
+                </div>
+                <div style="background:#F8FAFC; padding:6px 10px; border-radius:6px; border:1px solid #EDF2F7;">
+                  <span style="color:#64748B; display:block;">Service Expenses:</span>
+                  <strong id="fin-service-exp" style="color:#0F172A; font-size:0.9rem;">₹0</strong>
+                </div>
+                <div style="background:#F8FAFC; padding:6px 10px; border-radius:6px; border:1px solid #EDF2F7;">
+                  <span style="color:#64748B; display:block;">Additional Expenses:</span>
+                  <strong id="fin-additional-exp" style="color:#0F172A; font-size:0.9rem;">₹0</strong>
+                </div>
+                <div style="background:#F8FAFC; padding:6px 10px; border-radius:6px; border:1px solid #EDF2F7;">
+                  <span style="color:#64748B; display:block;">Other Overhead:</span>
+                  <strong id="fin-other-exp" style="color:#0F172A; font-size:0.9rem;">₹0</strong>
                 </div>
               </div>
             </div>
 
+            <!-- Profit Summary Row: Gross Profit, Net Profit, Profit Percentage -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:0.85rem; margin-bottom:0.85rem;">
+              <div class="fin-tile" id="tile-gross-profit">
+                <div class="fin-tile-label" style="color:#475569;">Gross Profit</div>
+                <div class="fin-tile-val" id="fin-gross-profit" style="font-size:1.15rem; color:#0F172A;">₹0</div>
+                <div class="fin-tile-sub"><span>Selling - Buying</span></div>
+              </div>
+              <div class="fin-tile highlight-profit" id="tile-net-profit">
+                <div class="fin-tile-label" id="fin-net-profit-label" style="color:#166534;">Net Profit</div>
+                <div class="fin-tile-val" id="fin-net-profit" style="color:#16A34A; font-size:1.15rem;">₹0</div>
+                <div class="fin-tile-sub"><span id="fin-net-profit-sub">After All Expenses</span></div>
+              </div>
+              <div class="fin-tile highlight-profit" id="tile-profit-pct">
+                <div class="fin-tile-label" id="fin-margin-label" style="color:#166534;">Profit %</div>
+                <div class="fin-tile-val" id="fin-margin-pct" style="color:#16A34A; font-size:1.15rem;">0%</div>
+                <div class="fin-tile-sub"><span>Net / Buying</span></div>
+              </div>
+            </div>
+
             <div style="font-size:0.8rem; color:var(--text-muted); background:#FFFFFF; border:1px solid #E2E8F0; border-radius:var(--radius-sm); padding:0.75rem 1rem; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;">
-              <span>Formula: <strong>Net Profit = Final Sale - Buying Price - Expenses</strong></span>
+              <span>Formula: <strong>Net Profit = Selling Price - Buying Price - Total Expenses</strong></span>
               <span>Sold By: <strong id="fin-sold-by" style="color:var(--text-main);">admin</strong></span>
             </div>
           </div>
@@ -725,31 +758,47 @@
         <div style="font-size:0.82rem; color:var(--text-muted); margin-bottom:1rem;">
           Update purchase costs and reconditioning expenses for this unit. All profit figures and margins update automatically in TiDB Cloud.
         </div>
-        <div class="form-group-modern" style="margin-bottom:1rem;">
+        <div class="form-group-modern" style="margin-bottom:0.85rem;">
           <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Original Buying / Sourcing Price (₹)</label>
           <input type="number" id="edit-fin-buying" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
         </div>
-        <div class="form-group-modern" style="margin-bottom:1rem;">
-          <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Repair & Maintenance Expenses (₹)</label>
-          <input type="number" id="edit-fin-repair" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:0.85rem;">
+          <div class="form-group-modern">
+            <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Repairs (₹)</label>
+            <input type="number" id="edit-fin-repair" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+          </div>
+          <div class="form-group-modern">
+            <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Documentation Expenses (₹)</label>
+            <input type="number" id="edit-fin-doc" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+          </div>
         </div>
-        <div class="form-group-modern" style="margin-bottom:1.25rem;">
-          <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Other Transportation / Overhead Expenses (₹)</label>
-          <input type="number" id="edit-fin-other" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:1rem;">
+          <div class="form-group-modern">
+            <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Service Expenses (₹)</label>
+            <input type="number" id="edit-fin-service" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+          </div>
+          <div class="form-group-modern">
+            <label class="form-label-modern" style="font-size:0.82rem; font-weight:800; color:#1E3A8A; display:block; margin-bottom:4px;">Other / Additional (₹)</label>
+            <input type="number" id="edit-fin-other" class="form-input-modern" style="width:100%; box-sizing:border-box; padding:0.6rem 0.8rem; border:1px solid #CBD5E1; border-radius:var(--radius-sm); font-size:0.95rem; font-weight:700;" oninput="recalcEditFinancialsPreview()">
+          </div>
         </div>
 
         <!-- Live Preview calculation in modal -->
-        <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius-sm); padding:0.85rem 1rem; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; text-align:center;">
+        <div style="background:#EFF6FF; border:1px solid #BFDBFE; border-radius:var(--radius-sm); padding:0.85rem 1rem; display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; text-align:center;">
           <div>
             <div style="font-size:0.7rem; font-weight:800; color:#64748B; text-transform:uppercase;">Total Exp</div>
             <div style="font-size:0.95rem; font-weight:800; color:#0F172A;" id="edit-prev-totexp">₹0</div>
+          </div>
+          <div>
+            <div style="font-size:0.7rem; font-weight:800; color:#64748B; text-transform:uppercase;">Gross Profit</div>
+            <div style="font-size:0.95rem; font-weight:800; color:#0F172A;" id="edit-prev-gross">₹0</div>
           </div>
           <div>
             <div style="font-size:0.7rem; font-weight:800; color:#16A34A; text-transform:uppercase;">Net Profit</div>
             <div style="font-size:0.95rem; font-weight:800; color:#16A34A;" id="edit-prev-netprofit">₹0</div>
           </div>
           <div>
-            <div style="font-size:0.7rem; font-weight:800; color:#2563EB; text-transform:uppercase;">Margin %</div>
+            <div style="font-size:0.7rem; font-weight:800; color:#2563EB; text-transform:uppercase;">Profit %</div>
             <div style="font-size:0.95rem; font-weight:800; color:#2563EB;" id="edit-prev-margin">0%</div>
           </div>
         </div>
@@ -971,15 +1020,56 @@
 
         const f = bike.financials;
         document.getElementById('fin-expected-price').textContent = f.formatted_customer_expected_price || `₹${parseFloat(f.customer_expected_price || bike.price || 0).toLocaleString('en-IN')}`;
+        const elSellerExp = document.getElementById('fin-seller-expectation');
+        if (elSellerExp) elSellerExp.textContent = f.formatted_seller_expectation || f.formatted_customer_expected_price || `₹${parseFloat(f.customer_expected_price || bike.price || 0).toLocaleString('en-IN')}`;
         document.getElementById('fin-suggested-price').textContent = f.formatted_admin_suggested_price || `₹${parseFloat(f.admin_suggested_price || bike.public_selling_price || bike.price || 0).toLocaleString('en-IN')}`;
         document.getElementById('fin-buying-price').textContent = f.formatted_buying_price || `₹${parseFloat(f.buying_price || 0).toLocaleString('en-IN')}`;
         document.getElementById('fin-selling-price').textContent = f.formatted_selling_price || `₹${parseFloat(f.selling_price || 0).toLocaleString('en-IN')}`;
         document.getElementById('fin-total-expenses').textContent = f.formatted_total_expenses || `₹${parseFloat(f.total_expenses || 0).toLocaleString('en-IN')}`;
         document.getElementById('fin-repair-exp').textContent = f.formatted_repair_expenses || `₹${parseFloat(f.repair_expenses || 0).toLocaleString('en-IN')}`;
+        
+        const elDoc = document.getElementById('fin-doc-exp');
+        if (elDoc) elDoc.textContent = f.formatted_documentation_expenses || `₹${parseFloat(f.documentation_expenses || 0).toLocaleString('en-IN')}`;
+        const elSrv = document.getElementById('fin-service-exp');
+        if (elSrv) elSrv.textContent = f.formatted_service_expenses || `₹${parseFloat(f.service_expenses || 0).toLocaleString('en-IN')}`;
+        const elAdd = document.getElementById('fin-additional-exp');
+        if (elAdd) elAdd.textContent = f.formatted_additional_expenses || `₹${parseFloat(f.additional_expenses || 0).toLocaleString('en-IN')}`;
+        
         document.getElementById('fin-other-exp').textContent = f.formatted_other_expenses || `₹${parseFloat(f.other_expenses || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-net-profit').textContent = f.formatted_net_profit || `₹${parseFloat(f.net_profit || 0).toLocaleString('en-IN')}`;
-        document.getElementById('fin-gross-profit-sub').textContent = f.formatted_gross_profit || '₹0';
-        document.getElementById('fin-margin-pct').textContent = `${f.profit_margin_pct || 0}% Margin`;
+        
+        const elGross = document.getElementById('fin-gross-profit');
+        if (elGross) {
+          elGross.textContent = f.formatted_gross_profit || `₹${parseFloat(f.gross_profit || 0).toLocaleString('en-IN')}`;
+          elGross.style.color = f.gross_profit < 0 ? '#DC2626' : '#0F172A';
+        }
+        
+        const isLoss = (f.net_profit < 0);
+        const tileNet = document.getElementById('tile-net-profit');
+        const labelNet = document.getElementById('fin-net-profit-label');
+        const valNet = document.getElementById('fin-net-profit');
+        const tilePct = document.getElementById('tile-profit-pct');
+        const valPct = document.getElementById('fin-margin-pct');
+        
+        if (valNet) {
+          valNet.textContent = f.formatted_net_profit || (isLoss ? `-₹${Math.abs(f.net_profit).toLocaleString('en-IN')}` : `₹${parseFloat(f.net_profit || 0).toLocaleString('en-IN')}`);
+          valNet.style.color = isLoss ? '#DC2626' : '#16A34A';
+        }
+        if (labelNet) {
+          labelNet.textContent = isLoss ? 'Net Loss' : 'Net Profit';
+          labelNet.style.color = isLoss ? '#991B1B' : '#166534';
+        }
+        if (tileNet) {
+          tileNet.style.background = isLoss ? '#FEF2F2' : '#F0FDF4';
+          tileNet.style.borderColor = isLoss ? '#FCA5A5' : '#BBF7D0';
+        }
+        if (valPct) {
+          valPct.textContent = f.formatted_profit_percentage || `${f.profit_percentage || f.profit_margin || 0}%`;
+          valPct.style.color = isLoss ? '#DC2626' : '#16A34A';
+        }
+        if (tilePct) {
+          tilePct.style.background = isLoss ? '#FEF2F2' : '#F0FDF4';
+          tilePct.style.borderColor = isLoss ? '#FCA5A5' : '#BBF7D0';
+        }
         document.getElementById('fin-sold-by').textContent = bike.sale_info?.sold_by || 'admin';
       } else {
         finBox.style.display = 'none';
@@ -1009,6 +1099,8 @@
       const f = currentBikeData.financials || {};
       document.getElementById('edit-fin-buying').value = f.buying_price || 0;
       document.getElementById('edit-fin-repair').value = f.repair_expenses || 0;
+      if (document.getElementById('edit-fin-doc')) document.getElementById('edit-fin-doc').value = f.documentation_expenses || 0;
+      if (document.getElementById('edit-fin-service')) document.getElementById('edit-fin-service').value = f.service_expenses || 0;
       document.getElementById('edit-fin-other').value = f.other_expenses || 0;
       recalcEditFinancialsPreview();
       document.getElementById('modal-edit-financials').style.display = 'flex';
@@ -1021,22 +1113,44 @@
     function recalcEditFinancialsPreview() {
       const bp = parseFloat(document.getElementById('edit-fin-buying').value || 0);
       const rep = parseFloat(document.getElementById('edit-fin-repair').value || 0);
+      const doc = parseFloat(document.getElementById('edit-fin-doc')?.value || 0);
+      const srv = parseFloat(document.getElementById('edit-fin-service')?.value || 0);
       const oth = parseFloat(document.getElementById('edit-fin-other').value || 0);
       const sp = parseFloat(currentBikeData?.financials?.selling_price || currentBikeData?.sale_info?.actual_sale_price || currentBikeData?.price || 0);
 
-      const totexp = rep + oth;
+      const totexp = rep + doc + srv + oth;
+      const gross = sp - bp;
       const net = sp - bp - totexp;
-      const margin = sp > 0 ? ((net / sp) * 100).toFixed(1) : 0;
+      const pctVal = bp > 0 ? ((net / bp) * 100) : 0;
+      const pctStr = (pctVal === parseInt(pctVal) ? parseInt(pctVal) : pctVal.toFixed(2)) + '%';
 
-      document.getElementById('edit-prev-totexp').textContent = `₹${totexp.toLocaleString('en-IN')}`;
-      document.getElementById('edit-prev-netprofit').textContent = `₹${net.toLocaleString('en-IN')}`;
-      document.getElementById('edit-prev-netprofit').style.color = net >= 0 ? '#16A34A' : '#DC2626';
-      document.getElementById('edit-prev-margin').textContent = `${margin}%`;
+      const elTot = document.getElementById('edit-prev-totexp');
+      if (elTot) elTot.textContent = `₹${totexp.toLocaleString('en-IN')}`;
+      
+      const elGross = document.getElementById('edit-prev-gross');
+      if (elGross) {
+        elGross.textContent = gross < 0 ? `-₹${Math.abs(gross).toLocaleString('en-IN')}` : `₹${gross.toLocaleString('en-IN')}`;
+        elGross.style.color = gross < 0 ? '#DC2626' : '#0F172A';
+      }
+
+      const elNet = document.getElementById('edit-prev-netprofit');
+      if (elNet) {
+        elNet.textContent = net < 0 ? `-₹${Math.abs(net).toLocaleString('en-IN')}` : `₹${net.toLocaleString('en-IN')}`;
+        elNet.style.color = net >= 0 ? '#16A34A' : '#DC2626';
+      }
+      
+      const elMargin = document.getElementById('edit-prev-margin');
+      if (elMargin) {
+        elMargin.textContent = pctStr;
+        elMargin.style.color = net >= 0 ? '#16A34A' : '#DC2626';
+      }
     }
 
     async function saveUpdatedFinancials() {
       const bp = parseFloat(document.getElementById('edit-fin-buying').value || 0);
       const rep = parseFloat(document.getElementById('edit-fin-repair').value || 0);
+      const doc = parseFloat(document.getElementById('edit-fin-doc')?.value || 0);
+      const srv = parseFloat(document.getElementById('edit-fin-service')?.value || 0);
       const oth = parseFloat(document.getElementById('edit-fin-other').value || 0);
 
       const btn = document.getElementById('btn-save-financials');
@@ -1054,6 +1168,8 @@
           body: JSON.stringify({
             buying_price: bp,
             repair_expenses: rep,
+            documentation_expenses: doc,
+            service_expenses: srv,
             other_expenses: oth
           })
         });

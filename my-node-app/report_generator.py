@@ -79,11 +79,13 @@ else:
 
 
 def format_inr(val):
-    """Formats numeric value to Indian currency representation."""
+    """Formats numeric value to Indian currency representation with proper negative loss display."""
     if val is None or val == "":
         return "₹0"
     try:
         f = float(val)
+        if f < 0:
+            return f"-₹{abs(f):,.2f}"
         return f"₹{f:,.2f}"
     except (ValueError, TypeError):
         return f"₹{val}"
@@ -307,11 +309,16 @@ def generate_pdf_report(report_type, items, filters, generated_by="Administrator
 
         for t in items:
             rev = float(t.get("actual_sale_price") or 0)
-            pay = float(t.get("seller_payout") or 0)
-            repairs = float(t.get("service_expense") or 0) + float(t.get("repair_expense") or 0)
-            exp = float(t.get("total_expenses") or repairs)
-            prof = float(t.get("realized_profit") or (rev - pay - exp))
-            margin_pct = (prof / rev * 100) if rev > 0 else 0.0
+            pay = float(t.get("seller_payout") or t.get("buying_price") or 0)
+            rep_v = float(t.get("repair_expense") or 0)
+            srv_v = float(t.get("service_expense") or 0)
+            if rep_v > 0 and srv_v == rep_v and float(t.get("total_expenses") or 0) < (rep_v + srv_v):
+                repairs = rep_v
+            else:
+                repairs = rep_v + srv_v
+            exp = float(t.get("total_expenses") if t.get("total_expenses") is not None else (repairs + float(t.get("other_expense") or 0)))
+            prof = float(t.get("realized_profit") if t.get("realized_profit") is not None else (rev - pay - exp))
+            margin_pct = (prof / pay * 100.0) if pay > 0 else 0.0
 
             tot_rev += rev
             tot_pay += pay
@@ -331,7 +338,7 @@ def generate_pdf_report(report_type, items, filters, generated_by="Administrator
             ]
             table_data.append(row)
 
-        overall_margin = (tot_prof / tot_rev * 100) if tot_rev > 0 else 0.0
+        overall_margin = (tot_prof / tot_pay * 100.0) if tot_pay > 0 else 0.0
         summary_row = [
             Paragraph("<b>TOTAL</b>", cell_bold_style),
             Paragraph(f"<b>{len(items)} Transactions</b>", cell_bold_style),
@@ -586,11 +593,16 @@ def generate_excel_report(report_type, items, filters, generated_by="Administrat
 
         for t in items:
             rev = float(t.get("actual_sale_price") or 0)
-            pay = float(t.get("seller_payout") or 0)
-            rep = float(t.get("service_expense") or 0) + float(t.get("repair_expense") or 0)
-            exp = float(t.get("total_expenses") or rep)
-            prof = float(t.get("realized_profit") or (rev - pay - exp))
-            m_pct = (prof / rev) if rev > 0 else 0.0
+            pay = float(t.get("seller_payout") or t.get("buying_price") or 0)
+            rep_v = float(t.get("repair_expense") or 0)
+            srv_v = float(t.get("service_expense") or 0)
+            if rep_v > 0 and srv_v == rep_v and float(t.get("total_expenses") or 0) < (rep_v + srv_v):
+                rep = rep_v
+            else:
+                rep = rep_v + srv_v
+            exp = float(t.get("total_expenses") if t.get("total_expenses") is not None else (rep + float(t.get("other_expense") or 0)))
+            prof = float(t.get("realized_profit") if t.get("realized_profit") is not None else (rev - pay - exp))
+            m_pct = (prof / pay) if pay > 0 else 0.0
 
             tot_rev += rev
             tot_pay += pay
@@ -620,14 +632,14 @@ def generate_excel_report(report_type, items, filters, generated_by="Administrat
                 if current_row % 2 == 0:
                     c.fill = zebra_fill
                 if col_idx in (6, 7, 8, 9, 10):
-                    c.number_format = '"₹"#,##0.00'
+                    c.number_format = '"₹"#,##0.00;[Red]-"₹"#,##0.00;"₹"0.00'
                 elif col_idx == 11:
                     c.number_format = '0.0%'
                 if col_idx in (1, 2, 5, 12):
                     c.alignment = Alignment(horizontal="center")
             current_row += 1
 
-        overall_margin = (tot_prof / tot_rev) if tot_rev > 0 else 0.0
+        overall_margin = (tot_prof / tot_pay) if tot_pay > 0 else 0.0
         ws.cell(row=current_row, column=1, value="TOTAL").font = font_bold
         ws.cell(row=current_row, column=3, value=f"{len(items)} Transactions").font = font_bold
         for col_idx in range(1, num_cols + 1):

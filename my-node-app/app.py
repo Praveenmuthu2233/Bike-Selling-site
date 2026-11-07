@@ -3553,6 +3553,7 @@ def admin_dashboard_api():
         counts["total_seller_payout"] = tot_payouts
         counts["total_expenses"] = tot_expenses
         counts["total_realized_profit"] = tot_profit
+        counts["total_profit"] = tot_profit
 
     # Monthly Trends (Superadmin only)
     sorted_trends = []
@@ -3986,42 +3987,79 @@ def admin_publish_bike(bike_id):
         "listing_status": "published"
     })
 
-def calculate_bike_financials(buying_price, selling_price, repair_expenses=0.0, other_expenses=0.0):
+def calculate_bike_financials(buying_price, selling_price, repair_expenses=0.0, other_expenses=0.0,
+                               documentation_expenses=0.0, service_expenses=0.0, additional_expenses=0.0,
+                               total_expenses=None):
     """
-    Computes financial metrics with Indian Rupee formatting and safe division:
-    Total Expenses = Repair Expenses + Other Expenses
+    Computes financial metrics with Indian Rupee formatting, safe division, and loss handling:
+    Total Expenses = Individual expense entries totaled exactly once without double counting
     Gross Profit = Selling Price - Buying Price
     Net Profit = Selling Price - Buying Price - Total Expenses
-    Profit Margin % = (Net Profit / Selling Price) * 100
+    Profit Percentage = (Net Profit / Buying Price) * 100 (Safe division when Buying Price is zero)
+    Loss Display: Clearly indicates negative values with -₹ format and is_loss flag
     """
     bp = float(buying_price or 0.0)
     sp = float(selling_price or 0.0)
     rep = float(repair_expenses or 0.0)
     oth = float(other_expenses or 0.0)
-    total_exp = rep + oth
+    doc = float(documentation_expenses or 0.0)
+    srv = float(service_expenses or 0.0)
+    add = float(additional_expenses or 0.0)
+
+    if total_expenses is not None and float(total_expenses or 0.0) > 0:
+        tot_exp = float(total_expenses)
+    else:
+        tot_exp = rep + oth + doc + srv + add
+
     gross_profit = sp - bp
-    net_profit = sp - bp - total_exp
-    margin_pct = round((net_profit / sp * 100.0), 2) if sp > 0 else 0.0
+    net_profit = sp - bp - tot_exp
+    profit_pct = round((net_profit / bp * 100.0), 2) if bp > 0 else 0.0
+
+    def _fmt_inr(val):
+        v = float(val or 0.0)
+        if v < 0:
+            return f"-₹{abs(v):,.0f}"
+        return f"₹{v:,.0f}"
+
+    def _fmt_pct(pct):
+        p = float(pct or 0.0)
+        if p == int(p):
+            return f"{int(p)}%"
+        elif round(p, 1) == round(p, 2):
+            return f"{p:.1f}%"
+        return f"{p:.2f}%"
 
     return {
         "buying_price": bp,
         "selling_price": sp,
+        "final_selling_price": sp,
         "repair_expenses": rep,
+        "repairs": rep,
         "other_expenses": oth,
-        "total_expenses": total_exp,
+        "documentation_expenses": doc,
+        "service_expenses": srv,
+        "additional_expenses": add,
+        "total_expenses": tot_exp,
         "gross_profit": gross_profit,
         "net_profit": net_profit,
-        "profit_margin": margin_pct,
-        "profit_margin_pct": margin_pct,
-        "formatted_buying_price": f"₹{bp:,.0f}",
-        "formatted_selling_price": f"₹{sp:,.0f}",
-        "formatted_repair_expenses": f"₹{rep:,.0f}",
-        "formatted_other_expenses": f"₹{oth:,.0f}",
-        "formatted_total_expenses": f"₹{total_exp:,.0f}",
-        "formatted_gross_profit": f"₹{gross_profit:,.0f}",
-        "formatted_net_profit": f"₹{net_profit:,.0f}",
-        "formatted_profit_margin": f"{margin_pct:.1f}%",
-        "formatted_profit_margin_pct": f"{margin_pct:.1f}%"
+        "profit_percentage": profit_pct,
+        "profit_margin": profit_pct,
+        "profit_margin_pct": profit_pct,
+        "is_loss": net_profit < 0,
+        "is_gross_loss": gross_profit < 0,
+        "formatted_buying_price": _fmt_inr(bp),
+        "formatted_selling_price": _fmt_inr(sp),
+        "formatted_repair_expenses": _fmt_inr(rep),
+        "formatted_other_expenses": _fmt_inr(oth),
+        "formatted_documentation_expenses": _fmt_inr(doc),
+        "formatted_service_expenses": _fmt_inr(srv),
+        "formatted_additional_expenses": _fmt_inr(add),
+        "formatted_total_expenses": _fmt_inr(tot_exp),
+        "formatted_gross_profit": _fmt_inr(gross_profit),
+        "formatted_net_profit": _fmt_inr(net_profit),
+        "formatted_profit_percentage": _fmt_pct(profit_pct),
+        "formatted_profit_margin": _fmt_pct(profit_pct),
+        "formatted_profit_margin_pct": _fmt_pct(profit_pct)
     }
 
 @app.route("/api/admin/bikes/<int:bike_id>/sold", methods=["POST", "PUT"])
@@ -4126,9 +4164,15 @@ def admin_mark_sold(bike_id):
     # Financial details (Superadmin input permitted, otherwise read from DB or defaults)
     try: buying_price_input = float(data.get("buying_price") or 0)
     except (ValueError, TypeError): buying_price_input = 0.0
-    try: repair_expense = float(data.get("repair_expense") or data.get("service_expense") or 0)
+    try: repair_expense = float(data.get("repair_expense") or data.get("repair_expenses") or data.get("repairs") or 0)
     except (ValueError, TypeError): repair_expense = 0.0
-    try: other_expense = float(data.get("other_expense") or data.get("transport_expense") or 0)
+    try: service_expense = float(data.get("service_expense") or data.get("service_expenses") or 0)
+    except (ValueError, TypeError): service_expense = 0.0
+    try: documentation_expense = float(data.get("documentation_expense") or data.get("documentation_expenses") or 0)
+    except (ValueError, TypeError): documentation_expense = 0.0
+    try: additional_expense = float(data.get("additional_expense") or data.get("additional_expenses") or 0)
+    except (ValueError, TypeError): additional_expense = 0.0
+    try: other_expense = float(data.get("other_expense") or data.get("other_expenses") or 0)
     except (ValueError, TypeError): other_expense = 0.0
 
     conn = get_db()
@@ -4180,8 +4224,16 @@ def admin_mark_sold(bike_id):
             actual_sale_price = float(bike_row.get("public_selling_price") or bike_row.get("price") or 100000)
         
         buying_price = buying_price_input if (is_superadmin and buying_price_input > 0) else float(bike_row.get("buying_price") or 0)
-        fin_calc = calculate_bike_financials(buying_price, actual_sale_price, repair_expense, other_expense)
+        fin_calc = calculate_bike_financials(
+            buying_price, actual_sale_price,
+            repair_expenses=repair_expense,
+            other_expenses=other_expense,
+            documentation_expenses=documentation_expense,
+            service_expenses=service_expense,
+            additional_expenses=additional_expense
+        )
         total_expenses = fin_calc["total_expenses"]
+        gross_profit = fin_calc["gross_profit"]
         net_profit = fin_calc["net_profit"]
         profit_margin = fin_calc["profit_margin"]
 
@@ -4345,6 +4397,12 @@ def admin_mark_sold(bike_id):
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE 
                     actual_sale_price = VALUES(actual_sale_price),
+                    buying_price = VALUES(buying_price),
+                    seller_payout = VALUES(seller_payout),
+                    total_expenses = VALUES(total_expenses),
+                    realized_profit = VALUES(realized_profit),
+                    repair_expense = VALUES(repair_expense),
+                    other_expense = VALUES(other_expense),
                     buyer_name = VALUES(buyer_name),
                     buyer_phone = VALUES(buyer_phone),
                     payment_status = VALUES(payment_status),
@@ -4354,11 +4412,12 @@ def admin_mark_sold(bike_id):
                      b_sid, b_sname, b_sphone, buying_price, actual_sale_price, total_expenses,
                      net_profit, customer_name, customer_phone, customer_location, customer_city, customer_state,
                      payment_method, payment_status, advance_amount, remaining_amount, buying_price,
-                     repair_expense, other_expense, notes, admin_uname, sale_date))
+                     repair_expense, (other_expense + documentation_expense + additional_expense), notes, admin_uname, sale_date))
         except Exception as e_sb:
             print("[Database] sold_bikes notice:", e_sb)
 
         # 8. Insert bike_transactions record
+        combined_other_expenses = other_expense + documentation_expense + additional_expense
         try:
             cursor.execute("""
                 INSERT INTO bike_transactions 
@@ -4367,8 +4426,8 @@ def admin_mark_sold(bike_id):
                  buyer_location, buyer_city, buyer_state, payment_method, payment_status, advance_amount, 
                  remaining_amount, notes, sold_by, sold_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (bike_id, b_sid, buying_price, actual_sale_price, repair_expense, repair_expense,
-                     other_expense, other_expense, total_expenses, net_profit, customer_name, customer_phone,
+            """, (bike_id, b_sid, buying_price, actual_sale_price, service_expense, repair_expense,
+                     0.0, combined_other_expenses, total_expenses, net_profit, customer_name, customer_phone,
                      customer_location, customer_city, customer_state, payment_method, payment_status,
                      advance_amount, remaining_amount, notes, admin_uname, sale_date))
         except Exception:
@@ -4390,7 +4449,7 @@ def admin_mark_sold(bike_id):
                  estimated_profit, actual_profit, recorded_by, notes)
                 VALUES (%s, 'sale', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (bike_id, bike_row.get("requested_price"), buying_price, buying_price, actual_sale_price,
-                     repair_expense, repair_expense, other_expense, other_expense, total_expenses,
+                     service_expense, repair_expense, 0.0, combined_other_expenses, total_expenses,
                      net_profit, net_profit, admin_uname, notes))
         except Exception:
             pass
@@ -4467,8 +4526,9 @@ def admin_mark_sold(bike_id):
 @superadmin_required
 def update_bike_financials_api(bike_id):
     """
-    Superadmin exclusive endpoint to update buying price, repair expenses, other expenses,
-    and purchase date for any motorcycle. Permanently recalculates and updates TiDB records.
+    Superadmin exclusive endpoint to update buying price, repair expenses, service expenses,
+    documentation expenses, and other expenses for any motorcycle. Permanently recalculates 
+    and synchronizes TiDB records across bikes, sold_bikes, and bike_transactions.
     """
     data = request.get_json(silent=True) or request.form.to_dict() or {}
     try:
@@ -4477,9 +4537,24 @@ def update_bike_financials_api(bike_id):
         buying_price = 0.0
 
     try:
-        repair_expenses = float(data.get("repair_expenses") or data.get("repair_expense") or 0.0)
+        repair_expenses = float(data.get("repair_expenses") or data.get("repair_expense") or data.get("repairs") or 0.0)
     except (ValueError, TypeError):
         repair_expenses = 0.0
+
+    try:
+        service_expenses = float(data.get("service_expenses") or data.get("service_expense") or 0.0)
+    except (ValueError, TypeError):
+        service_expenses = 0.0
+
+    try:
+        documentation_expenses = float(data.get("documentation_expenses") or data.get("documentation_expense") or 0.0)
+    except (ValueError, TypeError):
+        documentation_expenses = 0.0
+
+    try:
+        additional_expenses = float(data.get("additional_expenses") or data.get("additional_expense") or 0.0)
+    except (ValueError, TypeError):
+        additional_expenses = 0.0
 
     try:
         other_expenses = float(data.get("other_expenses") or data.get("other_expense") or 0.0)
@@ -4496,17 +4571,57 @@ def update_bike_financials_api(bike_id):
 
     try:
         cursor = conn.cursor(dictionary=True)
-        cursor.execute("SELECT id, price, public_selling_price FROM bikes WHERE id = %s", (bike_id,))
+        cursor.execute("SELECT id, price, public_selling_price, status, listing_status, isSoldout, sold_snapshot FROM bikes WHERE id = %s", (bike_id,))
         bike = cursor.fetchone()
         if not bike:
             cursor.close()
             conn.close()
             return jsonify({"success": False, "message": f"Motorcycle #{bike_id} not found."}), 404
 
-        selling_price = float(bike.get("public_selling_price") or bike.get("price") or 0.0)
-        fin = calculate_bike_financials(buying_price, selling_price, repair_expenses, other_expenses)
+        # Strictly determine actual selling price for sold bikes:
+        # Never treat Customer Expected Price or Admin Suggested Price as actual selling price
+        actual_sale_price = None
+        try:
+            cursor.execute("SELECT actual_sale_price FROM sold_bikes WHERE bike_id = %s", (bike_id,))
+            sb_row = cursor.fetchone()
+            if sb_row and sb_row.get("actual_sale_price") and float(sb_row["actual_sale_price"]) > 0:
+                actual_sale_price = float(sb_row["actual_sale_price"])
+        except Exception:
+            pass
 
-        # Update bikes table
+        if not actual_sale_price:
+            try:
+                cursor.execute("SELECT actual_sale_price FROM bike_transactions WHERE bike_id = %s ORDER BY id DESC LIMIT 1", (bike_id,))
+                bt_row = cursor.fetchone()
+                if bt_row and bt_row.get("actual_sale_price") and float(bt_row["actual_sale_price"]) > 0:
+                    actual_sale_price = float(bt_row["actual_sale_price"])
+            except Exception:
+                pass
+
+        if not actual_sale_price and bike.get("sold_snapshot"):
+            try:
+                snap = json.loads(bike["sold_snapshot"]) if isinstance(bike["sold_snapshot"], str) else bike["sold_snapshot"]
+                if snap.get("actual_sale_price"):
+                    actual_sale_price = float(snap["actual_sale_price"])
+                elif snap.get("sale_info", {}).get("actual_sale_price"):
+                    actual_sale_price = float(snap["sale_info"]["actual_sale_price"])
+            except Exception:
+                pass
+
+        selling_price = float(actual_sale_price or bike.get("public_selling_price") or bike.get("price") or 0.0)
+
+        fin = calculate_bike_financials(
+            buying_price, selling_price,
+            repair_expenses=repair_expenses,
+            other_expenses=other_expenses,
+            documentation_expenses=documentation_expenses,
+            service_expenses=service_expenses,
+            additional_expenses=additional_expenses
+        )
+
+        combined_other = other_expenses + documentation_expenses + additional_expenses
+
+        # 1. Update bikes table
         cursor.execute("""
             UPDATE bikes SET 
                buying_price = %s,
@@ -4517,18 +4632,48 @@ def update_bike_financials_api(bike_id):
                profit_margin = %s,
                purchase_date = %s
             WHERE id = %s
-        """, (buying_price, repair_expenses, other_expenses, fin["total_expenses"],
+        """, (buying_price, repair_expenses, combined_other, fin["total_expenses"],
                  fin["net_profit"], fin["profit_margin"], purchase_date, bike_id))
 
-        # Insert financial record
+        # 2. Update sold_bikes archive if present
+        try:
+            cursor.execute("""
+                UPDATE sold_bikes SET
+                   buying_price = %s,
+                   seller_payout = %s,
+                   repair_expense = %s,
+                   other_expense = %s,
+                   total_expenses = %s,
+                   realized_profit = %s
+                WHERE bike_id = %s
+            """, (buying_price, buying_price, repair_expenses, combined_other, fin["total_expenses"], fin["net_profit"], bike_id))
+        except Exception as e_sb:
+            print("[Database] update sold_bikes financials notice:", e_sb)
+
+        # 3. Update bike_transactions record if present
+        try:
+            cursor.execute("""
+                UPDATE bike_transactions SET
+                   seller_payout = %s,
+                   service_expense = %s,
+                   repair_expense = %s,
+                   other_expense = %s,
+                   total_expenses = %s,
+                   realized_profit = %s
+                WHERE bike_id = %s
+            """, (buying_price, service_expenses, repair_expenses, combined_other, fin["total_expenses"], fin["net_profit"], bike_id))
+        except Exception as e_bt:
+            print("[Database] update bike_transactions financials notice:", e_bt)
+
+        # 4. Insert financial record
         try:
             cursor.execute("""
                 INSERT INTO financial_records
                 (bike_id, transaction_type, buying_price, selling_price, service_expense, repair_expense, 
                  transport_expense, other_expense, total_expenses, estimated_profit, actual_profit, recorded_by, notes)
                 VALUES (%s, 'financial_adjustment', %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            """, (bike_id, buying_price, selling_price, repair_expenses, repair_expenses, other_expenses,
-                     other_expenses, fin["total_expenses"], fin["net_profit"], fin["net_profit"], admin_uname, notes))
+            """, (bike_id, buying_price, selling_price, service_expenses, repair_expenses, 0.0,
+                     combined_other, fin["total_expenses"], fin["net_profit"], fin["net_profit"], admin_uname, notes))
         except Exception:
             pass
 
@@ -5670,11 +5815,23 @@ def admin_sold_bikes_api():
 
         # RBAC: Expose profit margins and buying price exclusively to Superadmin
         if is_superadmin:
-            rec["buying_price"] = float(b.get("buying_price") or 0)
-            rec["seller_payout"] = float(b.get("seller_payout") or b.get("buying_price") or 0)
-            rec["total_expenses"] = float(b.get("total_expenses") or 0)
-            rec["realized_profit"] = float(b.get("realized_profit") or (final_price - rec["buying_price"] - rec["total_expenses"]))
-            rec["net_profit"] = rec["realized_profit"]
+            bp_val = float(b.get("buying_price") or b.get("seller_payout") or 0)
+            tot_exp_val = float(b.get("total_expenses") or 0)
+            realized_prof = float(b.get("realized_profit") if b.get("realized_profit") is not None else (final_price - bp_val - tot_exp_val))
+            gross_prof = final_price - bp_val
+            pct_val = round((realized_prof / bp_val * 100.0), 2) if bp_val > 0 else 0.0
+
+            rec["buying_price"] = bp_val
+            rec["seller_payout"] = bp_val
+            rec["total_expenses"] = tot_exp_val
+            rec["gross_profit"] = gross_prof
+            rec["realized_profit"] = realized_prof
+            rec["net_profit"] = realized_prof
+            rec["profit_percentage"] = pct_val
+            rec["profit_margin"] = pct_val
+            rec["profit_margin_pct"] = pct_val
+            rec["is_loss"] = realized_prof < 0
+            rec["is_gross_loss"] = gross_prof < 0
 
         filtered.append(rec)
 
@@ -5820,15 +5977,34 @@ def admin_sold_bike_detail_api(bike_id):
             gallery_images = ["/static/images/IMG-20251204-WA0053.jpg"]
 
     # Resolve financial calculations
-    bp = float(bike.get("buying_price") or 0.0)
-    sp = float((sold_record.get("actual_sale_price") if sold_record else None) or bike.get("public_selling_price") or bike.get("price") or 0.0)
+    bp = float(bike.get("buying_price") or (sold_record.get("buying_price") if sold_record else None) or (sold_record.get("seller_payout") if sold_record else None) or 0.0)
+    sp = float((sold_record.get("actual_sale_price") if sold_record else None) or bike.get("actual_sale_price") or bike.get("public_selling_price") or bike.get("price") or 0.0)
     rep = float(bike.get("repair_expenses") or (sold_record.get("repair_expense") if sold_record else 0.0) or 0.0)
+    doc = float(bike.get("documentation_expenses") or (sold_record.get("documentation_expense") if sold_record else 0.0) or 0.0)
+    srv = float(bike.get("service_expenses") or (sold_record.get("service_expense") if sold_record else 0.0) or 0.0)
+    add = float(bike.get("additional_expenses") or (sold_record.get("additional_expense") if sold_record else 0.0) or 0.0)
     oth = float(bike.get("other_expenses") or (sold_record.get("other_expense") if sold_record else (bike.get("expenses") or 0.0)) or 0.0)
-    fin_data = calculate_bike_financials(bp, sp, rep, oth)
-    fin_data["customer_expected_price"] = float(bike.get("price") or 0.0)
-    fin_data["admin_suggested_price"] = float(bike.get("suggested_price") or bike.get("public_selling_price") or bike.get("price") or 0.0)
-    fin_data["formatted_customer_expected_price"] = f"₹{float(bike.get('price') or 0.0):,.0f}"
-    fin_data["formatted_admin_suggested_price"] = f"₹{float(bike.get('suggested_price') or bike.get('public_selling_price') or bike.get('price') or 0.0):,.0f}"
+    tot_stored = float(sold_record.get("total_expenses") if sold_record and sold_record.get("total_expenses") is not None else (bike.get("expenses") or 0.0))
+
+    fin_data = calculate_bike_financials(
+        bp, sp,
+        repair_expenses=rep,
+        other_expenses=oth,
+        documentation_expenses=doc,
+        service_expenses=srv,
+        additional_expenses=add,
+        total_expenses=tot_stored if tot_stored > 0 else None
+    )
+
+    cust_exp = float(bike.get("price") or 0.0)
+    fin_data["customer_expected_price"] = cust_exp
+    fin_data["seller_expectation"] = cust_exp
+    fin_data["formatted_customer_expected_price"] = f"₹{cust_exp:,.0f}"
+    fin_data["formatted_seller_expectation"] = f"₹{cust_exp:,.0f}"
+
+    admin_sugg = float(bike.get("suggested_price") or bike.get("public_selling_price") or bike.get("price") or 0.0)
+    fin_data["admin_suggested_price"] = admin_sugg
+    fin_data["formatted_admin_suggested_price"] = f"₹{admin_sugg:,.0f}"
     fin_data["purchase_date"] = str(bike.get("purchase_date") or "")
     fin_data["sale_date"] = str(bike.get("sold_at") or (sold_record.get("sold_at") if sold_record else "") or "")
     fin_data["payment_status"] = (sold_record.get("payment_status") if sold_record else None) or bike.get("payment_status") or "Full Payment"
