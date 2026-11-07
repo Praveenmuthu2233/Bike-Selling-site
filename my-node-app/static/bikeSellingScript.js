@@ -18,7 +18,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     // Pre-fill seller info if logged in
-    const token = sessionStorage.getItem("token");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
     if (token) {
         fetch(`${window.API.BASE_URL}/api/users/profile`, {
             headers: { Authorization: "Bearer " + token }
@@ -28,8 +28,14 @@ document.addEventListener("DOMContentLoaded", function () {
             if (data.success && data.user) {
                 const sellerNameInput = document.getElementById("sellerName");
                 const mobileNumInput = document.getElementById("mobileNum");
-                if (sellerNameInput && !sellerNameInput.value) sellerNameInput.value = data.user.name || "";
-                if (mobileNumInput && !mobileNumInput.value) mobileNumInput.value = data.user.phone || "";
+                if (sellerNameInput) {
+                    sellerNameInput.value = data.user.name || "";
+                    sellerNameInput.readOnly = true;
+                    sellerNameInput.style.backgroundColor = "#f3f4f6";
+                }
+                if (mobileNumInput && !mobileNumInput.value) {
+                    mobileNumInput.value = data.user.phone || "";
+                }
             }
         })
         .catch(() => {});
@@ -78,7 +84,23 @@ function removeImage(index) {
 
 async function handleSellBikeSubmit(e) {
     e.preventDefault();
-    const token = sessionStorage.getItem("token");
+    const token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "warning",
+                title: "Sign In Required",
+                text: "Please sign in to list your motorcycle. Authenticated accounts ensure your listing is verified.",
+                confirmButtonText: "Sign In Now"
+            }).then(() => {
+                window.location.href = "/login.html?redirect=/bikeSelling.html";
+            });
+        } else {
+            alert("Please sign in to list your motorcycle.");
+            window.location.href = "/login.html?redirect=/bikeSelling.html";
+        }
+        return;
+    }
     const submitBtn = document.getElementById("submitSellingBikeDeatils");
     if (submitBtn) {
         submitBtn.disabled = true;

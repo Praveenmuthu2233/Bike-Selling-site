@@ -1935,42 +1935,82 @@ def add_bike_api():
     desc = data.get("description", "Inspected pre-owned motorcycle.")
     sname = data.get("seller_name") or data.get("sellerName") or "User"
     sphone = data.get("seller_phone") or data.get("mobileNum") or ""
-    seller_id = data.get("seller_id") or session.get("user_id") or None
-    if not seller_id:
-        auth_hdr = request.headers.get("Authorization", "")
-        if auth_hdr and "Bearer" in auth_hdr:
-            try:
-                dec_tok = jwt.decode(auth_hdr.split()[1], JWT_SECRET, algorithms=["HS256"])
-                seller_id = dec_tok.get("id") or dec_tok.get("user_id")
-            except Exception:
-                pass
 
-    # Ensure seller_id exists in users table to satisfy foreign key constraint
+    # Caller authentication and seller association
+    auth_header = request.headers.get("Authorization", "")
+    caller_token_decoded = None
+    if auth_header and "Bearer" in auth_header:
+        try:
+            token = auth_header.split()[1]
+            caller_token_decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+        except Exception:
+            pass
+
+    is_admin_caller = False
+    if caller_token_decoded and caller_token_decoded.get("role") in ("admin", "superadmin"):
+        is_admin_caller = True
+
+    seller_id = None
+    seller_user = None
+
+    if is_admin_caller:
+        # Admin adding or listing on behalf of seller or showroom
+        seller_id = data.get("seller_id") or caller_token_decoded.get("id")
+    else:
+        # Customer submission: seller_id MUST be derived strictly from the verified JWT token or session.
+        # NEVER trust client-provided seller_id or user_id in payload.
+        if caller_token_decoded:
+            seller_id = caller_token_decoded.get("id") or caller_token_decoded.get("user_id")
+        elif session.get("user_id"):
+            seller_id = session.get("user_id")
+
+        if not seller_id:
+            return jsonify({
+                "success": False,
+                "message": "Authentication required. Please sign in to submit your motorcycle listing."
+            }), 401
+
+    # Verify seller existence in database and retrieve canonical account details
     if seller_id:
         conn_chk = get_db()
         if conn_chk:
             try:
-                cur_chk = conn_chk.cursor()
-                cur_chk.execute("SELECT id FROM users WHERE id = %s LIMIT 1", (seller_id,))
-                if not cur_chk.fetchone():
-                    seller_id = None
+                cur_chk = conn_chk.cursor(dictionary=True)
+                cur_chk.execute("SELECT id, name, email, phone FROM users WHERE id = %s LIMIT 1", (seller_id,))
+                seller_user = cur_chk.fetchone()
                 cur_chk.close()
                 conn_chk.close()
             except Exception:
                 if conn_chk:
                     try: conn_chk.close()
                     except Exception: pass
-    # Check caller authentication to set status and listing_status correctly
-    auth_header = request.headers.get("Authorization", "")
-    is_admin_caller = False
-    if auth_header and "Bearer" in auth_header:
-        try:
-            token = auth_header.split()[1]
-            decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
-            if decoded.get("role") in ("admin", "superadmin"):
-                is_admin_caller = True
-        except Exception:
-            pass
+
+    # For customer submissions, ensure authenticated user profile is valid
+    if not is_admin_caller and not seller_user:
+        return jsonify({
+            "success": False,
+            "message": "Authenticated user account not found. Please log in again."
+        }), 401
+
+    if seller_user:
+        seller_id = seller_user["id"]
+        # Use verified user name from account
+        if seller_user.get("name"):
+            sname = seller_user["name"]
+        # Use phone from user profile or from submission
+        sphone = sphone or seller_user.get("phone") or ""
+        # If user did not have a phone in profile, save it
+        if sphone and not seller_user.get("phone"):
+            try:
+                conn_p = get_db()
+                if conn_p:
+                    cur_p = conn_p.cursor()
+                    cur_p.execute("UPDATE users SET phone = %s WHERE id = %s AND (phone IS NULL OR phone = '')", (sphone, seller_id))
+                    conn_p.commit()
+                    cur_p.close()
+                    conn_p.close()
+            except Exception:
+                pass
 
     req_status = (data.get("status") or "").lower()
     if is_admin_caller and req_status in ("approved", "published"):
@@ -5151,14 +5191,26 @@ def admin_approve_bike(bike_id):
 
         final_price = approved_price if approved_price is not None else orig_price
 
-        # If seller_id is missing, look up users table by seller_phone
-        if not seller_id and seller_phone:
+        # Verify seller_id and fetch accurate customer profile from users table
+        if seller_id:
             try:
-                cursor.execute("SELECT id, name FROM users WHERE phone = %s OR phone LIKE %s LIMIT 1", (seller_phone, f"%{seller_phone[-10:]}%"))
+                cursor.execute("SELECT id, name, email, phone FROM users WHERE id = %s LIMIT 1", (seller_id,))
                 s_user = cursor.fetchone()
                 if s_user:
-                    seller_id = s_user.get("id")
-                    seller_name = seller_name or s_user.get("name")
+                    seller_name = s_user.get("name") or seller_name
+            except Exception:
+                pass
+        elif seller_phone:
+            # Fallback for legacy records: lookup ONLY if phone is clean and at least 10 digits
+            try:
+                clean_phone = ''.join(c for c in str(seller_phone) if c.isdigit())
+                if len(clean_phone) >= 10:
+                    cursor.execute("SELECT id, name FROM users WHERE phone = %s OR phone = %s LIMIT 1", (seller_phone, clean_phone))
+                    s_user = cursor.fetchone()
+                    if s_user:
+                        seller_id = s_user.get("id")
+                        seller_name = s_user.get("name") or seller_name
+                        cursor.execute("UPDATE bikes SET seller_id = %s WHERE id = %s", (seller_id, bike_id))
             except Exception:
                 pass
 
@@ -5211,20 +5263,20 @@ def admin_approve_bike(bike_id):
         conn.commit()
 
         # 5. Customer Notification & Document Request Message (Protected isolated block)
-        cust_name = seller_name or "Rider"
+        cust_name = seller_name or "Customer"
         acceptance_msg = f"""Hello {cust_name},
 
-Good news! Your bike submission for {bike_brand} {bike_model} has been accepted by SMR Motors.
+Good news! Your bike {bike_brand} {bike_model} has been accepted by SMR Motors.
 
 To continue the selling process, please submit the required bike ownership documents.
 
 Required documents:
-1. RC Book (Registration Certificate)
-2. Valid insurance document
-3. Owner identity proof
-4. Other relevant vehicle documents, if applicable.
+1. RC Book
+2. Valid Insurance
+3. Owner Identity Proof
+4. Other relevant vehicle documents, if required.
 
-Please upload clear copies through your SMR Motors account or contact our team for assistance.
+Please log in to your SMR Motors account and upload the documents for verification.
 
 Thank you,
 SMR Motors Team"""
@@ -5232,17 +5284,17 @@ SMR Motors Team"""
         chat_delivered = False
         if seller_id:
             try:
-                # Check for existing conversation for this customer and bike
+                # Check for existing conversation STRICTLY for this customer and this specific bike
                 cursor.execute("""
                     SELECT id FROM chat_conversations
-                    WHERE user_id = %s AND (bike_id = %s OR (bike_id IS NULL AND subject LIKE %s))
+                    WHERE user_id = %s AND bike_id = %s
                     ORDER BY id DESC LIMIT 1
-                """, (seller_id, bike_id, f"%{bike_brand}%"))
+                """, (seller_id, bike_id))
                 conv_row = cursor.fetchone()
 
                 if conv_row:
                     conv_id = conv_row["id"]
-                    cursor.execute("UPDATE chat_conversations SET bike_id = %s, status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = %s", (bike_id, conv_id))
+                    cursor.execute("UPDATE chat_conversations SET status = 'open', updated_at = CURRENT_TIMESTAMP WHERE id = %s", (conv_id,))
                 else:
                     cursor.execute("""
                         INSERT INTO chat_conversations (user_id, bike_id, subject, status)
@@ -5250,7 +5302,7 @@ SMR Motors Team"""
                     """, (seller_id, bike_id, f"Inquiry about {bike_brand} {bike_model}"))
                     conv_id = cursor.lastrowid
 
-                # Avoid duplicate messages on repeated clicks
+                # Avoid duplicate messages on repeated clicks (idempotency)
                 cursor.execute("""
                     SELECT id FROM chat_messages
                     WHERE conversation_id = %s AND message LIKE %s
@@ -5268,16 +5320,22 @@ SMR Motors Team"""
                         UPDATE chat_conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = %s
                     """, (conv_id,))
 
-                # In-app dashboard notification
+                # In-app dashboard notification for this specific seller
                 try:
-                    create_notification(
-                        title="Bike Submission Accepted! Documents Required",
-                        message=f"Good news! Your {bike_brand} {bike_model} submission has been accepted. Please upload ownership documents to proceed.",
-                        user_id=seller_id,
-                        target_role="user",
-                        notif_type="success",
-                        link=f"/profile.html?tab=listings&bike_id={bike_id}&action=upload_docs"
-                    )
+                    cursor.execute("""
+                        SELECT id FROM notifications
+                        WHERE user_id = %s AND link LIKE %s
+                        LIMIT 1
+                    """, (seller_id, f"%bike_id={bike_id}%"))
+                    if not cursor.fetchone():
+                        create_notification(
+                            title="Bike Submission Accepted! Documents Required",
+                            message=f"Good news! Your bike {bike_brand} {bike_model} has been accepted by SMR Motors. Please upload ownership documents to proceed.",
+                            user_id=seller_id,
+                            target_role="user",
+                            notif_type="success",
+                            link=f"/profile.html?tab=listings&bike_id={bike_id}&action=upload_docs"
+                        )
                 except Exception:
                     pass
 
@@ -8280,9 +8338,9 @@ Your uploaded document ({doc_type_label}) has been {chat_status_text} by SMR Mot
 
             cursor.execute("""
                 SELECT id FROM chat_conversations
-                WHERE user_id = %s AND (bike_id = %s OR subject LIKE %s)
+                WHERE user_id = %s AND bike_id = %s
                 ORDER BY id DESC LIMIT 1
-            """, (user_id, bike_id, f"%{bike_brand}%"))
+            """, (user_id, bike_id))
             conv_row = cursor.fetchone()
             if conv_row:
                 conv_id = conv_row["id"]

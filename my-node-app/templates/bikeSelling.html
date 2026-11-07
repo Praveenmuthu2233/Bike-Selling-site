@@ -154,14 +154,53 @@
             <i class="fas fa-user-check" style="color: var(--accent-primary);"></i> 3. Seller Contact Information
           </h3>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem;" class="hero-grid">
+          <!-- Authenticated Account Card -->
+          <div id="auth-seller-card" style="display: none; background: var(--bg-surface-elevated); border: 1px solid var(--border-medium); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <div style="width: 46px; height: 46px; border-radius: 50%; background: rgba(37,99,235,0.1); color: var(--accent-primary); display: flex; align-items: center; justify-content: center; font-size: 1.3rem;">
+                <i class="fas fa-user-check"></i>
+              </div>
+              <div>
+                <div style="font-weight: 700; font-size: 1.05rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                  <span id="auth-seller-name-badge">Member</span>
+                  <span class="badge badge-success" style="font-size: 0.72rem; padding: 2px 8px; border-radius: 12px; background: #10b981; color: white;"><i class="fas fa-shield-alt"></i> Verified Account</span>
+                </div>
+                <div id="auth-seller-email-badge" style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 2px;"></div>
+              </div>
+            </div>
+            <div style="font-size: 0.82rem; color: var(--text-muted); background: var(--bg-main); padding: 0.5rem 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+              <i class="fas fa-info-circle" style="color: var(--accent-primary);"></i> Auto-linked to your account
+            </div>
+          </div>
+
+          <!-- Guest Sign-in Card -->
+          <div id="guest-signin-card" style="display: none; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
             <div>
-              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Your Name *</label>
+              <h4 style="margin: 0 0 0.35rem 0; font-size: 1.05rem; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-user-lock" style="color: #ef4444;"></i> Sign In Required to Sell Your Bike
+              </h4>
+              <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
+                Please sign in with your account. Authenticated accounts ensure your listing is verified and receive instant updates from our inspection team.
+              </p>
+            </div>
+            <a href="{{ url_for('user_login') }}?redirect={{ url_for('bike_selling') }}" class="btn btn-primary btn-sm" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+              <i class="fas fa-sign-in-alt"></i> Sign In to Continue
+            </a>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem;" class="hero-grid">
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Full Name *</label>
               <input type="text" id="seller-name" name="seller_name" class="form-control" required placeholder="Full Name">
+            </div>
+            <div>
+              <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Registered Email</label>
+              <input type="email" id="seller-email" name="seller_email" class="form-control" readonly placeholder="Auto-filled from account">
             </div>
             <div>
               <label style="display: block; font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 0.4rem; font-weight: 600;">Mobile Phone *</label>
               <input type="tel" id="seller-phone" name="seller_phone" class="form-control" required placeholder="10-digit number">
+              <small style="font-size: 0.75rem; color: var(--text-muted);">Used for buyer SMS &amp; WhatsApp updates</small>
             </div>
           </div>
 
@@ -184,11 +223,43 @@
   <script>
     let selectedFiles = [];
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       const user = AuthService.getUser();
-      if (user) {
-        if (user.name) document.getElementById('seller-name').value = user.name;
-        if (user.phone) document.getElementById('seller-phone').value = user.phone;
+      const token = AuthService.getToken();
+      const authCard = document.getElementById('auth-seller-card');
+      const guestCard = document.getElementById('guest-signin-card');
+      const nameInput = document.getElementById('seller-name');
+      const emailInput = document.getElementById('seller-email');
+      const phoneInput = document.getElementById('seller-phone');
+
+      if (token && user) {
+        if (guestCard) guestCard.style.display = 'none';
+        if (authCard) authCard.style.display = 'flex';
+        const nameBadge = document.getElementById('auth-seller-name-badge');
+        const emailBadge = document.getElementById('auth-seller-email-badge');
+        if (nameBadge) nameBadge.textContent = user.name || 'Member';
+        if (emailBadge) emailBadge.textContent = user.email || '';
+
+        if (nameInput) {
+          nameInput.value = user.name || '';
+          nameInput.readOnly = true;
+          nameInput.style.backgroundColor = 'var(--bg-surface-elevated)';
+          nameInput.style.cursor = 'not-allowed';
+        }
+        if (emailInput) {
+          emailInput.value = user.email || '';
+          emailInput.readOnly = true;
+          emailInput.style.backgroundColor = 'var(--bg-surface-elevated)';
+          emailInput.style.cursor = 'not-allowed';
+        }
+        if (phoneInput && user.phone) {
+          phoneInput.value = user.phone;
+        }
+      } else {
+        if (authCard) authCard.style.display = 'none';
+        if (guestCard) guestCard.style.display = 'flex';
+        if (nameInput) nameInput.placeholder = 'Sign in to auto-fill';
+        if (emailInput) emailInput.placeholder = 'Sign in to auto-fill';
       }
     });
 
@@ -219,6 +290,15 @@
 
     async function handleSellBikeSubmit(e) {
       e.preventDefault();
+      const token = AuthService.getToken();
+      if (!token) {
+        showToast('Please sign in to list your motorcycle. Redirecting to sign in...', 'warning');
+        setTimeout(() => {
+          window.location.href = "{{ url_for('user_login') }}?redirect={{ url_for('bike_selling') }}";
+        }, 1000);
+        return;
+      }
+
       const form = e.target;
       const submitBtn = document.getElementById('submit-bike-btn');
       const origText = submitBtn.innerHTML;

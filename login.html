@@ -95,7 +95,9 @@
       // Check if already authenticated
       const user = AuthService.getUser();
       if (user) {
-        window.location.href = 'user/dashboard.html';
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || 'user/dashboard.html';
+        window.location.href = redirect;
         return;
       }
       setTimeout(() => initGoogleAuth('google-signin-btn'), 300);

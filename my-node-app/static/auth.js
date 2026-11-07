@@ -76,8 +76,10 @@ const AuthService = {
       if (res.success) {
         this.setSession(res.token, res.user);
         showToast('Signed in successfully!', 'success');
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || '/profile.html';
         setTimeout(() => {
-          window.location.href = '/profile.html';
+          window.location.href = redirect;
         }, 600);
       } else {
         showToast(res.message || 'Google sign-in failed', 'error');
@@ -96,8 +98,10 @@ const AuthService = {
       if (res.success) {
         this.setSession(res.token, res.user);
         showToast('Demo account activated!', 'success');
+        const params = new URLSearchParams(window.location.search);
+        const redirect = params.get('redirect') || '/profile.html';
         setTimeout(() => {
-          window.location.href = '/profile.html';
+          window.location.href = redirect;
         }, 600);
       } else {
         showToast(res.message || 'Demo login failed', 'error');

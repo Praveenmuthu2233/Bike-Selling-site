@@ -195,7 +195,9 @@ class TestBikeApprovalWorkflow(unittest.TestCase):
                 "seller_name": "Ramesh",
                 "seller_phone": "9876543210"
             },
-            # 2. Query conversation throws exception
+            # 2. User lookup
+            {"id": 42, "name": "Ramesh", "email": "ramesh@example.com", "phone": "9876543210"},
+            # 3. Query conversation throws exception
             Exception("Simulated chat database lock")
         ]
 

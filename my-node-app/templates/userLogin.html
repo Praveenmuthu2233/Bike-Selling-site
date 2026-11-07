@@ -116,7 +116,8 @@
       // Check for active session or 7-day remembered persistent cookie
       const existingUser = AuthService.getUser();
       if (existingUser) {
-        window.location.href = "{{ url_for('user_profile') }}";
+        const redirect = params.get('redirect') || "{{ url_for('user_profile') }}";
+        window.location.href = redirect;
         return;
       }
 
@@ -125,8 +126,9 @@
         const restored = await AuthService.checkRememberedSession();
         if (restored) {
           showToast('Welcome back! Restoring your session...', 'success');
+          const redirect = params.get('redirect') || "{{ url_for('user_profile') }}";
           setTimeout(() => {
-            window.location.href = "{{ url_for('user_profile') }}";
+            window.location.href = redirect;
           }, 400);
           return;
         }
